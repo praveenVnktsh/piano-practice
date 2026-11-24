@@ -1833,11 +1833,11 @@ html>body{padding:0}</style>
 </script>
 <div id="um37">
 <div class="eyebrow">PIANO PRACTICE</div><h1>Una Mattina</h1><p>Measure 37 · four beats · one pass</p>
-<div class="viz-controls"><button class="btn" id="um-prev">Previous</button><button class="btn btn-primary" id="um-play">Play</button><button class="btn" id="um-next">Next</button><button class="btn" id="um-stop">Stop</button><label class="form-label">Tempo <input class="form-range" id="um-tempo" type="range" min="30" max="100" value="50"><span id="um-bpm">50 BPM</span></label></div>
+<div class="viz-controls"><button class="btn" id="um-prev">Previous</button><button class="btn btn-primary" id="um-play">Listen</button><button class="btn" id="um-next">Next</button><button class="btn" id="um-stop">Stop</button><button class="btn" id="um-practice">Start note practice</button><label class="form-label">Tempo <input class="form-range" id="um-tempo" type="range" min="30" max="100" value="50"><span id="um-bpm">50 BPM</span></label></div>
 <div class="viz-controls"><button class="btn" id="um-midi">Connect piano</button><select id="um-midi-device" aria-label="MIDI input device"><option value="all">All MIDI inputs</option></select><button class="btn" id="um-midi-clear">Clear held keys</button><span id="um-midi-status" aria-live="polite">MIDI not connected</span></div><div class="viz-row" id="um-count"></div>
 <div id="um-keys" role="group" aria-label="Piano keyboard, E2 to C5"></div>
-<div id="um-midi-notes" aria-live="polite">USB MIDI · connect your piano to this computer</div><div id="um-detail" aria-live="polite"></div>
-<div id="um-status" aria-live="polite">Ready · Play starts from beat 1</div><div class="text-small">● New attack · — Hold · C4 = middle C · Keyboard taps sound individual notes</div>
+<div id="um-practice-status" aria-live="polite">Note practice waits for your MIDI notes · no rhythm grading</div><div id="um-midi-notes" aria-live="polite">USB MIDI · connect your piano to this computer</div><div id="um-detail" aria-live="polite"></div>
+<div id="um-status" aria-live="polite">Ready · Listen starts from beat 1</div><div class="text-small">● Expected attack · — Expected hold · Green outline = your pressed key · C4 = middle C · Keyboard taps sound individual notes</div>
 <p class="text-small">Synthesized piano approximation with reverb. Tied notes stay held without a new attack. Final ties are released at this measure’s boundary.</p>
 </div>
 <style>
@@ -1854,6 +1854,17 @@ html>body{padding:0}</style>
 #um37 #um-detail{min-height:3em}
 @media(max-width:480px){#um37 .pkey span{writing-mode:vertical-rl}#um37 #um-keys{height:165px}}
 </style>
+<script>(function(scope){
+class NotePractice {
+ constructor(events){this.groups=[...new Set(events.map(e=>e.t))].sort((a,b)=>a-b).map(t=>({t,notes:[...new Set(events.filter(e=>e.t===t).map(e=>e.n))]}));this.stop()}
+ stop(){this.active=false;this.collected=new Set()}
+ start(){this.index=0;this.collected=new Set();this.active=true;return this.current}
+ get current(){return this.groups[this.index]}
+ attack(note){if(!this.active)return 'inactive';if(!this.current.notes.includes(note))return 'wrong';this.collected.add(note);if(this.current.notes.some(n=>!this.collected.has(n)))return 'partial';this.index++;this.collected.clear();if(this.index===this.groups.length){this.active=false;return 'finished'}return 'advanced'}
+}
+if(typeof module!=='undefined')module.exports=NotePractice;else scope.NotePractice=NotePractice;
+})(typeof window==='undefined'?{}:window);
+</script>
 <script>
 (()=>{
 const root=document.getElementById('um37'),q=s=>root.querySelector(s);
@@ -1877,9 +1888,13 @@ function tone(n,d=.7){try{
  setTimeout(()=>{voice.disconnect();voices.delete(voice)},(hold+release+.1)*1000);
  }catch(e){q('#um-detail').textContent='Audio unavailable. Tap Play to try again.'}}
 
+const practice=new NotePractice(events);
+function practiceStatus(prefix=''){const group=practice.current;if(!practice.active)return;const remaining=group.notes.filter(n=>!practice.collected.has(n));q('#um-practice-status').textContent=prefix+'Play '+remaining.map(name).join(' + ')+(practice.collected.size?' · collected '+[...practice.collected].map(name).join(' + '):'')+' · group '+(practice.index+1)+' of '+practice.groups.length;}
+function practiceAttack(n){const result=practice.attack(n);if(result==='inactive')return;if(result==='finished'){step=15;draw();root.querySelectorAll('.pkey').forEach(b=>b.classList.remove('held','attack'));q('#um-practice-status').textContent='Measure complete · Restart note practice to play again';q('#um-practice').textContent='Restart note practice';return}if(result==='advanced'){step=practice.current.t;draw()}practiceStatus(result==='wrong'?'Heard '+name(n)+' · waiting for expected notes. ':'');}
+q('#um-practice').onclick=()=>{stop();practice.start();step=practice.current.t;draw();q('#um-status').textContent='Note practice · tempo is not graded';q('#um-practice').textContent='Restart note practice';practiceStatus()};
 let midiAccess=null;const midiHeld=new Map();
 function renderMidi(){const notes=[...new Set([...midiHeld.values()].flatMap(s=>[...s]))];root.querySelectorAll('.pkey').forEach(b=>b.classList.toggle('midi-down',notes.includes(+b.dataset.note)));q('#um-midi-notes').textContent=notes.length?'You are playing: '+notes.sort((a,b)=>a-b).map(name).join(' + '):'Piano ready · play a key to see its note';}
-function wireMidi(){const selected=q('#um-midi-device').value;const inputs=[...midiAccess.inputs.values()].filter(p=>p.state==='connected');q('#um-midi-device').innerHTML='<option value="all">All MIDI inputs</option>';inputs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name||'MIDI input';q('#um-midi-device').append(o)});q('#um-midi-device').value=inputs.some(p=>p.id===selected)?selected:'all';midiHeld.clear();renderMidi();q('#um-midi-status').textContent=inputs.length?'Connected: '+inputs.map(p=>p.name||'MIDI piano').join(', '):'No MIDI input found · check USB and piano power';inputs.forEach(input=>{input.onmidimessage=event=>{if(q('#um-midi-device').value!=='all'&&q('#um-midi-device').value!==input.id)return;const [status,n,velocity]=event.data;const command=status&240;if(command!==144&&command!==128&&command!==176)return;const key=input.id+':'+(status&15);if(!midiHeld.has(key))midiHeld.set(key,new Set());const held=midiHeld.get(key);if(command===144&&velocity>0)held.add(n);else if(command===128||command===144)held.delete(n);else if(n===120||n===123)held.clear();renderMidi()}});}
+function wireMidi(){if(practice.active){practice.stop();q('#um-practice-status').textContent='MIDI devices changed · restart note practice'}const selected=q('#um-midi-device').value;const inputs=[...midiAccess.inputs.values()].filter(p=>p.state==='connected');q('#um-midi-device').innerHTML='<option value="all">All MIDI inputs</option>';inputs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name||'MIDI input';q('#um-midi-device').append(o)});q('#um-midi-device').value=inputs.some(p=>p.id===selected)?selected:'all';midiHeld.clear();renderMidi();q('#um-midi-status').textContent=inputs.length?'Connected: '+inputs.map(p=>p.name||'MIDI piano').join(', '):'No MIDI input found · check USB and piano power';inputs.forEach(input=>{input.onmidimessage=event=>{if(q('#um-midi-device').value!=='all'&&q('#um-midi-device').value!==input.id)return;const [status,n,velocity]=event.data;const command=status&240;if(command!==144&&command!==128&&command!==176)return;const key=input.id+':'+(status&15);if(!midiHeld.has(key))midiHeld.set(key,new Set());const held=midiHeld.get(key);if(command===144&&velocity>0){const alreadyHeld=held.has(n);held.add(n);if(!alreadyHeld)practiceAttack(n)}else if(command===128||command===144)held.delete(n);else if(n===120||n===123)held.clear();renderMidi()}});}
 q('#um-midi-clear').onclick=()=>{midiHeld.clear();renderMidi()};q('#um-midi-device').onchange=()=>{midiHeld.clear();renderMidi()};window.addEventListener('blur',()=>{midiHeld.clear();renderMidi()});
 q('#um-midi').onclick=async()=>{if(!window.isSecureContext){q('#um-midi-status').textContent='MIDI needs HTTPS · open the published app address';return}if(!navigator.requestMIDIAccess){q('#um-midi-status').textContent='Web MIDI unavailable here · open this same URL in Chrome or Edge';return}try{q('#um-midi-status').textContent='Requesting MIDI access…';midiAccess=await navigator.requestMIDIAccess({sysex:false});midiAccess.onstatechange=wireMidi;wireMidi();q('#um-midi').textContent='Refresh MIDI'}catch(error){q('#um-midi-status').textContent='MIDI access denied or unavailable · allow MIDI in browser site settings and retry'}};
 const whites=[];for(let n=40;n<=72;n++)if(![1,3,6,8,10].includes(n%12))whites.push(n);
@@ -1887,12 +1902,12 @@ for(let n=40;n<=72;n++){const b=document.createElement('button');b.type='button'
 for(let i=0;i<16;i++){const el=document.createElement('span');el.className='pulse';el.textContent=['1','e','&','a','2','e','&','a','3','e','&','a','4','e','&','a'][i];q('#um-count').append(el)}
 function draw(sound=false,save=false){const active=events.filter(e=>e.t<=step&&step<e.t+e.d),att=active.filter(e=>e.t===step);root.querySelectorAll('.pkey').forEach(b=>{const n=+b.dataset.note;b.classList.toggle('held',active.some(e=>e.n===n));b.classList.toggle('attack',att.some(e=>e.n===n))});root.querySelectorAll('.pulse').forEach((p,i)=>p.classList.toggle('current',i===step));const held=active.filter(e=>e.t!==step);q('#um-detail').textContent='Beat '+(Math.floor(step/4)+1)+' '+['','e','&','a'][step%4]+' · '+(att.length?'● '+att.map(e=>name(e.n)).join(' + '):'No new attack')+(held.length?' · — '+held.map(e=>name(e.n)).join(' + '):'');if(sound)att.forEach(e=>tone(e.n,e.d*60/(+q('#um-tempo').value*4)));if(save&&window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{measure:37,sixteenth:step+1,tempo:+q('#um-tempo').value},privateContent:{step}}).catch(()=>{})}
 function silence(){voices.forEach(v=>{v.disconnect()});voices.clear();if(pianoBus){pianoBus.disconnect();pianoBus._master.disconnect();pianoBus=null}}
-function stop(){clearTimeout(timer);timer=null;playing=false;silence();q('#um-play').textContent=finished?'Replay':'Play'}
+function stop(){if(practice.active){practice.stop();q('#um-practice-status').textContent='Note practice stopped · restart to begin again'}clearTimeout(timer);timer=null;playing=false;silence();q('#um-play').textContent=finished?'Listen again':'Listen'}
 function tick(){timer=setTimeout(()=>{if(!playing)return;if(step===15){finished=true;stop();root.querySelectorAll('.pkey,.pulse').forEach(b=>b.classList.remove('held','attack','current'));q('#um-status').textContent='Finished · one pass complete';return}step++;draw(true);tick()},60000/(+q('#um-tempo').value*4))}
-q('#um-play').onclick=()=>{if(playing){stop();q('#um-status').textContent='Paused · Play restarts the measure';return}stop();finished=false;step=0;playing=true;q('#um-play').textContent='Pause';q('#um-status').textContent='Playing once';draw(true,true);tick()};
-q('#um-stop').onclick=()=>{finished=false;stop();step=0;draw();q('#um-status').textContent='Stopped · Play starts from beat 1'};
+q('#um-play').onclick=()=>{if(playing){stop();q('#um-status').textContent='Paused · Listen restarts the measure';return}stop();finished=false;step=0;playing=true;q('#um-play').textContent='Pause';q('#um-status').textContent='Playing once';draw(true,true);tick()};
+q('#um-stop').onclick=()=>{finished=false;stop();step=0;draw();q('#um-status').textContent='Stopped · Listen starts from beat 1'};
 q('#um-next').onclick=()=>{stop();finished=false;step=Math.min(15,step+1);draw(true,true);q('#um-status').textContent='Step '+(step+1)+' of 16'};q('#um-prev').onclick=()=>{stop();finished=false;step=Math.max(0,step-1);draw(true,true);q('#um-status').textContent='Step '+(step+1)+' of 16'};
-q('#um-tempo').oninput=()=>{q('#um-bpm').textContent=q('#um-tempo').value+' BPM';if(playing){stop();q('#um-status').textContent='Tempo changed · Play restarts the measure'}};
+q('#um-tempo').oninput=()=>{q('#um-bpm').textContent=q('#um-tempo').value+' BPM';if(playing){stop();q('#um-status').textContent='Tempo changed · Listen restarts the measure'}};
 window.addEventListener('pagehide',stop);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
 function restore(s){if(Number.isInteger(s?.privateContent?.step))step=Math.max(0,Math.min(15,s.privateContent.step));draw()};restore(window.openai?.widgetState);window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState)restore(e.detail.globals.widgetState)});
