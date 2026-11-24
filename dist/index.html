@@ -102,7 +102,7 @@
   --red: light-dark(rgb(224 46 42), rgb(255 103 100));
   --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
   --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
-  --viz-series-1: light-dark(rgb(51 156 255), rgb(131 195 255));
+  --viz-series-1: var(--primary);
   --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
   --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
   --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
@@ -1677,66 +1677,20 @@ html&gt;body{padding:0}&lt;/style&gt;
       postToHost(&quot;widget-state-write&quot;, { id, state: serializedState });
     });
   };
-  const bindingElement = document.getElementById(&quot;codex-visualization-bindings&quot;);
   const mockElement = document.getElementById(&quot;codex-connector-mocks&quot;);
-  const fileElement = document.getElementById(&quot;codex-preview-files&quot;);
   const connectorGlobals = {};
-  if (bindingElement != null || mockElement != null || fileElement != null) {
-    const bindings = parse(bindingElement?.textContent ?? &quot;{}&quot;);
-    bindingElement?.remove();
-    const values = new Map();
-    for (const [name, binding] of Object.entries(bindings)) {
-      if (binding.type === &quot;json&quot;) values.set(name, structuredClone(binding.value));
-    }
-    const pending = [bindings];
-    while (pending.length) {
-      const object = pending.pop();
-      Object.freeze(object);
-      for (const child of Object.values(object)) {
-        if (child !== null &amp;&amp; typeof child === &quot;object&quot;) pending.push(child);
-      }
-    }
-    const updates = [];
-    if (mockElement != null) {
-      const mocks = Object.entries(parse(mockElement.textContent));
-      mockElement.remove();
-      for (const [name, value] of mocks) {
-        values.set(name, value);
-        updates.push({ name, revision: 1, state: &quot;ready&quot;, value: { type: &quot;json&quot;, value } });
-      }
-    }
-    if (fileElement != null) {
-      const files = parse(fileElement.textContent);
-      fileElement.remove();
-      const blobs = new Map();
-      const urls = [];
-      for (const [name, binding] of Object.entries(bindings)) {
-        if (binding.type !== &quot;file&quot; || !hasOwn(files, binding.path)) continue;
-        const file = files[binding.path];
-        let blob = blobs.get(binding.path);
-        if (blob == null) {
-          const bytes = Uint8Array.fromBase64?.(file.base64) ??
-            Uint8Array.from(atob(file.base64), (char) =&gt; char.charCodeAt(0));
-          blob = new Blob([bytes], { type: file.mimeType });
-          blobs.set(binding.path, blob);
-        }
-        const url = URL.createObjectURL(blob);
-        urls.push(url);
-        values.set(name, { name: file.name, blob, url });
-        updates.push({ name, revision: 1, state: &quot;ready&quot;, value: { type: &quot;file&quot;, ...file } });
-      }
-      globalThis.addEventListener(&quot;pagehide&quot;, (event) =&gt; {
-        // A persisted pagehide can restore this same document and its subscriptions.
-        if (event.persisted) return;
-        for (const url of urls) URL.revokeObjectURL(url);
-        urls.length = 0;
-      });
-    }
-    if (mockElement != null || fileElement != null) connectorGlobals.visualizationData = { updates };
+  if (mockElement != null) {
+    const values = new Map(Object.entries(parse(mockElement.textContent)));
+    mockElement.remove();
+    connectorGlobals.visualizationData = {
+      updates: Array.from(values, ([name, value]) =&gt; ({
+        name,
+        revision: 1,
+        state: &quot;ready&quot;,
+        value: { type: &quot;json&quot;, value },
+      })),
+    };
     connectorGlobals.visualization = {
-      get bindings() {
-        return bindings;
-      },
       /** @param {string} name @param {(value: unknown) =&gt; void} callback */
       onData(name, callback) {
         if (typeof callback !== &quot;function&quot;) {
@@ -1748,7 +1702,7 @@ html&gt;body{padding:0}&lt;/style&gt;
           // oxlint-disable-next-line no-console -- Keep authored callback failures local.
           console.error(&quot;Live visualization data callback failed&quot;, error);
         }
-        // A static preview delivers the current value once per subscription.
+        // A static preview delivers the current fixture once per subscription.
         return () =&gt; {};
       },
     };
@@ -1938,7 +1892,7 @@ const whites=[];for(let n=40;n&lt;=72;n++)if(![1,3,6,8,10].includes(n%12))whites
 for(let n=40;n&lt;=72;n++){const b=document.createElement(&#x27;button&#x27;);b.type=&#x27;button&#x27;;b.className=&#x27;pkey cursor-interaction&#x27;;b.dataset.note=n;b.setAttribute(&#x27;aria-label&#x27;,name(n));const black=[1,3,6,8,10].includes(n%12);if(black){b.classList.add(&#x27;black&#x27;);const idx=whites.filter(w=&gt;w&lt;n).length;b.style.left=(idx/whites.length*100-1.5)+&#x27;%&#x27;}else b.innerHTML=&#x27;&lt;span&gt;&#x27;+name(n)+&#x27;&lt;/span&gt;&#x27;;b.onclick=()=&gt;tone(n);q(&#x27;#um-keys&#x27;).append(b)}
 for(let i=0;i&lt;16;i++){const el=document.createElement(&#x27;span&#x27;);el.className=&#x27;pulse&#x27;;el.textContent=[&#x27;1&#x27;,&#x27;e&#x27;,&#x27;&amp;&#x27;,&#x27;a&#x27;,&#x27;2&#x27;,&#x27;e&#x27;,&#x27;&amp;&#x27;,&#x27;a&#x27;,&#x27;3&#x27;,&#x27;e&#x27;,&#x27;&amp;&#x27;,&#x27;a&#x27;,&#x27;4&#x27;,&#x27;e&#x27;,&#x27;&amp;&#x27;,&#x27;a&#x27;][i];q(&#x27;#um-count&#x27;).append(el)}
 function draw(sound=false,save=false){const active=events.filter(e=&gt;e.t&lt;=step&amp;&amp;step&lt;e.t+e.d),att=active.filter(e=&gt;e.t===step);root.querySelectorAll(&#x27;.pkey&#x27;).forEach(b=&gt;{const n=+b.dataset.note;b.classList.toggle(&#x27;held&#x27;,active.some(e=&gt;e.n===n));b.classList.toggle(&#x27;attack&#x27;,att.some(e=&gt;e.n===n))});root.querySelectorAll(&#x27;.pulse&#x27;).forEach((p,i)=&gt;p.classList.toggle(&#x27;current&#x27;,i===step));const held=active.filter(e=&gt;e.t!==step);q(&#x27;#um-detail&#x27;).textContent=&#x27;Beat &#x27;+(Math.floor(step/4)+1)+&#x27; &#x27;+[&#x27;&#x27;,&#x27;e&#x27;,&#x27;&amp;&#x27;,&#x27;a&#x27;][step%4]+&#x27; · &#x27;+(att.length?&#x27;● &#x27;+att.map(e=&gt;name(e.n)).join(&#x27; + &#x27;):&#x27;No new attack&#x27;)+(held.length?&#x27; · — &#x27;+held.map(e=&gt;name(e.n)).join(&#x27; + &#x27;):&#x27;&#x27;);if(sound)att.forEach(e=&gt;tone(e.n,e.d*60/(+q(&#x27;#um-tempo&#x27;).value*4)));if(save&amp;&amp;window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{measure:37,sixteenth:step+1,tempo:+q(&#x27;#um-tempo&#x27;).value},privateContent:{step}}).catch(()=&gt;{})}
-function silence(){voices.forEach(v=&gt;{v.disconnect()});voices.clear();if(pianoBus){pianoBus.disconnect();pianoBus=null}}
+function silence(){voices.forEach(v=&gt;{v.disconnect()});voices.clear();if(pianoBus){pianoBus.disconnect();pianoBus._master.disconnect();pianoBus=null}}
 function stop(){clearTimeout(timer);timer=null;playing=false;silence();q(&#x27;#um-play&#x27;).textContent=finished?&#x27;Replay&#x27;:&#x27;Play&#x27;}
 function tick(){timer=setTimeout(()=&gt;{if(!playing)return;if(step===15){finished=true;stop();root.querySelectorAll(&#x27;.pkey,.pulse&#x27;).forEach(b=&gt;b.classList.remove(&#x27;held&#x27;,&#x27;attack&#x27;,&#x27;current&#x27;));q(&#x27;#um-status&#x27;).textContent=&#x27;Finished · one pass complete&#x27;;return}step++;draw(true);tick()},60000/(+q(&#x27;#um-tempo&#x27;).value*4))}
 q(&#x27;#um-play&#x27;).onclick=()=&gt;{if(playing){stop();q(&#x27;#um-status&#x27;).textContent=&#x27;Paused · Play restarts the measure&#x27;;return}stop();finished=false;step=0;playing=true;q(&#x27;#um-play&#x27;).textContent=&#x27;Pause&#x27;;q(&#x27;#um-status&#x27;).textContent=&#x27;Playing once&#x27;;draw(true,true);tick()};
@@ -1951,42 +1905,15 @@ function restore(s){if(Number.isInteger(s?.privateContent?.step))step=Math.max(0
 })();
 &lt;/script&gt;
 
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
 &lt;script&gt;
 (() =&gt; {
-  let positioningReady = window.FloatingUIDOM
-    ? Promise.resolve(window.FloatingUIDOM)
-    : null;
-  const loadScript = (src) =&gt; new Promise((resolve, reject) =&gt; {
-    const script = document.createElement(&quot;script&quot;);
-    script.src = src;
-    script.onload = resolve;
-    script.onerror = () =&gt; {
-      script.remove();
-      reject(new Error(&quot;Could not load tooltip positioning&quot;));
-    };
-    document.head.appendChild(script);
-  });
-  const loadPositioning = async () =&gt; {
-    const domUrl = &quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;;
-    const preload = document.createElement(&quot;link&quot;);
-    preload.rel = &quot;preload&quot;;
-    preload.as = &quot;script&quot;;
-    preload.href = domUrl;
-    document.head.appendChild(preload);
-    try {
-      if (window.FloatingUICore == null) {
-        await loadScript(&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;);
-      }
-      await loadScript(domUrl);
-      return window.FloatingUIDOM;
-    } finally {
-      preload.remove();
-    }
-  };
-  const getPositioning = () =&gt; positioningReady ??= loadPositioning().catch((error) =&gt; {
-    positioningReady = null;
-    throw error;
-  });
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
   const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
   const tooltipId = `codex-visualization-tooltip-${
     window.crypto?.randomUUID?.() ?? Date.now().toString(36)
@@ -2070,7 +1997,7 @@ function restore(s){if(Number.isInteger(s?.privateContent?.step))step=Math.max(0
       skipDelayUntil = Date.now() + skipDelay;
     }
   };
-  const updatePosition = (trigger, floating, { computePosition, flip, offset, shift, size }) =&gt; {
+  const updatePosition = (trigger, floating) =&gt; {
     const request = ++positionRequest;
     void computePosition(trigger, floating, {
       middleware: [
@@ -2125,14 +2052,8 @@ function restore(s){if(Number.isInteger(s?.privateContent?.step))step=Math.max(0
     document.body.appendChild(floating);
     activeTrigger = trigger;
     setDescribedBy(trigger, true);
-    const request = positionRequest;
-    void getPositioning().then((positioning) =&gt; {
-      if (request !== positionRequest || !trigger.isConnected) return;
-      autoUpdateCleanup = positioning.autoUpdate(trigger, floating, () =&gt; {
-        updatePosition(trigger, floating, positioning);
-      });
-    }).catch(() =&gt; {
-      if (request === positionRequest) closeTooltip(false);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
     });
   };
   const requestOpen = (trigger, immediate = false) =&gt; {
