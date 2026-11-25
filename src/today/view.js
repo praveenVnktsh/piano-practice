@@ -1,21 +1,24 @@
 // Today (#/, #/today): the home. A greeting, the daily goal, and one clear sequence of three
 // movements (warm-up → your piece → a short reading drill), plus anything the teacher assigned
 // and the teacher's latest note. The movements follow the graded path (src/curriculum/):
-// the warm-up is the next technique requirement, the reading drill the next reading level, and
+// the warm-up is the next technique requirement — or, for a Beginner who hasn't finished the
+// first lessons (src/lessons/), the next lesson — the reading drill the next reading level, and
 // polished pieces due for review (src/progress/mastery.js) are offered beside your piece.
 // mountToday(container, {library, open}) → {destroy()}.
 import './today.css';
 import {el, ago} from '../app/dom.js';
 import {playHref, navigate} from '../app/router.js';
 import {CHANGE_EVENT, getProgress, startProgressTracking} from '../progress/store.js';
-import {DEFAULT_GOAL_MIN, dayKey} from '../progress/model.js';
+import {DEFAULT_GOAL_MIN, dayKey, isSkillLevel} from '../progress/model.js';
 import {songStats, streaks, todayMinutes} from '../progress/stats.js';
 import {dailyWarmup, isExerciseId} from '../exercises/index.js';
 import {keyLabel} from '../exercises/theory.js';
 import {levelById} from '../trainer/levels.js';
 import {dueReviews, pieceMastery, STATUS_LABEL} from '../progress/mastery.js';
 import {curriculum} from '../curriculum/levels.js';
+import {lessonById, LESSONS} from '../lessons/lessons.js';
 import {describeAction} from '../../teacher/actions.js';
+import {mountIpadLink} from '../app/ipad-link.js';
 
 // "Learn this piece" plans (src/learn/guide.js): Today offers the current step, and asks the
 // player to set it up when the piece opens.
@@ -177,8 +180,9 @@ export function mountToday(container, {library, open} = {}) {
       warm: evs.some(e => isExerciseId(e.songId)),
       exercise: id => evs.some(e => e.songId === id),
       piece: id => evs.some(e => e.songId === id && e.type !== 'trainer:result' && e.type !== 'learn:step'),
-      // Only note-reading drills count here; rhythm / theory / ear rounds use prefixed levels.
-      reading: evs.some(e => e.type === 'trainer:result' && !/^(rhythm|theory|ear):/.test(String(e.level || ''))),
+      // Only note-reading drills count here; rhythm / theory / ear rounds and lessons use prefixed levels.
+      reading: evs.some(e => e.type === 'trainer:result' && !isSkillLevel(String(e.level || ''))),
+      lesson: evs.some(e => e.type === 'trainer:result' && String(e.level || '').startsWith('lesson:')),
     };
   }
 
@@ -209,7 +213,21 @@ export function mountToday(container, {library, open} = {}) {
       el('div', {class: 'td-card-foot'}, act));
   }
 
+  // A Beginner's first movement: the next of the first lessons, until they are all passed.
+  function lessonCard(step, path, done, nextIdx) {
+    const lesson = lessonById(step.id);
+    const n = LESSONS.findIndex(l => l.id === step.id) + 1;
+    return card(0, {
+      kind: `First lessons · ${path.current.level.short}`, title: step.label,
+      desc: `${lesson?.blurb || ''} A few minutes, checked as you play.`.trim(),
+      meta: step.best != null ? `Lesson ${n} of ${LESSONS.length} · best so far ${Math.round(step.best)}%` : `Lesson ${n} of ${LESSONS.length}`,
+      action: done.lesson ? 'Next lesson' : 'Begin the lesson', href: '#/exercises/lessons/' + step.id,
+      done: done.lesson, next: nextIdx === 0,
+    });
+  }
+
   function warmupCard(path, done, nextIdx, now) {
+    if (path?.next.lesson) return lessonCard(path.next.lesson, path, done, nextIdx);
     const step = path?.next.technique;
     if (step) {
       return card(0, {
@@ -243,7 +261,7 @@ export function mountToday(container, {library, open} = {}) {
       return card(1, {
         kind: 'Learning, step by step', title: p.entry.title, titleClass: 'is-work', by: p.entry.composer,
         desc: p.plan.next.label,
-        meta: done ? `${done} of ${total} steps done` : 'A few minutes a step',
+        meta: total ? `Step ${Math.min(total, done + 1)} of ${total}` : null,
         action: 'Next step', onAction: () => {
           try { sessionStorage.setItem(LEARN_APPLY_KEY, p.entry.id); } catch {}
           go(p.entry.id);
@@ -339,7 +357,8 @@ export function mountToday(container, {library, open} = {}) {
     const p = piece(path);
     const review = doc ? dueReviews(doc, {targets: targets(), now}).find(r => r.songId !== p?.entry.id && byId(r.songId)) : null;
     const pieceDone = p ? done.piece(p.entry.id) : false;
-    const flags = [done.warm, pieceDone, done.reading];
+    const lessonFirst = !!path?.next.lesson;
+    const flags = [lessonFirst ? done.lesson : done.warm, pieceDone, done.reading];
     const nextIdx = flags.indexOf(false);
 
     const shownMin = mins > 0 && mins < 1 ? '<1' : String(Math.round(mins));
@@ -347,7 +366,8 @@ export function mountToday(container, {library, open} = {}) {
     const lead = nextIdx < 0 ? 'Everything for today is played. Well done — rest the hands, or keep going if you like.'
       : mins >= goal ? 'Today’s goal is met. Anything more is a gift.'
         : mins > 0 ? `${shownMin} minute${shownMin === '1' ? '' : 's'} so far. Carry on where you left off.`
-          : 'Three short movements: a warm-up, your piece, and a little reading.';
+          : lessonFirst ? 'Three short movements: a first lesson, a little tune, and some reading.'
+            : 'Three short movements: a warm-up, your piece, and a little reading.';
     const streakText = streak.current > 1 ? `${NUMBER_WORDS[streak.current] ? NUMBER_WORDS[streak.current] + ' day' : `Day ${streak.current}`} in a row`
       : streak.current === 1 ? (streak.todayDone ? 'First day of a new streak' : 'Practise today to keep your streak') : 'Begin a streak today';
 
@@ -393,10 +413,13 @@ export function mountToday(container, {library, open} = {}) {
   document.addEventListener('visibilitychange', onFocus);
   refresh();
   loadTeacher();
+  // On the Mac: the address to open on the iPad (nothing on the iPad itself or a static site).
+  const ipad = mountIpadLink(container);
 
   return {
     destroy() {
       destroyed = true;
+      ipad.destroy();
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);

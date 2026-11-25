@@ -114,23 +114,23 @@ New capability arrives inside an existing place or behind progressive disclosure
 - [x] P1 Hand-position preview: at the start of a section, ghost the starting keys on the keyboard
 - [ ] P2 Memorisation ladder: fade the score bar by bar as a phrase becomes secure
 
-## Phase 13: The absolute beginner ⏳
-- [ ] P0 First lessons (Beginner, before Grade 1): keyboard geography (find C, groups of two and three black keys), posture and finger numbers, middle-C position, first five-finger tunes. Each lesson is short, playable and checked
-- [ ] P0 10+ more beginner and Grade 0 pieces (public-domain folk tunes and easy classics, arranged for five-finger positions, both hands by the end)
-- [ ] P1 Beginner score aids: larger noteheads, optional letter names, coloured hands, which start on and fade out by level
-- [ ] P1 Curriculum: Beginner level gets lessons, pieces and a reading track sized for the first month
+## Phase 13: The absolute beginner ✅
+- [x] P0 First lessons (Beginner, before Grade 1): keyboard geography (find C, groups of two and three black keys), posture and finger numbers, middle-C position, first five-finger tunes. Each lesson is short, playable and checked
+- [x] P0 10+ more beginner and Grade 0 pieces (public-domain folk tunes and easy classics, arranged for five-finger positions, both hands by the end)
+- [x] P1 Beginner score aids: larger noteheads, optional letter names, coloured hands, which start on and fade out by level — letter names start on for Grade 0 pieces while the path is at Beginner and stop at Grade 1 (the student can turn them off); hand colours were already on by default. Larger noteheads not done (zoom covers it)
+- [x] P1 Curriculum: Beginner level gets lessons, pieces and a reading track sized for the first month
 
-## Phase 14: Teacher, closer to the music ⏳
-- [ ] P0 Bar comments: the teacher can pin a comment to a bar range of a piece ("lift the wrist here"). It shows as a quiet marker in the player, and a tap reads it
-- [ ] P1 The teacher sees the heat strip, the tempo ladder and plan progress in `teacher/cli.js progress`, and suggests the next plan step
-- [ ] P1 "Ask about this bar": from the player, send a message to the teacher with the piece, bars and last attempt attached
-- [ ] P2 The teacher composes a short custom exercise (MusicXML via notes2musicxml) for a weak spot, and it lands in Exercises
+## Phase 14: Teacher, closer to the music ✅
+- [x] P0 Bar comments: the teacher can pin a comment to a bar range of a piece ("lift the wrist here"). It shows as a quiet marker in the player, and a tap reads it
+- [x] P1 The teacher sees the heat strip, the tempo ladder and plan progress in `teacher/cli.js progress`, and suggests the next plan step
+- [x] P1 "Ask about this bar": from the player, send a message to the teacher with the piece, bars and last attempt attached
+- [x] P2 The teacher composes a short custom exercise (MusicXML via notes2musicxml) for a weak spot, and it lands in Exercises
 
-## Phase 15: Musicality ⏳
-- [ ] P1 Phrase shaping: velocity contour per phrase against a simple model (rise to the peak, taper at the cadence), with a gentle hint
-- [ ] P1 Rubato and timing feel: in Performance runs, show tempo flex as a curve so steady and expressive are visible separately
-- [ ] P1 Voicing: melody-over-accompaniment check within one hand (top voice louder)
-- [ ] P2 Listen and compare: play the reference, then your recording, aligned bar by bar
+## Phase 15: Musicality ✅
+- [x] P1 Phrase shaping: velocity contour per phrase against a simple model (rise to the peak, taper at the cadence), with a gentle hint
+- [x] P1 Rubato and timing feel: in Performance runs, show tempo flex as a curve so steady and expressive are visible separately
+- [x] P1 Voicing: melody-over-accompaniment check within one hand (top voice louder)
+- [x] P2 Listen and compare: play the reference, then your recording, aligned bar by bar
 
 ## Phase 16: Real hardware confidence ✅
 - [x] P0 Diagnostics sheet (Settings → This device → Diagnostics): Web MIDI and inputs, Mac relay state + measured round trip, AudioContext state / sample rate / latencies, grand layers loaded, decoded sample memory, storage estimate, version + commit, user agent; "Copy report" (clipboard, or a text box to copy by hand)

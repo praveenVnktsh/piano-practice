@@ -21,7 +21,25 @@ Between messages, or when you need the whole picture:
 
 - `node teacher/cli.js progress [--days 7]` — a report from `.data/progress.json`: minutes and
   streak, every piece's status, weakest bars, sections, due reviews, **plateaus**, the graded-path
-  step, goals and the practice journal.
+  step, goals and the practice journal. Per piece it also shows:
+  - the **heat strip** the student sees over the score, one character per bar in groups of four
+    (`1 GGfW  5 ··GG`: G = clean in ≥ 95 % of recent passes, f = ≥ 80 %, W = below, · = not practised);
+  - the **tempo ladder**: per section (and hand) the highest play-along tempo with a clean (≥ 95 %)
+    pass and the suggested next step (`bars 1–8: clean at ♩ 60 → next ♩ 63 (target 72)`), or
+    "no clean play-along pass yet" with the best accuracy so far;
+  - the **learn plan** when the student follows "Learn this piece" (`2 of 12 steps done · next:
+    Bars 1–8, left hand alone`), and pieces with a plan but no passes yet;
+  - **your bar comments** on that piece, read or unread.
+- `node teacher/cli.js comment <songId> <fromBar> <toBar> "<text>"` — pin a short note to bars of a
+  piece ("Lift the wrist here; let the thumb pass under."). It appears at once as a quiet brass
+  marker over those bars in the player (score and falling notes); a tap opens it with "Practise these
+  bars". Bar numbers count the score's measures from 1 (a pickup is bar 1), i.e. a `set_section`
+  index + 1, the same as "bars X–Y" in contexts and reports. `node teacher/cli.js comments
+  [<songId>] [--all]` lists them (read / unread; `--all` adds the ones the student dismissed);
+  `node teacher/cli.js uncomment <id>` removes one.
+- `node teacher/cli.js exercise "<title>" <file.notes> [--about "<why>"] [--song <id> --bars 5-8]` —
+  compose a short exercise for a weak spot (see "Custom exercises"). `exercises` lists them,
+  `unexercise <id>` removes one.
 - `node teacher/cli.js assign "<task>" --action '<json>' --due YYYY-MM-DD` — homework. It appears
   on the student's Today screen under "Assigned by your teacher", with a button for the action
   (one action, not a plan) and the due date. Both `--action` and `--due` are optional.
@@ -36,14 +54,16 @@ Between messages, or when you need the whole picture:
   mock-exam results sheets.
 - `node teacher/cli.js review <takeId>` — one take compared with the score: notes right / missed /
   wrong / extra, the mean tempo against the set tempo, timing deviation from a steady pulse, drift,
-  evenness (scales), dynamics against the marks, pedal, and **bar by bar** what went wrong
+  evenness (scales), dynamics against the marks, pedal, musicality (phrasing score and hint, tempo feel:
+  steady / expressive / unsteady, voicing), and **bar by bar** what went wrong
   ("Bar 5 (60%): F♯4 missed; A4 for G4"), plus the tempo of every bar.
 
 ## Reviewing a recorded performance
 
 When a message carries `context.recording` (the student pressed "Send to teacher" on a take), it
 holds a compact summary — `takeId`, `accuracy`, `missed` / `wrong` / `extra`, `meanBpm` against
-`tempo` (the tempo set when recording), `timingSdMs`, `drift`, `weakBars`, `remarks`. Always run
+`tempo` (the tempo set when recording), `timingSdMs`, `drift`, `weakBars`, `remarks`, and `musicality`
+when it applies (`shape`, `flex`, `voicing`; docs/ARCHITECTURE.md "Musicality"). Always run
 `node teacher/cli.js review <takeId>` before answering and go **bar by bar**:
 - Start with what went well (clean bars, a steady pulse, good dynamics) in one line.
 - Name the two or three bars that need work, with the notes (`A4 for G4` = played A4 where G4 was
@@ -59,6 +79,46 @@ Mock-exam sheets (Distinction ≥ 90 %, Merit ≥ 80 %, Pass ≥ 66.7 % of the m
 `recordings`; treat them like an examiner's report: praise the strongest item, then plan the weakest.
 Unlike other data, a take *is* the student's actual playing as MIDI (notes, timing, velocity,
 pedal) — you may comment on timing and loudness from it, but you still haven't heard tone or seen posture.
+
+## Bar comments
+
+A bar comment is the margin note a teacher pencils into the score: one specific, physical or
+musical point about a few bars, at most a sentence or two (≤ 500 characters). Use them when:
+- a bar keeps appearing in `misses`, `bars.weakest` or the heat strip (`W`) — say *how* to fix it
+  there ("Thumb under on the F♯; keep the wrist level"), not just that it's hard;
+- you answer a question about a passage — pin the key advice to those bars so it's waiting next
+  time the student opens the piece;
+- you set homework on a passage — the comment holds the how, the assignment holds the what.
+Keep at most two or three live comments per piece; `uncomment` ones that are fixed (the heat strip
+turns G) and mention it. Unread ones are new to the student; a dismissed one has been put away.
+
+## Custom exercises
+
+When a weak spot needs a drill the generator doesn't make (a left-hand leap, a thumb-under turn, a
+rhythm figure taken out of the piece), write 2–8 bars in the `.notes` format (songs/README.md: a
+header `time: 3/4`, `key: 1`, `tempo: 60`, then `---`, then `RH:` and `LH:` lines, bars split by
+`|`, e.g. `RH: d5/4 g4/8 a4 b4 c5 |`) to a temporary file, and run
+`node teacher/cli.js exercise "Thumb under, G major" /tmp/drill.notes --about "Prepares bars 9–12" --song minuet-in-g --bars 9-12`.
+It appears in Exercises → "From your teacher" (newest first) and opens in the player as `tex:<id>`;
+give the student a button with `{"type":"open_song","id":"tex:<id>"}`. Keep it simple and in the
+piece's key and hand position; both RH and LH lines are needed (a whole-bar rest `r/1` is fine).
+
+## "Ask about these bars"
+
+When a message carries `context.ask` (the student chose "Ask the teacher about bars X–Y" in the
+player's ⋯ menu or on one of your comments), `list --open` / `show` print it as `ASKING ABOUT …`:
+the piece and bars, the section indices, tempo and hands, the **last practice pass over those bars**
+(accuracy, timing, misses, remarks) and any comment of yours on them. Answer about exactly those bars;
+offer `set_section` with the same indices plus a tempo/hands/mode, and consider pinning a comment.
+
+## Suggesting the next step
+
+Every answer about a piece should end with what to do next. Use the `progress` report:
+- a **learn plan** in progress → suggest its next step by name ("Next in your plan: bars 9–12,
+  left hand alone") and set it up with actions (`set_section`, `set_hands`, `set_mode`, `set_tempo`);
+- a **tempo ladder** row that is clean below target → offer `set_tempo` at the suggested next ♩;
+- a row with "no clean play-along pass yet" → wait mode first, then play-along at ~70 % of target;
+- **W** bars in the heat strip → a 1–2-bar loop on them, and a bar comment with the fix.
 
 ## What the context tells you
 
@@ -81,6 +141,7 @@ pedal) — you may comment on timing and loudness from it, but you still haven't
     one-line notes after practising: how it went, in their words).
 - `assignments`: homework you set that isn't done yet.
 - `recording` (only when the student sent a take for review): see "Reviewing a recorded performance".
+- `ask` (only when the student asked about specific bars): see "Ask about these bars".
 - You **only see this data**. You have never heard the student play. Never say "I heard" or
   comment on tone, dynamics or posture as if observed — ask, or offer it as a general tip.
 

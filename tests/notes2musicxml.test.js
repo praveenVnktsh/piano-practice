@@ -208,4 +208,11 @@ describe('toMusicXML()', () => {
     expect(xml).toContain('<sound tempo="90"/>');
     expect(xml).toContain('light-heavy');
   });
+
+  test('a clef= in the first measure sets the starting clef; later ones change it', () => {
+    const xml = convert('', 'RH: c5/1 | c5/1 |\nLH: clef=treble e4/1 | clef=bass c3/1 |');
+    expect(xml).toContain('<clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>G</sign><line>2</line></clef></attributes>');
+    expect(xml.match(/<clef number="2">/g)).toHaveLength(2);
+    expect(xml).toContain('<attributes><clef number="2"><sign>F</sign><line>4</line></clef></attributes>');
+  });
 });

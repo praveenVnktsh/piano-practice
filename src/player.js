@@ -7,6 +7,7 @@ import {mountDiagnostics} from './diagnostics/sheet.js';
 import {onRelayMidi, onRelayStatus, relayAvailable} from './midi-relay.js';
 import {setTheme as setAppTheme, getTheme, THEME_EVENT} from './app/theme.js';
 import {attachRecording} from './record/player-ui.js';
+import {attachBarNotes} from './teacher/bar-notes.js'; // the teacher's bar comments (Phase 14)
 import {playHref} from './app/router.js';
 import {
   BarTally, normaliseBarStats, mergeBarStats, heatLevel, weakPassage, startChain, chainStep, detectPhrases, phraseAt, nextPhrase,
@@ -16,6 +17,8 @@ import {
 import {isFavourite, setFavourite} from './collections/model.js';
 import {collections, loadCollections, updateCollections, setlistPosition, CHANGE_EVENT as COLLECTIONS_EVENT} from './collections/store.js';
 import {performanceScore} from './analysis/performance.mjs';
+import {playerMusicality, compactMusicality} from './analysis/musicality.mjs';
+import {renderMusicality} from './analysis/musicality-view.js';
 import {attachLearn} from './learn/guide.js';
 import {startingKeys} from './learn/position.mjs';
 
@@ -104,6 +107,7 @@ export function createPlayer(root) {
   let strategy = 'off', chain = null, latencyMs = 0, phrases = [];
   let barTally = new BarTally(), trouble = new Map();
   let learn = null; // "Learn this piece" plan + first look (src/learn/guide.js), attached below
+  let stopForStep = false; // a plan step was done during a loop: end at this pass's end, quietly
   let played = [], pedalLog = [], pedalDown = false, memoryHints = 0;
   const screenDown = new Set();
   const wantHand = e => handFilter(hands)(e);
@@ -227,6 +231,7 @@ export function createPlayer(root) {
   let sheetTrack = null, sheetSvg = null, sheetEls = new Map(), measureEls = new Map();
   let anchors = [], sheetX = 0, lit = new Set();
   let measureBoxes = [], pages = [], page = -1, manualPage = null, autoPage = -1;
+  let barNotes = null; // the teacher's bar comments, drawn over the score (attachBarNotes below)
   function mountSheet() {
     // The playhead stays the track's last child (scrollSheet / showPage move it).
     sheetHost.innerHTML = `<div class="sheet-track"><div class="trouble" aria-hidden="true"></div><div class="harmony" aria-hidden="true"></div>${song.fullSvg()}<div class="playhead"></div></div>` +
@@ -267,6 +272,7 @@ export function createPlayer(root) {
     sheetTrack = sheetSvg = null; sheetEls = new Map(); measureEls = new Map();
     anchors = []; sheetX = 0; lit = new Set();
     measureBoxes = []; pages = []; page = -1; manualPage = null; autoPage = -1; clefW = 0;
+    barNotes?.layout(null, []);
   }
   // The system's height: up to 300 px, or the whole card on a tablet standing upright (portrait),
   // so the music fills the paper instead of sitting small in it; less the strip the Harmony
@@ -310,6 +316,7 @@ export function createPlayer(root) {
     page = -1; manualPage = null; autoPage = -1;
     drawTrouble();
     drawHarmony();
+    barNotes?.layout(sheetTrack, measureBoxes);
   }
   const PAGE_PAD = 14;
   // Pages after the first begin with the system's clefs and key signature, as a printed page
@@ -642,6 +649,7 @@ export function createPlayer(root) {
     : 'Press <b class="glyph">▶</b> · the music waits for each note');
 
   function stopAll() {
+    stopForStep = false;
     stopExternal();
     if (scrub) { scrub = null; clearTimeout(wheelTimer); root.classList.remove('scrubbing'); }
     stopClock(); clearTimeout(autoTimer); autoTimer = null;
@@ -720,7 +728,8 @@ export function createPlayer(root) {
     const kind = clock.kind;
     if (kind === 'timed' && finishTimedPass()) return; // a chain moved on to a longer passage
     if (!clock) return; // finishing stopped it
-    if (loop) {
+    const quiet = stopForStep; stopForStep = false;
+    if (loop && !quiet) {
       // Seamless loop: the next pass starts exactly where this one ended.
       matched.clear(); grades.clear();
       if (kind === 'timed') newGrader();
@@ -739,6 +748,7 @@ export function createPlayer(root) {
       learn?.listened([range.first, range.last]);
     } else {
       practicing = false; grader = null; finished = true; pos = range.end; endSession(); setButtons(); draw();
+      if (quiet && !perf) { setStatus('Step done'); return; } // the plan's prompt names the next step
       setStatus('Finished'); showResults(lastResult);
       if (perf) endPerformance({completed: true});
     }
@@ -798,6 +808,9 @@ export function createPlayer(root) {
     if (touch.evenness) { const {points, ...rest} = touch.evenness; detail.evenness = rest; }
     if (touch.dynamics) detail.dynamics = touch.dynamics;
     if (touch.articulation) detail.articulation = touch.articulation;
+    // Musicality (phase 15): phrase shape and voicing (real keyboard, pieces), tempo flex (performance runs).
+    r.musicality = playerMusicality({played, song, phrases, section: [range.first, range.last], songId: current?.id, perf: !!r.performance});
+    if (r.musicality) detail.musicality = compactMusicality(r.musicality);
     if (strategy !== 'off') detail.strategy = strategy;
     if (chain) detail.chain = {dir: chain.dir, section: [...chain.goal]};
     if (r.performance) detail.performance = {score: r.performance.score, accuracy: r.performance.accuracy, timing: r.performance.timing, evenness: r.performance.evenness};
@@ -964,7 +977,8 @@ export function createPlayer(root) {
     const r = {right: rightCount, wrong: wrongCount, accuracy: total ? Math.round(100 * rightCount / total) : 100, timing: null};
     emitResult(r);
     if (continueChain(r)) return;
-    if (loop) {
+    const quiet = stopForStep; stopForStep = false;
+    if (loop && !quiet) {
       flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : 'Once more.');
       follow.reset(); autoPlayed = new Set(); matched.clear(); rightCount = 0; wrongCount = 0;
       pos = follow.current.t; draw(); practicePrompt(); runAuto(true);
@@ -972,6 +986,7 @@ export function createPlayer(root) {
     }
     practicing = false; follow = null; finished = true; pos = range.end;
     refreshFreeClick(); endSession(); setButtons(); draw();
+    if (quiet) { setStatus('Step done'); return; } // the plan's prompt names the next step
     setPrompt('Passage complete'); setStatus('Finished'); showResults(r);
   }
 
@@ -1040,7 +1055,7 @@ export function createPlayer(root) {
     if (perf) r.performance = performanceScore({counts: r.counts, evenness: evenness(played.filter(p => p.id != null))});
     emitResult(r);
     if (r.chainNext) { stopAll(); setTimeout(() => continueChain(r), 300); return true; }
-    if (!loop) return false;
+    if (!loop || stopForStep) return false;
     flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : `${r.accuracy}% · once more.`);
     return false;
   }
@@ -1082,6 +1097,7 @@ export function createPlayer(root) {
       timing.hidden = true;
     }
     showTouch(r.touch);
+    renderMusicality(q('#um-music'), r.musicality);
     const last = range.last >= song.measures.length - 1;
     // No dead buttons: at the end of the piece there is no next section to offer.
     q('#um-complete-next').hidden = last || !!perfR;
@@ -1673,7 +1689,8 @@ export function createPlayer(root) {
     keys: notes => { if (notes.length) midiHeld.set('take:0', new Set(notes)); else midiHeld.delete('take:0'); renderMidi(); },
     flash, setStatus, setPrompt, measureName: i => measureName(song.measures[i]),
   });
-  learn = attachLearn({root, flash, setStatus, setPrompt, setLoop: v => setLoop(v), setIntent: v => setIntent(v), closePopovers: () => closePopovers()});
+  learn = attachLearn({root, flash, setStatus, setPrompt, setLoop: v => setLoop(v), setIntent: v => setIntent(v), closePopovers: () => closePopovers(),
+    stopAtPassEnd: () => { stopForStep = true; }});
 
   // ───────── Highway ─────────
   const highway = createHighway({
@@ -1693,6 +1710,11 @@ export function createPlayer(root) {
       if (matched.has(e.id)) return 'matched';
       return '';
     },
+  });
+
+  barNotes = attachBarNotes({
+    root, highway, song: () => song, range: () => range, entry: () => current,
+    label: i => song.measures[i].label, setSection: (a, b) => window.pianoPlayer.setSection(a, b),
   });
 
   // ───────── Scrubbing ─────────
@@ -1990,9 +2012,11 @@ export function createPlayer(root) {
     page = -1; manualPage = null;
     settingsModal.querySelector(`input[name="labels"][value="${root.dataset.labels}"]`).checked = true;
     q('#set-hands').checked = st.hands !== false;
-    root.classList.toggle('show-names', !!st.names);
-    q('#set-names').checked = !!st.names;
-    q('#names-btn').checked = !!st.names;
+    // Beginner aids: a Grade 0 piece for a Beginner shows note names unless the student turned them off.
+    const names = namesAided ? st.beginnerAids !== false || !!st.names : !!st.names;
+    root.classList.toggle('show-names', names);
+    q('#set-names').checked = names;
+    q('#names-btn').checked = names;
     root.dataset.playhead = st.playhead === 'left' ? 'left' : 'center';
     settingsModal.querySelector(`input[name="playhead"][value="${root.dataset.playhead}"]`).checked = true;
     root.dataset.pedal = st.pedal === false ? 'off' : 'on';
@@ -2021,7 +2045,9 @@ export function createPlayer(root) {
   });
   q('#set-hands').onchange = () => { save({hands: q('#set-hands').checked}); applySettings(load()); };
   q('#set-loop').onchange = () => setLoop(q('#set-loop').checked);
-  const setNames = v => { save({names: !!v}); applySettings(load()); };
+  // On a piece with beginner aids the toggle is the aid itself; turning it off there turns the aid off
+  // for good (Progress resets nothing; the toggle turns it back on).
+  const setNames = v => { save(namesAided ? (v ? {beginnerAids: true} : {beginnerAids: false, names: false}) : {names: !!v}); applySettings(load()); };
   q('#set-names').onchange = () => setNames(q('#set-names').checked);
   q('#set-fing').onchange = () => { save({fingering: q('#set-fing').checked}); applySettings(load()); };
   q('#names-btn').onchange = () => setNames(q('#names-btn').checked);
@@ -2198,6 +2224,7 @@ export function createPlayer(root) {
     const [first, last] = defaultSection(entry);
     setRange(first, last);
     refreshTrouble();
+    barNotes?.loaded();
     holdPagesAwake(root.dataset.view === 'pages');
     recording.loaded(entry);
     learn?.loaded(entry, song, phrases);
@@ -2221,8 +2248,11 @@ export function createPlayer(root) {
   // A `view: 'sheet'` hint (sight-reading) turns falling notes into the score for that piece only;
   // `view: 'falling'` (a MIDI import whose timing was too loose for a clean score) does the reverse.
   let viewHinted = false;
+  let namesAided = false; // entry.aids.names: a Beginner's Grade 0 piece (src/curriculum/aids.js)
   function applyEntryHints(entry) {
     const st = load();
+    const aided = !!entry?.aids?.names;
+    if (aided !== namesAided) { namesAided = aided; applySettings(st); }
     const m = entry?.mode === 'timed' || entry?.mode === 'wait' ? entry.mode : st.mode === 'timed' ? 'timed' : 'wait';
     const i = entry?.intent === 'practice' || entry?.intent === 'listen' ? entry.intent : st.intent === 'practice' ? 'practice' : 'listen';
     setMode(m, {persist: false});

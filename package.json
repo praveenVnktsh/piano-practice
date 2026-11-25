@@ -14,7 +14,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "songs": "node tools/notes2musicxml.mjs --all",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "publish:site": "node tools/publish-site.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -29,5 +30,8 @@
   "description": "Practice piano in the browser: falling notes or sheet music, a sampled grand piano, MIDI keyboard practice and section looping.",
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "qrcode-generator": "^2.0.4"
   }
 }

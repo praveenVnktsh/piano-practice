@@ -3,7 +3,7 @@
 // attached; replies, written by the teacher with `node teacher/cli.js reply`, arrive live over
 // SSE (GET /__teacher/stream). Reply actions are buttons the student taps to apply.
 import {describeAction} from '../../teacher/actions.js';
-import {collectContext, recentResults, sharingLine, trackResults} from './context.js';
+import {askContext, collectContext, recentResults, sharingLine, trackResults} from './context.js';
 import {escapeHtml, renderMarkdown} from './markdown.js';
 import {runAction} from './run.js';
 
@@ -54,6 +54,7 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
   let open = false,
     source = null,
     lastResult = null,
+    attachment = null, // "Ask about these bars": {songId, title, section, bars, lastResult, …} (context.ask)
     titles = new Map(),
     library = null;
   const pending = []; // messages sent but not yet seen in the thread
@@ -80,6 +81,7 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
     <div class="tch-thinking" hidden><span></span><span></span><span></span> Teacher is thinking…</div>
     <div class="tch-quick"></div>
     <form class="tch-compose">
+      <p class="tch-attach" hidden><span></span><button type="button" class="tch-attach-x" aria-label="Don’t attach these bars">×</button></p>
       <label class="tch-share"><input type="checkbox"> <span>Sharing: <em></em></span></label>
       <div class="tch-row">
         <textarea rows="2" placeholder="Ask your teacher…" aria-label="Message to your teacher" maxlength="4000"></textarea>
@@ -102,7 +104,7 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
   share.checked = get(SHARE_KEY, 'on') === 'on';
 
   // ───────── Data ─────────
-  const knownSong = id => !library || id.startsWith('import:') || id.startsWith('ex:') || titles.has(id);
+  const knownSong = id => !library || id.startsWith('import:') || id.startsWith('ex:') || id.startsWith('tex:') || titles.has(id);
   import('../app/catalog.js')
     .then(c => c.loadCatalogs())
     .then(cat => {
@@ -118,6 +120,8 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
     if (lastReplyId != null && newest > lastReplyId) live.textContent = 'Your teacher replied.';
     lastReplyId = newest;
     thread = next;
+    // The player's bar comments follow the live thread (src/teacher/bar-notes.js).
+    window.dispatchEvent(new CustomEvent('teacher:thread', {detail: next}));
     for (let i = pending.length - 1; i >= 0; i--)
       if (thread.messages.some(m => m.id === pending[i].id)) pending.splice(i, 1);
     const maxReply = Math.max(0, ...thread.replies.map(r => r.id));
@@ -144,7 +148,10 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
     pending.push(local);
     render(true);
     try {
-      const context = share.checked ? await collectContext() : null;
+      const ask = attachment;
+      let context = share.checked ? await collectContext() : null;
+      // The bars the student asked about go along even when sharing is off: they chose to attach them.
+      if (ask) context = {...(context || {}), ask};
       const res = await fetch(`${api}/messages`, {
         method: 'POST',
         headers: {'content-type': 'application/json'},
@@ -154,6 +161,7 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       local.id = body.id;
       local.sending = false;
+      if (attachment === ask) setAttachment(null);
       if (!thread.messages.some(m => m.id === body.id)) thread = {...thread, messages: [...thread.messages, body]};
       setThread(thread);
     } catch (e) {
@@ -250,6 +258,16 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
     if (scrollDown || nearBottom) list.scrollTop = list.scrollHeight;
   }
 
+  const attachBox = $('.tch-attach');
+  function setAttachment(a) {
+    attachment = a;
+    attachBox.hidden = !a;
+    if (!a) return;
+    const r = a.lastResult;
+    attachBox.firstElementChild.textContent =
+      `Attached: ${a.title} · ${a.bars}${r && typeof r.accuracy === 'number' ? ` · last pass ${Math.round(r.accuracy)}%` : ' · no pass yet'}`;
+  }
+
   function updateSharing() {
     shareText.textContent = share.checked ? sharingLine() : 'nothing (only your message is sent)';
   }
@@ -277,6 +295,22 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
     input.value = '';
     send(text);
   });
+  $('.tch-attach-x').addEventListener('click', () => {
+    setAttachment(null);
+    input.focus();
+  });
+  // "Ask the teacher about bars X–Y" from the player (⋯ menu or a bar comment).
+  const onAsk = async e => {
+    const d = e.detail;
+    if (!d?.songId || !Array.isArray(d.section)) return;
+    setAttachment(await askContext(d));
+    if (!open) show(true);
+    const lead = `About ${d.bars}: `;
+    if (!input.value.trim() || /^About (bars?|pickup)[^:]*: $/.test(input.value)) input.value = lead;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  };
+  window.addEventListener('teacher:ask', onAsk);
   share.addEventListener('change', () => {
     put(SHARE_KEY, share.checked ? 'on' : 'off');
     updateSharing();
@@ -367,6 +401,7 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
       stopTracking();
       clearInterval(tick);
       window.removeEventListener('hashchange', refresh);
+      window.removeEventListener('teacher:ask', onAsk);
       document.removeEventListener('visibilitychange', onVisible);
       document.documentElement.classList.remove('tch-open');
       fab.remove();

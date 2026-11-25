@@ -1,0 +1,17 @@
+# London Bridge Is Falling Down — traditional English (public domain), in G.
+# Arranged by the Piano Practice contributors (MIT): the hands take turns in middle-C
+# position. Right hand C D E (fingers 1 2 3), left hand G A B (fingers 4 3 2).
+# The tune never uses F, so it is written without a key signature.
+title: London Bridge
+composer: Traditional
+arranger: Piano Practice contributors
+time: 4/4
+key: 0
+tempo: 96
+license: Public domain (traditional), arrangement MIT
+---
+RH: d4/4 e4 d4 c4 | r/4 c4 d4/2 | r/2 c4/2    | r/4 c4 d4/2 |
+LH: r/1           | b3/4 r/2.   | a3/4 b3 r/2 | b3/4 r/2.   |
+
+RH: d4/4 e4 d4 c4 | r/4 c4 d4/2 | r/2 d4/2 | r/1       |
+LH: r/1           | b3/4 r/2.   | a3/2 r/2 | b3/2 g3/2 |

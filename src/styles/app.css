@@ -655,6 +655,12 @@ button.menu-row:hover > span:first-child { color: var(--brass); }
 .touch-cap { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; font-family: var(--font-text); font-style: italic; font-size: 13.5px; color: var(--ink-faint); }
 .touch-cap i { display: inline-block; width: 14px; height: 0; border-top: 1px solid var(--ink); margin-left: 6px; }
 .touch-cap .k-vel { border-top: 1px dashed var(--brass); }
+.touch-cap .k-dot { width: 4px; height: 4px; border: 0; border-radius: 50%; background: var(--ink-soft); }
+/* Musicality (src/analysis/musicality-view.js): phrasing, tempo feel, voicing. */
+.music-part + .music-part { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); }
+.music-word { font-family: var(--font-text); font-style: italic; font-size: 17px; color: var(--ink); }
+.music-hint { margin: 2px 0 0; text-align: center; font-family: var(--font-text); font-size: 15px; color: var(--ink-soft); }
+.touch-graph .g-beat { fill: var(--ink-faint); }
 .note-remarks { margin: 0 0 16px; padding: 0; list-style: none; font-family: var(--font-text); font-style: italic; font-size: 16px; line-height: 1.4; color: var(--ink); }
 .note-remarks li + li { margin-top: 4px; }
 .modal-actions { display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap; }

@@ -2,9 +2,10 @@
 //
 //   curriculum(doc, {library, targets, now}) → {levels: [levelProgress], current, next}
 //   levelProgress = {level, done, fraction, repertoire: {items, need, have, done},
-//                    technique: {items, done}, reading: {items, done}}
+//                    technique: {items, done}, reading: {items, done}, lessons: {items, done}}
 //
-// Completion criteria per level (all three must hold):
+// Completion criteria per level (all must hold):
+//   lessons     (Beginner) every first lesson passed once at ≥ LESSON_ACCURACY % (src/lessons/)
 //   repertoire  `need` of the level's pieces that are in the library at secure or better
 //               (src/progress/mastery.js); with fewer pieces available, all available ones;
 //               with none available, the requirement doesn't block the level
@@ -15,11 +16,13 @@
 import {LEVELS} from './data.js';
 import {parseExerciseId} from '../exercises/index.js';
 import {pieceMastery, statusRank} from '../progress/mastery.js';
+import {lessonBests, lessonById, PASS as LESSON_PASS} from '../lessons/lessons.js';
 
 export {LEVELS};
 export const TECHNIQUE_ACCURACY = 90;
 export const READING_ACCURACY = 90;
 export const READING_MIN_NOTES = 10;
+export const LESSON_ACCURACY = LESSON_PASS;
 
 export const levelById = id => LEVELS.find(l => l.id === id) || null;
 const LISTED = new Set(LEVELS.flatMap(l => l.repertoire.ids)); // pieces a level names explicitly
@@ -65,9 +68,9 @@ function libraryMap(library) {
   return new Map(list.filter(e => e && e.id).map(e => [e.id, e]));
 }
 
-export function evaluateLevel(level, doc, {library, targets = {}, now = Date.now(), _ex, _rd} = {}) {
+export function evaluateLevel(level, doc, {library, targets = {}, now = Date.now(), _ex, _rd, _ls} = {}) {
   const lib = libraryMap(library);
-  const ex = _ex || exerciseBests(doc), rd = _rd || readingBests(doc);
+  const ex = _ex || exerciseBests(doc), rd = _rd || readingBests(doc), ls = _ls || lessonBests(doc);
   // Repertoire: listed ids in the library, then any library piece tagged with this grade.
   const ids = [...level.repertoire.ids.filter(id => lib.has(id))];
   for (const [id, e] of lib) if (e.grade === level.grade && !ids.includes(id) && !LISTED.has(id)) ids.push(id);
@@ -83,27 +86,30 @@ export function evaluateLevel(level, doc, {library, targets = {}, now = Date.now
     return {id: t.id, label: t.label, best: best < 0 ? null : best, done: best >= TECHNIQUE_ACCURACY};
   });
   const reading = level.reading.map(id => ({id, best: rd[id] ?? null, done: (rd[id] ?? 0) >= READING_ACCURACY}));
+  const lessonItems = (level.lessons || []).map(id => ({id, label: lessonById(id)?.title || id, best: ls[id] ?? null, done: (ls[id] ?? 0) >= LESSON_ACCURACY}));
   const rep = {items: pieces, need, have: Math.min(have, need), done: have >= need};
   const tech = {items: technique, done: technique.every(t => t.done)};
   const read = {items: reading, done: reading.every(r => r.done)};
-  const total = need + technique.length + reading.length;
-  const got = Math.min(have, need) + technique.filter(t => t.done).length + reading.filter(r => r.done).length;
-  return {level, repertoire: rep, technique: tech, reading: read, done: rep.done && tech.done && read.done, fraction: total ? got / total : 1};
+  const lessons = {items: lessonItems, done: lessonItems.every(l => l.done)};
+  const total = need + technique.length + reading.length + lessonItems.length;
+  const got = Math.min(have, need) + technique.filter(t => t.done).length + reading.filter(r => r.done).length + lessonItems.filter(l => l.done).length;
+  return {level, repertoire: rep, technique: tech, reading: read, lessons, done: rep.done && tech.done && read.done && lessons.done, fraction: total ? got / total : 1};
 }
 
 /**
  * The whole path. `current` = the first level not yet complete (the last one when all are);
- * `next` = suggestions from the current level: {technique, reading, piece} — the first unmet
- * item of each kind (null when met).
+ * `next` = suggestions from the current level: {lesson, technique, reading, piece} — the first
+ * unmet item of each kind (null when met).
  */
 export function curriculum(doc, opts = {}) {
-  const ex = exerciseBests(doc), rd = readingBests(doc);
-  const levels = LEVELS.map(l => evaluateLevel(l, doc, {...opts, _ex: ex, _rd: rd}));
+  const ex = exerciseBests(doc), rd = readingBests(doc), ls = lessonBests(doc);
+  const levels = LEVELS.map(l => evaluateLevel(l, doc, {...opts, _ex: ex, _rd: rd, _ls: ls}));
   // settings.pathStart: the student (or teacher) chose to start at a later level.
   const from = Math.max(0, LEVELS.findIndex(l => l.id === (opts.start ?? doc?.settings?.pathStart)));
   levels.forEach((l, i) => { l.skipped = i < from && !l.done; });
   const current = levels.slice(from).find(l => !l.done) || levels.at(-1);
   const next = {
+    lesson: current.lessons.items.find(l => !l.done) || null,
     technique: current.technique.items.find(t => !t.done) || null,
     reading: current.reading.items.find(r => !r.done) || null,
     piece: current.repertoire.done ? null : current.repertoire.items.find(p => !p.done) || null,

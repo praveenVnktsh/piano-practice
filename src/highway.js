@@ -163,6 +163,8 @@ export function createHighway({canvas, keys, getEvents, getMeasures, position, n
     jump() { shown = position() ?? 0; },
     // Pixels per quarter note (for drag-to-scrub).
     pixelsPerQuarter: () => (height || canvas.clientHeight) / LOOKAHEAD,
+    // Where score time t is drawn this frame, in px from the canvas top (overlays: bar comments).
+    yOf: t => (height || canvas.clientHeight) - (t - shown) * ((height || canvas.clientHeight) / LOOKAHEAD),
     popup(n, text, kind) {
       // Words from neighbouring keys at nearly the same moment stack instead of overprinting.
       const at = performance.now(), x = lanes.get(n)?.x ?? 0;

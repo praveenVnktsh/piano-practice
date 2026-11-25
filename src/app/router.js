@@ -9,6 +9,7 @@
 //   #/exercises/rhythm          rhythm trainer (src/rhythm/view.js)
 //   #/exercises/theory[/<id>]   theory lessons (src/theory/view.js), one lesson by id
 //   #/exercises/ear             ear training (src/ear/view.js)
+//   #/exercises/lessons[/<id>]  first lessons for beginners (src/lessons/view.js), one lesson by id
 //   #/play/<id>        the player; exercise ids start with "ex:", sight-reading pieces with "sr:"
 // Unknown paths fall back to Today. Routes with an argument come back as {name, arg}.
 
@@ -24,9 +25,10 @@ export const VIEW_ROUTES = {
   '/exercises/rhythm': 'rhythm',
   '/exercises/theory': 'theory',
   '/exercises/ear': 'ear',
+  '/exercises/lessons': 'lessons',
 };
 // Views that take one path segment after their route: '/exercises/theory/intervals' → {name: 'theory-lesson', arg: 'intervals'}.
-const ARG_ROUTES = [[/^\/exercises\/theory\/([a-z0-9-]+)$/, 'theory-lesson']];
+const ARG_ROUTES = [[/^\/exercises\/theory\/([a-z0-9-]+)$/, 'theory-lesson'], [/^\/exercises\/lessons\/([a-z0-9-]+)$/, 'lesson']];
 
 export function parseRoute(hash = location.hash) {
   const path = (hash.replace(/^#/, '') || '/').split('?')[0];
