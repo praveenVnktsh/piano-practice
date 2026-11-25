@@ -2,7 +2,7 @@
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
  <work><work-title>Poor Orphan, Op. 68 No. 6 (Album for the Young)</work-title></work>
- <identification><creator type="composer">Robert Schumann</creator><rights>Creative Commons Attribution-ShareAlike 2.5 (https://creativecommons.org/licenses/by-sa/2.5/). Typeset by Philippe Hézaine for the Mutopia Project (https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=655); converted to MusicXML by Piano Practice. This adaptation is licensed under the same licence.</rights><encoding><software>ly2musicxml</software></encoding><source>https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=655</source></identification>
+ <identification><creator type="composer">Robert Schumann</creator><rights>Creative Commons Attribution-ShareAlike 2.5 (https://creativecommons.org/licenses/by-sa/2.5/). Typeset by Philippe Hézaine for the Mutopia Project (https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=687); converted to MusicXML by Piano Practice. This adaptation is licensed under the same licence.</rights><encoding><software>ly2musicxml</software></encoding><source>https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=687</source></identification>
  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
  <part id="P1">
   <measure number="0" implicit="yes">
@@ -71,10 +71,10 @@
    <note><rest/><duration>240</duration><voice>4</voice><type>eighth</type><staff>2</staff></note>
    <backup><duration>960</duration></backup>
    <note><pitch><step>G</step><alter>1</alter><octave>4</octave></pitch><duration>720</duration><voice>5</voice><type>quarter</type><dot/><accidental>sharp</accidental><staff>2</staff></note>
-   <forward><duration>240</duration><voice>5</voice><staff>2</staff></forward>
+   <note print-object="no"><rest/><duration>240</duration><voice>5</voice><type>eighth</type><staff>2</staff></note>
    <backup><duration>960</duration></backup>
    <note><pitch><step>E</step><octave>4</octave></pitch><duration>720</duration><voice>6</voice><type>quarter</type><dot/><staff>2</staff></note>
-   <forward><duration>240</duration><voice>6</voice><staff>2</staff></forward>
+   <note print-object="no"><rest/><duration>240</duration><voice>6</voice><type>eighth</type><staff>2</staff></note>
   </measure>
   <measure number="5">
    <note><pitch><step>A</step><octave>4</octave></pitch><duration>240</duration><voice>1</voice><type>eighth</type><staff>1</staff><beam number="1">begin</beam></note>
@@ -142,7 +142,7 @@
    <note><pitch><step>A</step><octave>4</octave></pitch><duration>240</duration><voice>3</voice><type>eighth</type><staff>1</staff></note>
    <forward><duration>240</duration><voice>3</voice><staff>1</staff></forward>
    <backup><duration>960</duration></backup>
-   <forward><duration>720</duration><voice>4</voice><staff>2</staff></forward>
+   <note print-object="no"><rest/><duration>720</duration><voice>4</voice><type>quarter</type><dot/><staff>2</staff></note>
    <attributes><clef number="2"><sign>F</sign><line>4</line></clef></attributes>
    <note><pitch><step>E</step><octave>3</octave></pitch><duration>120</duration><voice>4</voice><type>16th</type><staff>2</staff><beam number="1">begin</beam><beam number="2">begin</beam></note>
    <note><pitch><step>F</step><alter>1</alter><octave>3</octave></pitch><duration>120</duration><voice>4</voice><type>16th</type><accidental>sharp</accidental><staff>2</staff><beam number="1">end</beam><beam number="2">end</beam></note>
@@ -284,10 +284,10 @@
    <note><rest/><duration>240</duration><voice>4</voice><type>eighth</type><staff>2</staff></note>
    <backup><duration>960</duration></backup>
    <note><pitch><step>G</step><alter>1</alter><octave>4</octave></pitch><duration>720</duration><voice>5</voice><type>quarter</type><dot/><accidental>sharp</accidental><staff>2</staff></note>
-   <forward><duration>240</duration><voice>5</voice><staff>2</staff></forward>
+   <note print-object="no"><rest/><duration>240</duration><voice>5</voice><type>eighth</type><staff>2</staff></note>
    <backup><duration>960</duration></backup>
    <note><pitch><step>E</step><octave>4</octave></pitch><duration>720</duration><voice>6</voice><type>quarter</type><dot/><staff>2</staff></note>
-   <forward><duration>240</duration><voice>6</voice><staff>2</staff></forward>
+   <note print-object="no"><rest/><duration>240</duration><voice>6</voice><type>eighth</type><staff>2</staff></note>
   </measure>
   <measure number="17">
    <note><pitch><step>A</step><octave>4</octave></pitch><duration>240</duration><voice>1</voice><type>eighth</type><staff>1</staff><beam number="1">begin</beam></note>
@@ -355,7 +355,7 @@
    <note><pitch><step>A</step><octave>4</octave></pitch><duration>240</duration><voice>3</voice><type>eighth</type><staff>1</staff></note>
    <forward><duration>240</duration><voice>3</voice><staff>1</staff></forward>
    <backup><duration>960</duration></backup>
-   <forward><duration>720</duration><voice>4</voice><staff>2</staff></forward>
+   <note print-object="no"><rest/><duration>720</duration><voice>4</voice><type>quarter</type><dot/><staff>2</staff></note>
    <attributes><clef number="2"><sign>F</sign><line>4</line></clef></attributes>
    <note><pitch><step>E</step><octave>3</octave></pitch><duration>120</duration><voice>4</voice><type>16th</type><staff>2</staff><beam number="1">begin</beam><beam number="2">begin</beam></note>
    <note><pitch><step>F</step><alter>1</alter><octave>3</octave></pitch><duration>120</duration><voice>4</voice><type>16th</type><accidental>sharp</accidental><staff>2</staff><beam number="1">end</beam><beam number="2">end</beam></note>
@@ -497,10 +497,10 @@
    <note><rest/><duration>240</duration><voice>4</voice><type>eighth</type><staff>2</staff></note>
    <backup><duration>960</duration></backup>
    <note><pitch><step>G</step><alter>1</alter><octave>4</octave></pitch><duration>720</duration><voice>5</voice><type>quarter</type><dot/><accidental>sharp</accidental><staff>2</staff></note>
-   <forward><duration>240</duration><voice>5</voice><staff>2</staff></forward>
+   <note print-object="no"><rest/><duration>240</duration><voice>5</voice><type>eighth</type><staff>2</staff></note>
    <backup><duration>960</duration></backup>
    <note><pitch><step>E</step><octave>4</octave></pitch><duration>720</duration><voice>6</voice><type>quarter</type><dot/><staff>2</staff></note>
-   <forward><duration>240</duration><voice>6</voice><staff>2</staff></forward>
+   <note print-object="no"><rest/><duration>240</duration><voice>6</voice><type>eighth</type><staff>2</staff></note>
   </measure>
   <measure number="29">
    <note><pitch><step>A</step><octave>4</octave></pitch><duration>240</duration><voice>1</voice><type>eighth</type><staff>1</staff><beam number="1">begin</beam></note>

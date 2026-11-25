@@ -181,7 +181,7 @@ export const PERIODS = ['Baroque', 'Classical', 'Romantic', 'Modern'];
 // most of their teaching repertoire sits (Beethoven: Classical; Czerny: Romantic).
 const PERIOD_BY_NAME = {
   Baroque: ['bach', 'petzold', 'handel', 'telemann', 'scarlatti', 'couperin', 'rameau', 'purcell', 'vivaldi', 'pachelbel', 'graupner', 'krieger', 'bohm', 'buxtehude', 'frescobaldi', 'zipoli', 'mattheson', 'stolzel', 'hasse'],
-  Classical: ['mozart', 'haydn', 'clementi', 'kuhlau', 'beethoven', 'diabelli', 'dussek', 'hummel', 'turk', 'gluck', 'cimarosa', 'salieri', 'boccherini', 'latour', 'attwood', 'hook'],
+  Classical: ['mozart', 'haydn', 'clementi', 'kuhlau', 'beethoven', 'diabelli', 'dussek', 'hummel', 'turk', 'gluck', 'cimarosa', 'salieri', 'boccherini', 'latour', 'attwood', 'hook', 'pleyel', 'wanhal', 'vanhal', 'andre', 'muller'],
   Romantic: ['schumann', 'chopin', 'tchaikovsky', 'burgmuller', 'grieg', 'czerny', 'mendelssohn', 'schubert', 'liszt', 'brahms', 'gurlitt', 'heller', 'streabbog', 'lemoine', 'duvernoy', 'kohler', 'reinecke', 'dvorak', 'field', 'gade', 'rebikov', 'gretchaninov', 'franck', 'faure', 'mussorgsky', 'rachmaninoff', 'rachmaninov', 'scriabin', 'elgar', 'albeniz', 'granados', 'chaminade', 'beach', 'lyadov', 'liadov', 'kullak', 'spindler', 'concone', 'bertini', 'loeschhorn', 'schytte', 'ellmenreich', 'lichner', 'hunten', 'pierpont'],
   Modern: ['satie', 'debussy', 'ravel', 'bartok', 'kabalevsky', 'prokofiev', 'shostakovich', 'khachaturian', 'joplin', 'poulenc', 'milhaud', 'stravinsky', 'gershwin', 'copland', 'tansman', 'kurtag', 'glass', 'schoenberg', 'hindemith', 'ibert', 'villa-lobos', 'mompou', 'janacek', 'sibelius', 'nielsen', 'scott'],
 };

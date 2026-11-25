@@ -177,7 +177,8 @@ mounted) and the public site shows one quiet line in Progress instead. sessionSt
 
 - **Catalog entries** may carry `grade` (0–5, ABRSM-like) and `typesetter`. Bundled pieces are
   rebuilt from `songs/repertoire.json` by `tools/build-repertoire.mjs` (pinned Mutopia commit,
-  documented per-bar `fixes`).
+  documented per-bar `fixes`), compared with LilyPond's own MIDI files by
+  `tools/compare-mutopia-midi.mjs`, and checked as the app plays them by `tests/repertoire.test.js`.
 - **`mutopia:` ids** are unverified pieces from `public/songs/mutopia-index.json`, fetched from
   raw.githubusercontent.com and converted in the browser by `tools/ly2musicxml-core.mjs`
   (no Node imports); `catalog.resolveEntry` resolves them (async) via `src/mutopia/convert.js`.

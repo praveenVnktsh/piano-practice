@@ -81,6 +81,14 @@ describe('lilypondToEvents(): rhythm', () => {
     expect(events("{ c'2 d' e'4. f'8 g'4.. a'16 b'1 }").map(e => e[2])).toEqual([2, 2, 1.5, 0.5, 1.75, 0.25, 4]);
   });
 
+  test('a duration may be separated from its note by spaces ("g 2", BWV Anh. 127)', () => {
+    expect(events("\\relative c'' { << { c4 bes2 as4 } \\\\ { as4 g 2 f 4 } >> r 2. s 4 }").map(e => [e[0], e[1], e[2]])).toEqual([
+      ['note', 0, 1], ['note', 0, 1], ['note', 1, 2], ['note', 1, 2], ['note', 3, 1], ['note', 3, 1], ['rest', 4, 3], ['skip', 7, 1],
+    ]);
+    // Not after other words: \repeat volta 2 still repeats twice.
+    expect(pitches("{ \\repeat volta 2 { c'4 } }")).toEqual(['C4', 'C4']);
+  });
+
   test('*n/m scales a duration', () => {
     expect(events("{ c'4*2/3 c'2*3 c'8*1/2 }").map(e => e[2])).toEqual([2 / 3, 6, 0.25]);
   });
@@ -255,6 +263,16 @@ describe('eventsToMusicXML()', () => {
       [2, false],
       [3, false],
     ]);
+  });
+
+  test('cautionary accidentals where Verovio would read the note name’s last accidental in the bar', () => {
+    // Verovio plays a note without <accidental> by the bar's last accidental on that letter (any
+    // octave or staff), so the bass F under an F♯ and a sharp tied into the next bar get one.
+    const xml = xmlOf(String.raw`<< \new Staff { \time 2/4 fis''4 c''4 | c''4 fis'4 ~ | fis'4 f' } \new Staff { \clef bass c4 f | c2 | c2 } >>`);
+    const acc = n => n.match(/<accidental( cautionary="yes")?>([^<]*)</)?.slice(1, 3) ?? null;
+    const byPitch = m => [...measures(xml)[m].body.matchAll(/<note>[\s\S]*?<\/note>/g)].map(([n]) => [notes(n)[0].pitch, acc(n)]);
+    expect(byPitch(0)).toEqual([['F#5', [undefined, 'sharp']], ['C5', null], ['C3', null], ['F3', [' cautionary="yes"', 'natural']]]);
+    expect(byPitch(2)).toEqual([['F#4', [' cautionary="yes"', 'sharp']], ['F4', [undefined, 'natural']], ['C3', null]]);
   });
 
   test('triplets get time-modification, tuplet brackets and beams', () => {
@@ -442,6 +460,20 @@ describe('converter coverage: key, meter and pickup changes', () => {
       [7, 4],
     ]);
   });
+
+  test('a repeated section that opens with its pickup keeps the bar lines on the second time', () => {
+    // BWV Anh. 120 style: the last bar of the section is full (a skip fills the upbeat's beat),
+    // so the replayed pickup is its own short bar again.
+    const full = score("{ \\time 3/4 \\repeat volta 2 { \\partial 4 e'4 | a'2. | gis'2 s4 } c''2. }");
+    expect(measureGrid(full).map(b => [b.start / Q, b.len / Q])).toEqual([
+      [0, 1], [1, 3], [4, 3], [7, 1], [8, 3], [11, 3], [14, 3],
+    ]);
+    // The usual engraving: the section's last bar is short and the replayed pickup completes it.
+    const short = score("{ \\time 3/4 \\repeat volta 2 { \\partial 4 e'4 | a'2. | gis'2 } }");
+    expect(measureGrid(short).map(b => [b.start / Q, b.len / Q])).toEqual([
+      [0, 1], [1, 3], [4, 3], [7, 3], [10, 3],
+    ]);
+  });
 });
 
 describe('converter coverage: repeats', () => {
@@ -491,6 +523,12 @@ describe('converter coverage: repeats', () => {
 describe('converter coverage: pitch entry and structure', () => {
   test('chord repetition q repeats the last chord', () => {
     expect(pitches("\\relative c' { <c e g>4 q q8 q d4 }")).toEqual(['C4 E4 G4', 'C4 E4 G4', 'C4 E4 G4', 'C4 E4 G4', 'D4']);
+  });
+
+  test('\\relative continues after a \\context / \\new block (Gymnopédie No. 1, BWV Anh. 115)', () => {
+    // LilyPond's \relative is lexical: e, is an octave below the e that ends the inner voice.
+    expect(pitches("\\relative c { e2. << \\context Voice = \"x\" { c'4\\rest b e } e,2. >> d2. }")).toEqual(['E3', 'E3', 'B3', 'E4', 'D3']); // in time order
+    expect(pitches("\\relative c'' { \\new Voice { c4 g } e4 }")).toEqual(['C5', 'G4', 'E4']);
   });
 
   test('\\transpose moves pitches by the interval, spelled', () => {
@@ -552,6 +590,10 @@ describe('converter coverage: pitch entry and structure', () => {
       \score { \new PianoStaff << \set PianoStaff.instrumentName = \markup \huge \bold \num
         \new Staff = "up" { c''1 } \new Staff = "down" { c1 } >> }`;
     expect(lilypondToEvents(src).events.map(e => e.staff)).toEqual([1, 2]);
+  });
+
+  test('a markup function with only Scheme arguments ends the markup (Morning Prayer: \\finger \\markup \\tied-lyric #"1~5" b8)', () => {
+    expect(pitches(String.raw`\relative c'' { c4\finger \markup \tied-lyric #"1~5" b8 a c4^\markup \char ##x2014 d }`)).toEqual(['C5', 'B4', 'A4', 'C5', 'D5']);
   });
 
   test('\\context Staff without a name is the current staff; the last clef at the start wins', () => {
