@@ -1965,7 +1965,7 @@ export function createPlayer(root) {
   // ───────── Settings ─────────
   const settingsModal = q('#settings');
   function applySettings(st) {
-    const view = viewHinted ? 'sheet' : VIEWS.includes(st.view) ? st.view : 'sheet'; // score first (DESIGN.md)
+    const view = viewHinted || (VIEWS.includes(st.view) ? st.view : 'sheet'); // score first (DESIGN.md)
     root.dataset.view = view;
     root.dataset.labels = ['none', 'c', 'all'].includes(st.labels) ? st.labels : 'c';
     root.classList.toggle('no-hands', st.hands === false);
@@ -2202,7 +2202,8 @@ export function createPlayer(root) {
   // along, Practise). The hint holds for that piece only and is never saved; the next piece without
   // hints gets the student's own saved choice back. Choosing differently while on the piece saves
   // that choice as usual.
-  // A `view: 'sheet'` hint (sight-reading) turns falling notes into the score for that piece only.
+  // A `view: 'sheet'` hint (sight-reading) turns falling notes into the score for that piece only;
+  // `view: 'falling'` (a MIDI import whose timing was too loose for a clean score) does the reverse.
   let viewHinted = false;
   function applyEntryHints(entry) {
     const st = load();
@@ -2210,7 +2211,8 @@ export function createPlayer(root) {
     const i = entry?.intent === 'practice' || entry?.intent === 'listen' ? entry.intent : st.intent === 'practice' ? 'practice' : 'listen';
     setMode(m, {persist: false});
     setIntent(i, {persist: false});
-    const want = entry?.view === 'sheet' && (!VIEWS.includes(st.view) || st.view === 'falling');
+    const want = entry?.view === 'sheet' && (!VIEWS.includes(st.view) || st.view === 'falling') ? 'sheet'
+      : entry?.view === 'falling' && st.view !== 'falling' ? 'falling' : false;
     if (want !== viewHinted) { viewHinted = want; applySettings(st); }
   }
 

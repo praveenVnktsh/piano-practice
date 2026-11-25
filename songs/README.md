@@ -234,3 +234,33 @@ What doesn't import well:
 - Scores made only of chord symbols or tablature, without notes.
 - Ornaments are played as written in the file; a trill that is only a symbol
   sounds as its main note.
+
+## Importing a MIDI file
+
+Pieces → *Import a score* also takes `.mid` / `.midi` files (drop one on the
+dialog or *Choose a file*). A MIDI file has notes and timing but no notation, so
+the app writes a score for it (`src/midi-file/`), checks it like any other
+import and saves it as MusicXML:
+
+- **Grid.** Notes are snapped to 16th notes; a beat whose notes fit eighth-note
+  triplets better is written as a triplet. Notes crossing a barline are tied,
+  gaps become rests, notes starting and ending together become chords, and a
+  held note under moving notes goes to a second voice.
+- **Hands.** A file with two or more tracks (or channels) is split by track, the
+  higher one being the right hand. A one-track file is split by pitch around
+  middle C; notes near the split go to the hand that last played closest to
+  them, so a melody dipping below C4 stays in the right hand.
+- **Bars, key and tempo** come from the file's time signature, key signature and
+  tempo events (4/4 and an estimated key when they are missing; a default
+  "C major" that the notes clearly don't fit is replaced by the estimate).
+  Sustain pedal becomes *Ped.* marks. Drums are left out.
+- **Quality.** The import scores how well the notes fit the grid. A file
+  written in a sequencer or exported from notation software fits (the sheet is
+  engraved and opens as usual); a recorded performance doesn't, so the piece is
+  marked *best in falling notes* and opens in falling notes. The sheet is still
+  there, as a rough guide.
+
+MIDI imports are labelled *From a MIDI file — unverified* in Pieces: spelling
+(F♯ or G♭), voicing and the hand split are guesses. For real practice from the
+sheet, prefer a MusicXML edition, or open the MIDI file in MuseScore, tidy it,
+and export MusicXML.

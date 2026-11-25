@@ -46,7 +46,9 @@ shape and is optional (404 is fine).
 
 ### Imported songs (IndexedDB, owned by `src/app/`)
 `{id: "import:<uuid>", title, composer?, added: <ms>, data: "<MusicXML or MEI text>"}`
-or `mxlBase64` instead of `data` for compressed MusicXML.
+or `mxlBase64` instead of `data` for compressed MusicXML. A MIDI import (see "MIDI import" below)
+adds `midi: true`, `quality` (0–1) and, when the timing was too loose for a clean score,
+`view: 'falling'` (an entry hint: the player opens it in falling notes, for that piece only).
 
 ### Song loading (`src/song.js`)
 `loadSong({url} | {data} | {mxlBase64}) → Promise<Song>` where
@@ -269,3 +271,23 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   `window.pianoErrors.stats`): the same error at most once a minute (with a repeat `count`), ≤ 10 a minute, ≤ 50 a session,
   and off for the session after the first failed post (production builds have no endpoint).
   `node tools/errors.mjs [-n N] [--follow] [--json] [--clear] [--dir PATH]`.
+
+## MIDI import (Phase 17)
+- **`src/midi-file/parse.mjs`** (pure): `parseMidi(bytes)` reads Standard MIDI Files, format 0 and 1
+  (running status, velocity-0 note-offs, tempo / time / key signature meta events, sustain CC64,
+  SMPTE division) → `{format, division, tracks, notes: [{track, channel, n, vel, tick, end}], tempos,
+  timeSigs, keySigs, pedal, title}`. Throws plain-words errors for files that aren't MIDI.
+- **`src/midi-file/to-musicxml.mjs`** (pure): `midiToMusicXml(bytes | parsed, {title, fileName})` →
+  `{xml, title, quality, fallingPreferred, warnings, stats}`. Quantises to 16ths (12 divisions per
+  quarter; eighth-note triplets per beat in simple meters), splits hands by track (2+ tracks or
+  channels with notes) else by pitch around C4 with hysteresis, up to two voices per staff, ties
+  over barlines, key from the file or a Krumhansl–Kessler estimate, pedal as `<pedal>` directions
+  placed by `<offset>`. `quality` = how well onsets fit the grid; below `FALLING_BELOW` (0.75)
+  `fallingPreferred`. The output is ordinary two-staff MusicXML, played via `loadSong({data})`.
+- **Import flow**: `recordFromFile` (`src/app/imports.js`) converts `.mid`/`.midi` (lazy-loaded
+  module, 4 MB cap) into a record with `data` (MusicXML), `midi`, `quality` and `view: 'falling'`
+  when preferred; the import dialog then checks and saves it like MusicXML. The song store
+  (`/__songs`) keeps `midi`, `quality` and `view` on the entry (the file is `.musicxml`).
+- **Player**: an entry `view: 'falling'` hint shows falling notes for that piece only (like the
+  sight-reading `view: 'sheet'` hint); choosing a view while on it saves the student's choice.
+- Pieces labels them "From a MIDI file — unverified". Guide: songs/README.md "Importing a MIDI file".
