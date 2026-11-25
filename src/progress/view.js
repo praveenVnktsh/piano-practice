@@ -2,6 +2,7 @@
 // technique keys and note-reading trend. mountProgress(container) → {destroy()}.
 import './progress.css';
 import {CHANGE_EVENT, getProgress, progressWhere, saveSettings, startProgressTracking} from './store.js';
+import {getTheme, setTheme, THEMES, THEME_EVENT} from '../app/theme.js';
 import {DEFAULT_GOAL_MIN} from './model.js';
 import {addDays, dayKey, keyStats, lastDays, minutesByDay, readingSummary, readingTrend, songStats, streaks, exerciseStats, STREAK_MIN_MINUTES} from './stats.js';
 
@@ -68,33 +69,39 @@ export function mountProgress(container) {
     const goal = doc.settings?.dailyGoalMin || DEFAULT_GOAL_MIN;
     const hasAny = Object.keys(doc.totals.days).length || Object.keys(doc.totals.songs).length;
     root.replaceChildren(...[
-      header(),
       hasAny ? null : welcome(),
       el('div', {class: 'pg-grid pg-top'}, todayCard(now, goal), streakCard(now), weekCard(now)),
       el('div', {class: 'pg-grid pg-mid'}, barsCard(now, goal), heatmapCard(now)),
       el('div', {class: 'pg-grid pg-bottom'}, songsCard(now), keysCard(now), readingCard()),
+      settingsCard(goal),
     ].filter(Boolean));
   }
 
-  function header() {
-    return el('header', {class: 'pg-head'},
-      el('div', {},
-        el('h2', {text: 'Your progress'}),
-        el('p', {class: 'pg-sub', text: where === 'disk' ? 'Saved on your Mac (.data/progress.json) — shared by every device using this dev server.' : 'Saved in this browser.'}),
-      ),
+  function settingsCard(goal) {
+    const theme = getTheme();
+    return el('section', {class: 'pg-settings', 'aria-labelledby': 'pg-settings-h'},
+      el('h3', {class: 'pg-rule-h', id: 'pg-settings-h', text: 'Settings'}),
+      el('div', {class: 'pg-settings-rows'},
+        el('div', {class: 'pg-setting'},
+          el('p', {class: 'pg-setting-name', text: 'Daily goal'}),
+          ...(editingGoal === 'settings' ? [goalForm(goal)] : [
+            el('p', {class: 'pg-setting-value', text: `${goal} minutes a day`}),
+            el('button', {class: 'text-btn', type: 'button', text: 'Change', onclick: () => editGoal('settings')})])),
+        el('div', {class: 'pg-setting'},
+          el('p', {class: 'pg-setting-name', id: 'pg-theme-l', text: 'Appearance'}),
+          el('div', {class: 'pg-theme', role: 'radiogroup', 'aria-labelledby': 'pg-theme-l'}, THEMES.map(t =>
+            el('button', {type: 'button', role: 'radio', class: 'pg-theme-opt', 'aria-checked': String(t.id === theme), onclick: () => { setTheme(t.id); render(); }}, t.label))))),
+      el('p', {class: 'pg-fine', text: where === 'disk' ? 'Your progress is kept on your Mac (.data/progress.json) and shared by every device using this dev server.' : 'Your progress is kept in this browser.'}),
     );
   }
 
   function welcome() {
     return el('section', {class: 'pg-card pg-welcome'},
-      el('div', {class: 'pg-welcome-icon', html: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>'}),
       el('div', {},
-        el('h3', {text: 'Nothing here yet'}),
-        el('p', {text: 'Practise a song, a scale or a note-reading drill and your minutes, streak and accuracy will show up here.'}),
+        el('h3', {text: 'A blank page'}),
+        el('p', {text: 'Practise a piece, a scale or a note-reading drill and your minutes, streak and accuracy will be written in here.'}),
         el('div', {class: 'pg-actions'},
-          el('a', {class: 'pg-btn primary', href: '#/', text: 'Open a song'}),
-          el('a', {class: 'pg-btn', href: '#/technique', text: 'Technique'}),
-          el('a', {class: 'pg-btn', href: '#/train/reading', text: 'Note reading'}),
+          el('a', {class: 'btn-primary', href: '#/', text: 'Start today’s practice'}),
         ),
       ),
     );
@@ -108,21 +115,29 @@ export function mountProgress(container) {
       <circle cx="54" cy="54" r="${R}" class="pg-ring-bg"/>
       ${frac > 0 ? `<circle cx="54" cy="54" r="${R}" class="pg-ring-fg${frac >= 1 ? ' done' : ''}" stroke-dasharray="${(frac * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 54 54)"/>` : ''}
     </svg>`;
-    const goalCtl = editingGoal
-      ? el('form', {class: 'pg-goal-form', onsubmit: e => { e.preventDefault(); setGoal(+e.target.goal.value); }},
-        el('input', {name: 'goal', type: 'number', min: 1, max: 600, step: 1, value: goal, 'aria-label': 'Daily goal in minutes', class: 'pg-input'}),
-        el('span', {text: 'min'}),
-        el('button', {class: 'pg-btn primary small', type: 'submit', text: 'Save'}),
-        el('button', {class: 'pg-btn small', type: 'button', text: 'Cancel', onclick: () => { editingGoal = false; render(); }}))
-      : el('button', {class: 'pg-link', type: 'button', text: `Daily goal: ${goal} min · change`, onclick: () => { editingGoal = true; render(); root.querySelector('.pg-goal-form input')?.select(); }});
+    const goalCtl = editingGoal === 'today' ? goalForm(goal)
+      : el('button', {class: 'pg-link', type: 'button', text: `Daily goal ${goal} min · change`, onclick: () => editGoal('today')});
     return el('section', {class: 'pg-card pg-today', 'aria-label': 'Today'},
       el('div', {class: 'pg-ring-wrap', html: ring},
         el('div', {class: 'pg-ring-label'}, el('strong', {text: fmtMin(today)}), el('span', {text: `of ${goal} min`}))),
       el('div', {class: 'pg-today-text'},
         el('h3', {text: 'Today'}),
-        el('p', {class: 'pg-big-note', text: frac >= 1 ? 'Goal reached — lovely work!' : today > 0 ? `${fmtMin(goal - today)} min to go` : 'Not started yet'}),
+        el('p', {class: 'pg-big-note', text: frac >= 1 ? 'Goal reached. Well played.' : today > 0 ? `${fmtMin(goal - today)} min to go` : 'Not started yet'}),
         goalCtl),
     );
+  }
+
+  function goalForm(goal) {
+    return el('form', {class: 'pg-goal-form', onsubmit: e => { e.preventDefault(); setGoal(+e.target.goal.value); }},
+      el('input', {name: 'goal', type: 'number', min: 1, max: 600, step: 1, value: goal, 'aria-label': 'Daily goal in minutes', class: 'pg-input'}),
+      el('span', {text: 'min'}),
+      el('button', {class: 'text-btn', type: 'submit', text: 'Save'}),
+      el('button', {class: 'text-btn', type: 'button', text: 'Cancel', onclick: () => { editingGoal = false; render(); }}));
+  }
+  function editGoal(where) {
+    editingGoal = where;
+    render();
+    root.querySelector('.pg-goal-form input')?.select();
   }
 
   async function setGoal(v) {
@@ -135,7 +150,6 @@ export function mountProgress(container) {
   function streakCard(now) {
     const s = streaks(doc, {now});
     return el('section', {class: 'pg-card pg-stat', 'aria-label': 'Streak'},
-      el('div', {class: 'pg-stat-icon flame', html: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-8.5z"/></svg>'}),
       el('div', {},
         el('h3', {text: 'Streak'}),
         el('p', {class: 'pg-big'}, el('strong', {text: String(s.current)}), el('span', {text: s.current === 1 ? ' day' : ' days'})),
@@ -148,7 +162,6 @@ export function mountProgress(container) {
     const total = week.reduce((a, d) => a + d.minutes, 0);
     const active = week.filter(d => d.minutes > 0).length;
     return el('section', {class: 'pg-card pg-stat', 'aria-label': 'Last 7 days'},
-      el('div', {class: 'pg-stat-icon clock', html: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>'}),
       el('div', {},
         el('h3', {text: 'Last 7 days'}),
         el('p', {class: 'pg-big'}, el('strong', {text: fmtDuration(total)})),
@@ -163,16 +176,17 @@ export function mountProgress(container) {
     const bw = (W - pad.l - pad.r) / data.length;
     const y = m => pad.t + (H - pad.t - pad.b) * (1 - m / max);
     const ticks = [0, Math.round(max / 2), Math.round(max)];
-    let svg = ticks.map(t => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}" class="pg-grid-line"/><text x="${pad.l - 6}" y="${(y(t) + 4).toFixed(1)}" class="pg-axis" text-anchor="end">${t}</text>`).join('');
+    let svg = '<defs><pattern id="pg-hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" class="pg-hatch-line"/></pattern></defs>';
+    svg += ticks.map(t => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}" class="pg-grid-line"/><text x="${pad.l - 6}" y="${(y(t) + 4).toFixed(1)}" class="pg-axis" text-anchor="end">${t}</text>`).join('');
     data.forEach((d, i) => {
-      const x = pad.l + i * bw + bw * 0.18, w = bw * 0.64;
-      const segs = [['practice', d.practiceMin], ['listen', d.listenMin], ['trainer', d.trainerMin]];
+      const x = pad.l + i * bw + bw * 0.3, w = bw * 0.4;
+      const segs = [['practice', d.practiceMin], ['listen', d.listenMin], ['reading', d.trainerMin]];
       let top = y(0);
       for (const [cls, m] of segs) {
         if (m <= 0) continue;
         const h = y(0) - y(m);
         top -= h;
-        svg += `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(h, 1).toFixed(1)}" rx="3" class="pg-bar ${cls}"/>`;
+        svg += `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(h, 1).toFixed(1)}" class="pg-bar ${cls}"/>`;
       }
       svg += `<rect x="${(pad.l + i * bw).toFixed(1)}" y="${pad.t}" width="${bw.toFixed(1)}" height="${H - pad.t}" class="pg-hit"><title>${esc(longDay(d.day))}: ${fmtMin(d.minutes)} min</title></rect>`;
       svg += `<text x="${(x + w / 2).toFixed(1)}" y="${H - 6}" class="pg-axis${i === data.length - 1 ? ' today' : ''}" text-anchor="middle">${esc(weekday(d.day))}</text>`;
@@ -180,7 +194,7 @@ export function mountProgress(container) {
     svg += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}" class="pg-goal-line"/><text x="${W - pad.r}" y="${(y(goal) - 4).toFixed(1)}" class="pg-axis goal" text-anchor="end">goal</text>`;
     return el('section', {class: 'pg-card pg-bars-card'},
       el('div', {class: 'pg-card-head'}, el('h3', {text: 'Last 14 days'}),
-        el('div', {class: 'pg-legend'}, legend('practice', 'Practice'), legend('listen', 'Listening'), legend('trainer', 'Note reading'))),
+        el('div', {class: 'pg-legend'}, legend('practice', 'Practice'), legend('listen', 'Listening'), legend('reading', 'Note reading'))),
       el('div', {class: 'pg-chart', role: 'img', 'aria-label': `Minutes practised per day for the last 14 days: ${data.map(d => fmtMin(d.minutes)).join(', ')}`,
         html: `<svg viewBox="0 0 ${W} ${H}" class="pg-bars">${svg}</svg>`}),
     );
@@ -277,6 +291,8 @@ export function mountProgress(container) {
     );
   }
 
+  const onTheme = () => render();
+  window.addEventListener(THEME_EVENT, onTheme);
   const onChange = () => refresh();
   const onFocus = () => { if (document.visibilityState === 'visible') refresh(); };
   window.addEventListener(CHANGE_EVENT, onChange);
@@ -289,6 +305,7 @@ export function mountProgress(container) {
     destroy() {
       destroyed = true;
       window.removeEventListener(CHANGE_EVENT, onChange);
+      window.removeEventListener(THEME_EVENT, onTheme);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
       root.remove();

@@ -38,19 +38,22 @@
 .tr-field { display: grid; gap: 2px; min-width: 0; }
 .tr-field > span { font-variant: all-small-caps; letter-spacing: .06em; font-weight: 600; font-size: 14px; color: var(--tr-soft); }
 .tr-field select {
-  height: 40px; min-width: 0; max-width: 100%; padding: 0 30px 0 10px;
+  height: 44px; min-width: 0; max-width: 100%; padding: 0 30px 0 10px;
   border-radius: var(--radius-control, 6px); border: 1px solid var(--rule-strong, rgba(29, 27, 24, .28));
   background: var(--tr-paper); color: var(--tr-ink); font: 500 15px var(--tr-ui);
 }
 .tr-field select option { background: var(--tr-paper); color: var(--tr-ink); }
 .tr-toggles { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
 .tr-toggle {
-  height: 36px; padding: 0 14px; border-radius: 99px;
-  border: 1px solid var(--tr-rule); background: transparent; color: var(--tr-soft);
-  font: 500 14px var(--tr-ui); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 12px 0 2px; border-radius: 0;
+  border: 0; background: transparent; color: var(--tr-soft);
+  font: 600 14px var(--tr-ui); font-variant: all-small-caps; letter-spacing: .07em; cursor: pointer;
   transition: background var(--dur, 200ms) var(--ease, ease), color var(--dur, 200ms), border-color var(--dur, 200ms);
 }
-.tr-toggle[aria-pressed="true"] { color: var(--tr-ink); border-color: var(--tr-brass); background: var(--brass-soft, rgba(168, 131, 63, .16)); }
+.tr-toggle::before { content: ""; width: 13px; height: 13px; border: 1px solid var(--rule-strong, rgba(29, 27, 24, .28)); border-radius: 2px; flex: none; }
+.tr-toggle[aria-pressed="true"] { color: var(--tr-ink); }
+.tr-toggle[aria-pressed="true"]::before { background: var(--tr-ink) linear-gradient(var(--tr-ink), var(--tr-ink)); border-color: var(--tr-ink); box-shadow: inset 0 0 0 2px var(--tr-paper); }
 .tr-toggle:focus-visible, .tr-btn:focus-visible, .tr-field select:focus-visible, .tr-key:focus-visible { outline: 2px solid var(--tr-brass); outline-offset: 2px; }
 
 /* ───────── Stats ───────── */
@@ -99,7 +102,7 @@
 .tr-res-grid div { display: grid; }
 .tr-res-grid b { font-family: var(--tr-display); font-weight: 600; font-size: 28px; font-variant-numeric: tabular-nums lining-nums; }
 .tr-res-missed { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin: 14px 0 0; font-size: 14px; color: var(--tr-soft); }
-.tr-res-missed span { padding: 2px 10px; border-radius: 99px; background: var(--oxblood-soft, rgba(142, 59, 63, .14)); color: var(--tr-ink); font-weight: 500; }
+.tr-res-missed span { padding: 0 4px; color: var(--tr-ink); font: 500 18px var(--tr-display); text-decoration: underline; text-decoration-color: var(--tr-oxblood); text-decoration-thickness: 1px; text-underline-offset: 4px; }
 .tr-res-missed small { margin-left: 4px; opacity: .7; }
 .tr-res-verdict { margin: 14px 0 16px; font-family: var(--font-text, Georgia, serif); font-style: italic; font-size: 18px; }
 .tr-res-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
@@ -158,7 +161,7 @@
   .tr-kb-note { display: none; }
   .tr-stage { min-height: 200px; }
   .tr-toggles { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--tr-gutter)); padding: 0 var(--tr-gutter); }
-  .tr-toggle { flex: none; height: 34px; padding: 0 11px; font-size: 13px; }
+  .tr-toggle { flex: none; padding: 0 10px 0 2px; font-size: 13px; }
   .tr-res-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-height: 760px) and (orientation: landscape) {
@@ -172,5 +175,5 @@
 /* Inside the app's view host (src/app/index.js): fill the scrolling body
    exactly, and let the host's title bar carry the "Note reading" heading. */
 .view-root:has(> .trainer) { height: 100%; }
-.view-body .trainer { padding-top: 4px; }
+.view-body .trainer { --tr-gutter: var(--page-pad, 24px); max-width: var(--page-w, 1080px); margin: 0 auto; padding-top: 14px; }
 .view-body .tr-title h1 { display: none; }

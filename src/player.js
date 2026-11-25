@@ -2,15 +2,20 @@ import {passage, FollowNotes, handGroups, handFilter, TimedGrader, TIMING, beats
 import {createHighway} from './highway.js';
 import {createPiano} from './piano.js';
 import {onRelayMidi, onRelayStatus, relayAvailable} from './midi-relay.js';
+import {setTheme as setAppTheme, getTheme, THEME_EVENT} from './app/theme.js';
 
 const BLACK = [1, 3, 6, 8, 10];
 const NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const name = n => NAMES[n % 12] + (Math.floor(n / 12) - 1);
-const PRAISE = ['Great!', 'Nice!', 'Perfect!', 'Yes!', 'Awesome!'];
+const PRAISE = ['Clean.', 'Well played.', 'Good.', 'Yes.', 'Lovely.'];
 const EPS = 1e-6;
 const LOOKAHEAD_MS = 150, TICK_MS = 25; // audio scheduler
 const HANDS = ['left', 'both', 'right'];
 const GRADE_TEXT = {perfect: 'Perfect', early: 'Early', late: 'Late', miss: 'Miss'};
+const THEME_KEY = 'piano-practice.theme'; // owned by src/app/theme.js; watched for other tabs
+// Italian tempo marking for a quarter-note BPM, shown under the tempo slider.
+const TEMPO_TERMS = [[40, 'Grave'], [60, 'Largo'], [66, 'Larghetto'], [76, 'Adagio'], [108, 'Andante'], [120, 'Moderato'], [156, 'Allegro'], [176, 'Vivace'], [Infinity, 'Presto']];
+const tempoTerm = bpm => TEMPO_TERMS.find(([max]) => bpm < max)[1];
 const ZOOM_MIN = .6, ZOOM_MAX = 3;
 const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, {detail}));
 
@@ -51,6 +56,7 @@ export function createPlayer(root) {
   // Practice options: mode 'wait' | 'timed', hands 'both' | 'right' | 'left'.
   let mode = 'wait', hands = 'both', metronome = false, metroInWait = false, speedUp = false, zoom = 1;
   let practiceMode = 'wait';     // mode of the running practice
+  let intent = 'listen';         // what play starts: 'listen' | 'practice'
   let clock = null;              // transport for Listen and Play along
   let grader = null;             // play-along grading
   const grades = new Map();      // event id -> perfect | early | late | miss
@@ -81,23 +87,30 @@ export function createPlayer(root) {
     key.classList.remove(cls); void key.offsetWidth; key.classList.add(cls);
     setTimeout(() => key.classList.remove(cls), 450);
   }
+  // One primary control: the Listen | Practise choice plus a single play/pause.
   function setButtons() {
-    q('#um-play span').textContent = playing ? 'Pause' : 'Listen';
-    q('#um-play').classList.toggle('is-playing', playing);
-    q('#um-play svg').innerHTML = playing ? '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>' : '<path d="M7 4.5v15l12-7.5z"/>';
-    q('#um-practice span').textContent = practicing ? 'Restart' : mode === 'timed' ? 'Play along' : 'Practice';
-    q('#um-practice').classList.toggle('is-active', practicing);
+    const busy = playing || practicing;
+    const btn = q('#um-play');
+    btn.classList.toggle('is-playing', busy);
+    btn.querySelector('svg').innerHTML = busy ? '<path d="M8 5.5h2.6v13H8zM13.4 5.5H16v13h-2.6z"/>' : '<path d="M8 5.5v13l10.5-6.5z"/>';
+    const what = intent === 'practice' ? (mode === 'timed' ? 'Play along' : 'Practise') : 'Listen';
+    btn.setAttribute('aria-label', playing ? 'Pause' : practicing ? 'Stop practising' : what);
+    btn.title = `${playing ? 'Pause' : practicing ? 'Stop' : what} (Space)`;
+    q('#um-listen').setAttribute('aria-checked', String(intent === 'listen'));
+    q('#um-practice').setAttribute('aria-checked', String(intent === 'practice'));
+    root.dataset.intent = intent;
     root.classList.toggle('practicing', practicing);
+    root.classList.toggle('playing', playing);
     root.classList.toggle('timed', practicing && practiceMode === 'timed');
   }
   // "Measure 12", "Pickup", "Measure 3 (repeat)".
   const shortName = m => m.label + (m.visit > 1 ? ' (repeat)' : '');
-  const measureName = m => m.pickup ? 'Pickup' : 'Measure ' + shortName(m);
+  const measureName = m => m.pickup ? 'Pickup' : 'Bar ' + shortName(m);
   const sectionLabel = () => {
     const a = song.measures[range.first], b = song.measures[range.last];
     if (a === b) return measureName(a);
-    if (a.pickup) return `Pickup – measure ${shortName(b)}`;
-    return `Measures ${shortName(a)}–${shortName(b)}`;
+    if (a.pickup) return `Pickup – bar ${shortName(b)}`;
+    return `Bars ${shortName(a)}–${shortName(b)}`;
   };
 
   // ───────── Keyboard ─────────
@@ -298,7 +311,6 @@ export function createPlayer(root) {
     q('#um-measure').textContent = measureName(m);
     q('#um-detail').textContent = att.length ? att.map(e => name(e.n)).join(' + ') : '';
     q('#lesson-subtitle').textContent = sectionLabel();
-    q('#section-btn-label').textContent = sectionLabel();
     const span = range.end - range.start || 1;
     q('#um-progress').style.width = `${(finished ? 1 : (pos - range.start) / span) * 100}%`;
     if (sound) playChord(att, mi);
@@ -352,7 +364,9 @@ export function createPlayer(root) {
       emit('practice:session', {songId: current.id, title: current.title || song?.title || '', kind, durationMs, at: Date.now()});
   }
 
-  const promptIdle = () => (mode === 'timed' ? 'Press <b>Play along</b> and keep time, or <b>Listen</b> first' : 'Press <b>Practice</b> and play along, or <b>Listen</b> first');
+  const promptIdle = () => (intent === 'listen' ? 'Press <b class="glyph">▶</b> to hear the passage, then choose <b>Practise</b>'
+    : mode === 'timed' ? 'Press <b class="glyph">▶</b> · a bar of count-in, then play in time'
+    : 'Press <b class="glyph">▶</b> · the music waits for each note');
 
   function stopAll() {
     if (scrub) { scrub = null; clearTimeout(wheelTimer); root.classList.remove('scrubbing'); }
@@ -408,7 +422,7 @@ export function createPlayer(root) {
       if (b.count || metronome) piano.click(delay(b.t), b.accent);
     }
     // Visual position: the latest note onset passed.
-    if (p < range.start - EPS) {
+    if (p < range.start - EPS && clock.kind === 'timed') {
       const counted = clock.beats.filter(b => b.count && b.t <= p + EPS);
       setPrompt(counted.length ? `Count in · <b>${counted.at(-1).beat + 1}</b>` : 'Get ready…');
       renderBeats(p);
@@ -443,20 +457,38 @@ export function createPlayer(root) {
     stopClock();
     if (kind === 'listen') {
       playing = false; finished = true; pos = range.end; endSession(); setButtons(); draw();
-      setStatus('Finished'); setPrompt('Nice listening! Now press <b>Practice</b> and play it yourself');
+      setStatus('Finished'); setPrompt('Now choose <b>Practise</b> and play it yourself');
     } else {
       practicing = false; grader = null; finished = true; pos = range.end; endSession(); setButtons(); draw();
       setStatus('Finished'); showResults(lastResult);
     }
   }
 
+  function pauseListen() {
+    const p = livePos();
+    stopAll(); pos = points.filter(x => x <= p + EPS).at(-1) ?? range.start; draw();
+    setStatus('Paused'); setPrompt('Paused · press <b class="glyph">▶</b> to continue');
+  }
+  // The single play/pause: starts or stops whatever Listen | Practise has chosen.
   q('#um-play').onclick = () => {
     if (!song) return;
-    if (playing) {
-      const p = livePos();
-      stopAll(); pos = points.filter(x => x <= p + EPS).at(-1) ?? range.start; draw();
-      setStatus('Paused'); setPrompt('Paused · press <b>Listen</b> to continue'); return;
-    }
+    if (playing) return pauseListen();
+    if (practicing) { stopAll(); draw(); setStatus('Stopped'); setPrompt('Stopped · press <b class="glyph">▶</b> to start the passage again'); return; }
+    if (intent === 'practice') startPractice(); else startListen();
+  };
+  function setIntent(v, {start = false} = {}) {
+    if (v !== 'listen' && v !== 'practice') return;
+    const busy = playing || practicing, changed = v !== intent;
+    intent = v; save({intent});
+    if (changed && busy) { stopAll(); start = true; }
+    setButtons();
+    if (start && song) { if (v === 'practice') startPractice(); else startListen(); }
+    else if (changed && song) setPrompt(promptIdle());
+  }
+  q('#um-listen').onclick = () => setIntent('listen');
+  q('#um-practice').onclick = () => setIntent('practice');
+  function startListen() {
+    if (!song || playing) return;
     hideResults();
     const wasPracticing = practicing; stopAll();
     let i = points.findIndex(p => p >= pos - EPS);
@@ -466,7 +498,7 @@ export function createPlayer(root) {
     setStatus(`Listening · ${sectionLabel()}${loop ? ' · looping' : ''}`); setPrompt('Listen and watch the notes');
     pos = points[i] ?? range.start; draw();
     startClock('listen', pos);
-  };
+  }
 
   // ───────── Results (practice:result) ─────────
   let lastResult = null;
@@ -483,7 +515,7 @@ export function createPlayer(root) {
     r.tempoFrom = detail.tempo; r.tempoTo = detail.tempo;
     if (speedUp) {
       const next = speedUpTempo(detail.tempo, targetTempo(), r.accuracy);
-      if (next !== detail.tempo) { setTempoValue(next); r.tempoTo = tempo(); flash(`Tempo ${r.tempoTo}`); }
+      if (next !== detail.tempo) { setTempoValue(next); r.tempoTo = tempo(); flash(`♩ = ${r.tempoTo}`); }
     }
     misses = new MissLog(50);
     passStartedAt = performance.now();
@@ -557,7 +589,7 @@ export function createPlayer(root) {
     if (group.notes.includes(n)) for (const e of group.events.filter(e => e.n === n)) matched.add(e.id);
     const result = follow.attack(n);
     if (result === 'wrong') {
-      wrongCount++; flashKey(n, 'wrong'); flash('Try again', 'bad');
+      wrongCount++; flashKey(n, 'wrong'); flash('Not quite.', 'bad');
       misses.add(group.t, measureLabelAt(group.t), {expected: group.notes.filter(x => !follow.collected.has(x)).map(name), played: [name(n)]});
       return;
     }
@@ -578,14 +610,14 @@ export function createPlayer(root) {
     const r = {right: rightCount, wrong: wrongCount, accuracy: total ? Math.round(100 * rightCount / total) : 100, timing: null};
     emitResult(r);
     if (loop) {
-      flash(r.tempoTo !== r.tempoFrom ? `Again · ${r.tempoTo} BPM` : 'Again!');
+      flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : 'Once more.');
       follow.reset(); autoPlayed = new Set(); matched.clear(); rightCount = 0; wrongCount = 0;
       pos = follow.current.t; draw(); practicePrompt(); runAuto(true);
       return;
     }
     practicing = false; follow = null; finished = true; pos = range.end;
     refreshFreeClick(); endSession(); setButtons(); draw();
-    setPrompt('Section complete'); setStatus('Finished'); showResults(r);
+    setPrompt('Passage complete'); setStatus('Finished'); showResults(r);
   }
 
   // Metronome while waiting: a steady pulse at the tempo, in the current bar's meter.
@@ -614,7 +646,7 @@ export function createPlayer(root) {
     newGrader();
     practicing = true; passStartedAt = performance.now(); beginSession('practice');
     pos = points[0] ?? range.start; setButtons(); draw();
-    setStatus(`Play along · ${sectionLabel()} · ${tempo()} BPM`);
+    setStatus(`Play along · ${sectionLabel()} · ♩ = ${tempo()}`);
     startClock('timed', range.start, {count: true});
   }
   function gradeNote(note, grade) {
@@ -640,7 +672,7 @@ export function createPlayer(root) {
   function timedPrompt() {
     if (!grader) return;
     const c = grader.counts;
-    setPrompt(`<b class="rh">${c.perfect}</b> perfect · ${c.early} early · ${c.late} late · <b class="miss">${c.miss}</b> missed`);
+    setPrompt(`<b class="ok">${c.perfect}</b> on time · ${c.early} early · ${c.late} late · <b class="miss">${c.miss}</b> missed`);
   }
   function finishTimedPass() {
     grader.finish().forEach(note => gradeNote(note, 'miss'));
@@ -648,31 +680,36 @@ export function createPlayer(root) {
     const r = {...s, counts: {...grader.counts}};
     emitResult(r);
     if (!loop) return;
-    flash(r.tempoTo !== r.tempoFrom ? `Again · ${r.tempoTo} BPM` : `${r.accuracy}% · again!`);
+    flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : `${r.accuracy}% · once more.`);
   }
 
+  // The results card reads like a programme note: one large figure, a fine table.
+  const VERDICTS = [[98, 'Clean.'], [90, 'Well played.'], [75, 'Nearly there.'], [50, 'Taking shape.'], [0, 'Slowly, then.']];
   function showResults(r = lastResult) {
     if (!r) return;
     const acc = r.accuracy;
-    const stars = acc >= 90 ? 3 : acc >= 70 ? 2 : 1;
-    q('#um-stars').querySelectorAll('span').forEach((s, i) => s.classList.toggle('on', i < stars));
-    q('#complete-title').textContent = `${sectionLabel()} complete!`;
-    const speed = r.tempoTo !== r.tempoFrom ? ` · tempo up to ${r.tempoTo} BPM` : '';
+    const handsText = {both: 'both hands', right: 'right hand', left: 'left hand'}[hands];
+    q('#um-complete-kicker').textContent = `${sectionLabel()} · ${practiceMode === 'timed' ? 'Play along' : 'Wait'} · ${handsText}`;
+    q('#um-acc').textContent = acc;
+    q('#complete-title').textContent = VERDICTS.find(([min]) => acc >= min)[1];
+    const speed = r.tempoTo !== r.tempoFrom ? ` Tempo raised to ♩ = ${r.tempoTo}.` : ` At ♩ = ${r.tempoFrom}.`;
     const timing = q('#um-complete-timing');
     if (r.counts) {
-      q('#um-complete-text').textContent = `${acc}% accuracy · ${r.right} hit · ${r.missed} missed · ${r.extra} wrong notes${speed}`;
-      const c = r.counts;
-      timing.innerHTML = [['perfect', 'Perfect', c.perfect], ['early', 'Early', c.early], ['late', 'Late', c.late], ['miss', 'Miss', c.miss]]
-        .map(([k, label, v]) => `<span class="timing-chip t-${k}"><b>${v}</b> ${label}</span>`).join('');
+      q('#um-complete-text').textContent = `${r.right} notes played, ${r.missed} missed, ${r.extra} stray.${speed}`;
+      const c = r.counts, total = Math.max(1, c.perfect + c.early + c.late + c.miss);
+      timing.innerHTML = '<caption class="sr-only">Timing</caption>' + [['perfect', 'On time', c.perfect], ['early', 'Early', c.early], ['late', 'Late', c.late], ['miss', 'Missed', c.miss]]
+        .map(([k, label, v]) => `<tr class="t-${k}"><th scope="row">${label}</th><td class="t-bar"><i style="width:${(100 * v / total).toFixed(1)}%"></i></td><td class="t-num">${v}</td></tr>`).join('');
       timing.hidden = false;
     } else {
-      q('#um-complete-text').textContent = `${acc}% accuracy · ${r.right} correct · ${r.wrong} missed${speed}`;
+      q('#um-complete-text').textContent = `${r.right} notes found, ${r.wrong} wrong.${speed}`;
       timing.hidden = true;
     }
+    const last = range.last >= song.measures.length - 1;
+    q('#um-complete-next').disabled = last;
     q('#um-complete').hidden = false;
+    q('#um-again').focus({preventScroll: true});
   }
   function hideResults() { q('#um-complete').hidden = true; }
-  q('#um-practice').onclick = startPractice;
   q('#um-again').onclick = startPractice;
   q('#um-complete-close').onclick = hideResults;
   q('#um-complete-next').onclick = () => {
@@ -711,13 +748,18 @@ export function createPlayer(root) {
   q('#um-prev').onclick = () => stepBy(-1);
   q('#um-stop').onclick = () => {
     if (!song) return;
+    if (practicing) return startPractice(); // practising: begin the passage again
     stopAll(); finished = false; matched.clear(); grades.clear(); pos = points[0] ?? range.start; highway.jump(); draw();
     setStatus(sectionLabel()); setPrompt(promptIdle());
   };
   q('#um-prev-measure').onclick = () => { if (song) seek(song.measures[Math.max(range.first, measureIndexAt(pos) - 1)].start); };
   q('#um-next-measure').onclick = () => { if (song) seek(song.measures[Math.min(range.last, measureIndexAt(pos) + 1)].start); };
   function showTempo() {
-    q('#um-bpm').textContent = tempo() + ' BPM';
+    const bpm = tempo();
+    q('#um-bpm').textContent = bpm;
+    q('#tempo-pop-value').textContent = bpm;
+    q('#tempo-term').textContent = tempoTerm(bpm);
+    q('#tempo-btn').setAttribute('aria-label', `Tempo: ${bpm} beats per minute${metronome ? ', metronome on' : ''}`);
     const target = q('#um-target');
     target.hidden = !speedUp || !song;
     if (song) target.textContent = `→ ${targetTempo()}`;
@@ -730,6 +772,8 @@ export function createPlayer(root) {
     showTempo(); saveSong({tempo: tempo()});
   }
   q('#um-tempo').oninput = () => setTempoValue(tempo());
+  q('#tempo-down').onclick = () => setTempoValue(tempo() - 2);
+  q('#tempo-up').onclick = () => setTempoValue(tempo() + 2);
   // Click a measure on the progress bar to jump there.
   q('#progress').addEventListener('click', e => {
     if (!song) return;
@@ -796,9 +840,9 @@ export function createPlayer(root) {
     });
   }
   q('#section-bar').addEventListener('submit', e => e.preventDefault());
-  q('#section-btn').onclick = () => { secFirst.focus(); };
   q('#sec-loop').onchange = () => setLoop(q('#sec-loop').checked);
-  q('#section-bar').querySelectorAll('[data-preset]').forEach(btn => btn.onclick = () => {
+  root.querySelectorAll('[data-preset]').forEach(btn => btn.onclick = () => {
+    closePopovers();
     if (!song) return;
     const here = measureIndexAt(pos), n = song.measures.length, len = range.last - range.first;
     const [a, b] = {
@@ -815,17 +859,17 @@ export function createPlayer(root) {
     if (e.target.closest?.('input,select,textarea,[contenteditable]')) return;
     if (!root.isConnected || !root.getClientRects().length) return; // player not on screen
     if (e.code === 'Space') { e.preventDefault(); q('#um-play').click(); }
-    else if (e.key === 'p' || e.key === 'P') q('#um-practice').click();
+    else if (e.key === 'p' || e.key === 'P') { setIntent('practice'); startPractice(); }
     else if (e.key === 'l' || e.key === 'L') { q('#sec-loop').click(); }
-    else if (e.key === 'm' || e.key === 'M') q('#mute-btn').click();
-    else if (e.key === 'n' || e.key === 'N') q('#names-btn').click();
+    else if (e.key === 'm' || e.key === 'M') setMuted(!piano.muted);
+    else if (e.key === 'n' || e.key === 'N') setNames(!root.classList.contains('show-names'));
     else if (e.key === 'k' || e.key === 'K') setMetronome(!metronome);
     else if (e.key === 'h' || e.key === 'H') setHands(HANDS[(HANDS.indexOf(hands) + 1) % HANDS.length]);
     else if (e.key === '+' || e.key === '=') setZoom(zoom * 1.2);
     else if (e.key === '-' || e.key === '_') setZoom(zoom / 1.2);
     else if (e.key === 'ArrowRight') e.shiftKey ? q('#um-next-measure').click() : stepBy(1);
     else if (e.key === 'ArrowLeft') e.shiftKey ? q('#um-prev-measure').click() : stepBy(-1);
-    else if (e.key === 'Escape') { hideResults(); settingsModal.hidden = true; }
+    else if (e.key === 'Escape') { if (!closePopovers()) { hideResults(); settingsModal.hidden = true; } }
   });
 
   // ───────── MIDI ─────────
@@ -839,11 +883,12 @@ export function createPlayer(root) {
     const notes = [...new Set([...midiHeld.values()].flatMap(s => [...s]))];
     root.querySelectorAll('.pkey').forEach(b => b.classList.toggle('midi-down', notes.includes(+b.dataset.note)));
     q('#um-midi-notes').textContent = notes.length ? 'You: ' + notes.sort((a, b) => a - b).map(name).join(' + ')
-      : midiAccess || relay.bridge ? 'Piano ready' : 'Tap the keys or connect a MIDI piano';
+      : midiAccess || relay.bridge ? 'Piano ready' : 'Tap the keys or connect a piano';
   }
   function setMidiChip(text, state) {
     q('#um-midi span:last-child').textContent = text;
     q('#midi-chip').dataset.state = state;
+    root.dataset.midi = state;
     q('#um-midi-status').textContent = text;
   }
   function refreshChip() {
@@ -876,7 +921,7 @@ export function createPlayer(root) {
     clearHeld('relay:'); refreshChip(); renderMidi();
   });
   function wireMidi() {
-    if (practicing) { stopAll(); setPrompt('MIDI devices changed · press <b>Practice</b> to restart'); }
+    if (practicing) { stopAll(); setPrompt('MIDI devices changed · press <b class="glyph">▶</b> to begin again'); }
     const select = q('#um-midi-device');
     const selected = select.value;
     const inputs = localInputs();
@@ -944,9 +989,9 @@ export function createPlayer(root) {
     if (playing) {
       const p = livePos();
       stopAll(); pos = points.filter(x => x <= p + EPS).at(-1) ?? range.start;
-      setStatus('Paused'); setPrompt('Paused · press <b>Listen</b> to continue');
+      setStatus('Paused'); setPrompt('Paused · press <b class="glyph">▶</b> to continue');
     } else if (practicing && practiceMode === 'timed') {
-      stopAll(); setStatus('Stopped'); setPrompt('Press <b>Play along</b> to start again');
+      stopAll(); setStatus('Stopped'); setPrompt('Stopped · press <b class="glyph">▶</b> to start again');
     }
     hideResults();
     const from = finished ? range.end : livePos();
@@ -1150,19 +1195,63 @@ export function createPlayer(root) {
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopAll(); });
 
   q('#fullscreen-btn').onclick = () => {
+    closePopovers();
     if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen?.().catch(() => {});
   };
+  const showFullscreen = () => { q('#fullscreen-btn span').textContent = document.fullscreenElement ? 'Leave full screen' : 'Full screen'; };
+  document.addEventListener('fullscreenchange', showFullscreen);
 
+  // "← Back" (#player-back) belongs to the shell: it fills the button and handles the click.
+
+  // ───────── Popovers (tempo, ⋯, bar presets) ─────────
+  // One open at a time; outside click or Escape closes; anchored to their button.
+  const POPS = [['#tempo-btn', '#tempo-pop'], ['#more-btn', '#more-menu'], ['#section-btn', '#bars-pop']].map(([b, p]) => [q(b), q(p)]);
+  function closePopovers() {
+    let closed = false;
+    for (const [btn, pop] of POPS) if (!pop.hidden) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); closed = true; }
+    return closed;
+  }
+  for (const [btn, pop] of POPS) {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = pop.hidden;
+      closePopovers();
+      if (!open) return;
+      pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
+      // Keep it on screen on narrow layouts.
+      pop.style.removeProperty('--pop-shift');
+      const r = pop.getBoundingClientRect(), pad = 8;
+      const shift = r.left < pad ? pad - r.left : r.right > innerWidth - pad ? innerWidth - pad - r.right : 0;
+      if (shift) pop.style.setProperty('--pop-shift', shift + 'px');
+    });
+  }
+  document.addEventListener('pointerdown', e => {
+    if (POPS.some(([btn, pop]) => !pop.hidden && (pop.contains(e.target) || btn.contains(e.target)))) return;
+    closePopovers();
+  }, true);
+
+  // ───────── Theme (shared with the shell: localStorage + data-theme on <html>) ─────────
+  function showTheme() {
+    const attr = document.documentElement.dataset.theme;
+    const t = attr === 'light' || attr === 'dark' ? attr : 'auto';
+    const input = q(`input[name="menu-theme"][value="${t}"]`); if (input) input.checked = true;
+    highway.refreshColors();
+  }
+  const setTheme = t => { setAppTheme(t); showTheme(); };
+  root.querySelectorAll('input[name="menu-theme"]').forEach(i => i.onchange = () => setTheme(i.value));
+  new MutationObserver(showTheme).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+  window.addEventListener('storage', e => { if (e.key === THEME_KEY) setTheme(getTheme()); });
+  window.addEventListener(THEME_EVENT, showTheme);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => highway.refreshColors());
 
   // ───────── Sound ─────────
   function setMuted(v) {
     piano.setMuted(v); save({muted: !!v});
     root.classList.toggle('muted', !!v);
-    q('#mute-btn').setAttribute('aria-pressed', String(!!v));
-    q('#mute-btn').title = v ? 'Unmute (M)' : 'Mute (M)';
+    q('#mute-btn').checked = !v;
   }
-  q('#mute-btn').onclick = () => setMuted(!piano.muted);
+  q('#mute-btn').onchange = () => setMuted(!q('#mute-btn').checked);
 
   // ───────── Settings ─────────
   const settingsModal = q('#settings');
@@ -1172,11 +1261,12 @@ export function createPlayer(root) {
     root.dataset.labels = ['none', 'c', 'all'].includes(st.labels) ? st.labels : 'c';
     root.classList.toggle('no-hands', st.hands === false);
     settingsModal.querySelector(`input[name="view"][value="${view}"]`).checked = true;
+    q(`input[name="menu-view"][value="${view}"]`).checked = true;
     settingsModal.querySelector(`input[name="labels"][value="${root.dataset.labels}"]`).checked = true;
     q('#set-hands').checked = st.hands !== false;
     root.classList.toggle('show-names', !!st.names);
     q('#set-names').checked = !!st.names;
-    q('#names-btn').setAttribute('aria-pressed', String(!!st.names));
+    q('#names-btn').checked = !!st.names;
     root.dataset.playhead = st.playhead === 'left' ? 'left' : 'center';
     settingsModal.querySelector(`input[name="playhead"][value="${root.dataset.playhead}"]`).checked = true;
     root.dataset.pedal = st.pedal === false ? 'off' : 'on';
@@ -1188,7 +1278,7 @@ export function createPlayer(root) {
     loop = v; save({loop}); root.classList.toggle('looping', loop);
     q('#sec-loop').checked = loop; q('#set-loop').checked = loop;
   }
-  q('#settings-btn').onclick = () => { settingsModal.hidden = false; };
+  q('#settings-btn').onclick = () => { closePopovers(); settingsModal.hidden = false; };
   q('#settings-close').onclick = () => { settingsModal.hidden = true; };
   settingsModal.addEventListener('click', e => { if (e.target === settingsModal) settingsModal.hidden = true; });
   settingsModal.querySelectorAll('input[name="view"],input[name="labels"],input[name="playhead"]').forEach(input => input.onchange = () => {
@@ -1198,7 +1288,8 @@ export function createPlayer(root) {
   q('#set-loop').onchange = () => setLoop(q('#set-loop').checked);
   const setNames = v => { save({names: !!v}); applySettings(load()); };
   q('#set-names').onchange = () => setNames(q('#set-names').checked);
-  q('#names-btn').onclick = () => setNames(!root.classList.contains('show-names'));
+  q('#names-btn').onchange = () => setNames(q('#names-btn').checked);
+  root.querySelectorAll('input[name="menu-view"]').forEach(input => input.onchange = () => { save({view: input.value}); applySettings(load()); draw(); });
   q('#set-pedal').onchange = () => { save({pedal: q('#set-pedal').checked}); applySettings(load()); };
 
   // ───────── Practice options ─────────
@@ -1225,9 +1316,11 @@ export function createPlayer(root) {
   }
   function setMetronome(v) {
     metronome = !!v; save({metronome});
-    q('#metro-btn').setAttribute('aria-pressed', String(metronome));
+    q('#metro-btn').checked = metronome;
+    q('#menu-metro').checked = metronome;
     q('#set-metro').checked = metronome;
     root.classList.toggle('metro-on', metronome);
+    showTempo();
     if (!metronome) piano.stopClicks();
     refreshFreeClick();
   }
@@ -1247,7 +1340,8 @@ export function createPlayer(root) {
   root.querySelectorAll('input[name="sec-hands"]').forEach(i => i.onchange = () => setHands(i.value));
   root.querySelectorAll('input[name="sec-mode"]').forEach(i => i.onchange = () => setMode(i.value));
   q('#sec-speed').onchange = () => setSpeedUp(q('#sec-speed').checked);
-  q('#metro-btn').onclick = () => setMetronome(!metronome);
+  q('#metro-btn').onchange = () => setMetronome(q('#metro-btn').checked);
+  q('#menu-metro').onchange = () => setMetronome(q('#menu-metro').checked);
   q('#set-metro').onchange = () => setMetronome(q('#set-metro').checked);
   q('#set-metro-wait').onchange = () => { metroInWait = q('#set-metro-wait').checked; save({metroInWait}); refreshFreeClick(); };
   q('#set-metro-vol').oninput = () => { const v = +q('#set-metro-vol').value / 100; piano.setClickVolume(v); save({metroVolume: v}); };
@@ -1283,13 +1377,15 @@ export function createPlayer(root) {
     song = null; range = null; points = []; pos = 0; finished = false; matched.clear(); grades.clear();
     keyboardRange = '';
     q('#lesson-title').textContent = entry.title || 'Untitled';
+    q('#lesson-title').title = entry.title || '';
+    q('#lesson-composer').textContent = entry.composer || '';
     q('#lesson-subtitle').textContent = 'Loading…';
-    q('#section-btn-label').textContent = 'Loading…';
+    q('#sec-first').value = q('#sec-last').value = ''; q('#sec-of').textContent = '';
     q('#um-progress').style.width = '0%';
     q('#um-count').replaceChildren();
     q('#um-measure').textContent = ''; q('#um-detail').textContent = '';
     root.querySelectorAll('.pkey').forEach(b => b.classList.remove('held', 'attack'));
-    setStatus(''); setPrompt('Loading score…');
+    setStatus(''); setPrompt('Opening the score…');
     root.classList.add('loading');
     root.classList.remove('load-error');
   }
@@ -1313,7 +1409,6 @@ export function createPlayer(root) {
     root.classList.remove('loading');
     root.classList.add('load-error');
     q('#lesson-subtitle').textContent = 'Could not load';
-    q('#section-btn-label').textContent = 'Could not load';
     setStatus('');
     setPrompt(`Could not load <b>${escapeHtml(entry.title || 'this song')}</b>: ${escapeHtml(err?.message || err || 'unknown error')}`);
   }
@@ -1344,6 +1439,7 @@ export function createPlayer(root) {
   if (urlView) saved.view = urlView;
   setLoop(!!saved.loop);
   setMuted(!!saved.muted);
+  intent = saved.intent === 'practice' ? 'practice' : 'listen';
   setMode(saved.mode === 'timed' ? 'timed' : 'wait');
   metroInWait = !!saved.metroInWait; q('#set-metro-wait').checked = metroInWait;
   const metroVolume = saved.metroVolume != null && Number.isFinite(+saved.metroVolume) ? +saved.metroVolume : .6;
@@ -1353,6 +1449,7 @@ export function createPlayer(root) {
   setZoom(+saved.zoom || 1);
   piano.load();
   applySettings(saved);
+  showTheme(); showFullscreen();
   setButtons();
   buildKeyboard();
   highway.start();
@@ -1392,8 +1489,8 @@ export function createPlayer(root) {
     setHands(h) { setHands(String(h).toLowerCase()); return getState(); },
     setMode(m) { m = String(m).toLowerCase(); setMode(m === 'play-along' || m === 'playalong' || m === 'timed' ? 'timed' : m); return getState(); },
     setLoop(v) { setLoop(!!v); return getState(); },
-    listen() { if (song && !playing) q('#um-play').click(); return getState(); },
-    practice() { if (song) startPractice(); return getState(); },
+    listen() { if (song && !playing) { if (practicing) stopAll(); intent = 'listen'; save({intent}); startListen(); } return getState(); },
+    practice() { if (song) { intent = 'practice'; save({intent}); startPractice(); } return getState(); },
     stop() { stopPublic(); return getState(); },
   };
 

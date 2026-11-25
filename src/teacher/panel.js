@@ -32,7 +32,8 @@ const put = (key, value) => {
   } catch {}
 };
 
-const ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>`;
+// A quill: the teacher writes letters in the margin.
+const ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 3.5c-7 1.2-11.5 6.5-13.6 14.6L5 20.5"/><path d="M8.2 14.5c4.2.2 7.6-2.3 9.3-6.4M11 10.5h4.6"/></svg>`;
 const time = at => {
   const d = new Date(at);
   return Number.isNaN(+d) ? '' : d.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
@@ -71,7 +72,7 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
   panel.hidden = true;
   panel.innerHTML = `
     <header class="tch-head">
-      <div><h2>Teacher</h2><p>Notes from your teacher</p></div>
+      <div><h2>Teacher</h2><p>Letters in the margin</p></div>
       <button type="button" class="tch-close" aria-label="Close the teacher">×</button>
     </header>
     <div class="tch-thread" aria-live="polite"></div>
