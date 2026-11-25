@@ -2,7 +2,7 @@
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
  <work><work-title>The Wild Rider, Op. 68 No. 8 (Album for the Young)</work-title></work>
- <identification><creator type="composer">Robert Schumann</creator><rights>Creative Commons Attribution-ShareAlike 2.5 (https://creativecommons.org/licenses/by-sa/2.5/). Typeset by Philippe Hézaine for the Mutopia Project (https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=659); converted to MusicXML by Piano Practice. This adaptation is licensed under the same licence.</rights><encoding><software>ly2musicxml</software></encoding><source>https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=659</source></identification>
+ <identification><creator type="composer">Robert Schumann</creator><rights>Creative Commons Attribution-ShareAlike 2.5 (https://creativecommons.org/licenses/by-sa/2.5/). Typeset by Philippe Hézaine for the Mutopia Project (https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=655); converted to MusicXML by Piano Practice. This adaptation is licensed under the same licence.</rights><encoding><software>ly2musicxml</software></encoding><source>https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=655</source></identification>
  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
  <part id="P1">
   <measure number="0" implicit="yes">

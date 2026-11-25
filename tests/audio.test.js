@@ -122,7 +122,7 @@ describe('instrument choice', () => {
     expect(chooseInstrument('auto', null)).toBe('piano');
     const harp = catalog.filter(e => chooseInstrument('auto', e) === 'harpsichord');
     expect(harp.length).toBeGreaterThan(0);
-    expect(harp.every(e => /Bach|Petzold/.test(e.composer))).toBe(true);
+    expect(harp.every(e => /Bach|Petzold|Handel/.test(e.composer))).toBe(true); // the Baroque pieces
   });
   it('an explicit choice wins', () => {
     expect(chooseInstrument('piano', {composer: 'Johann Sebastian Bach'})).toBe('piano');

@@ -187,6 +187,28 @@ pitches in the source against the converted notes, so nothing was dropped.
 Where an independent encoding of the piece exists, compare the pitches bar by
 bar (read it only; don't add it to the project unless its licence allows).
 
+For the bundled Mutopia repertoire there is always one: the MIDI file LilyPond
+made from the same source, published next to it on mutopiaproject.org.
+
+```sh
+node tools/compare-mutopia-midi.mjs [--cache DIR] [--only id,id] [--bars 8-12]
+```
+
+compares every converted note with it (time and pitch). Grace notes and
+appoggiaturas are timed differently by Verovio and LilyPond and count as
+"shifted"; anything else that differs needs a look at the source. A MIDI file
+can be older than a later fix of the `.ly` file (BWV Anh. 119, La Candeur:
+check the file's history on GitHub), and it may play a *D.S.* that the app
+doesn't (Streabbog's Waltz).
+
+Then add the piece's measure count to `tests/repertoire.test.js`. That test
+loads every bundled piece as the app does and checks that Verovio plays exactly
+the notes the MusicXML file writes (Verovio reads a note's pitch from the
+accidentals shown in the bar, in any octave or staff, rather than from
+`<alter>`, which is why the converter writes cautionary accidentals where they
+differ), that both hands play in a sensible range, that silent bars are written
+rests, and that tempo, grade and section make sense.
+
 ## Importing from MuseScore
 
 For your own scores (they stay private: Pieces → *Import a score*, kept on your
