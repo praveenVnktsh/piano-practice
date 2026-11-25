@@ -15,7 +15,8 @@
     "format:check": "prettier --check .",
     "songs": "node tools/notes2musicxml.mjs --all",
     "test:watch": "vitest",
-    "publish:site": "node tools/publish-site.mjs"
+    "publish:site": "node tools/publish-site.mjs",
+    "screenshots": "node tools/screenshots.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
