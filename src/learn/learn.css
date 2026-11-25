@@ -1,0 +1,68 @@
+/* "Learn a piece, guided" in the player (src/learn/guide.js). Tokens only (src/styles/tokens.css). */
+
+/* ───── the plan's one quiet affordance, beside the prompt ───── */
+.cue { align-items: center; gap: 6px; }
+.learn-next {
+  flex: none; display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; max-width: min(46vw, 420px);
+  min-height: 34px; padding: 4px 12px; border: 0; border-radius: var(--radius-control);
+  background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brass) 45%, transparent);
+  color: var(--ink-soft); font-family: var(--font-text); font-size: 15.5px; line-height: 1.2;
+  cursor: pointer; transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.learn-next[hidden] { display: none; }
+.learn-next:hover:not(:disabled) { background: var(--brass-soft); color: var(--ink); }
+.learn-next:disabled { opacity: .5; cursor: default; }
+.learn-step {
+  flex: none; font-family: var(--font-ui); font-size: 12.5px; font-weight: 600;
+  font-variant: all-small-caps; letter-spacing: .07em; color: var(--brass-ink);
+}
+.learn-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: italic; }
+.learn-arrow { flex: none; color: var(--brass-ink); }
+.learn-next.is-ready .learn-arrow { display: none; }
+@media (max-width: 640px) {
+  .learn-next { max-width: 52vw; font-size: 14.5px; padding: 4px 10px; margin-right: 12px; }
+}
+@media (pointer: coarse) { .learn-next { min-height: 44px; } }
+
+/* ───── hand-position preview: the keys each hand starts on, ghosted ───── */
+.pkey.ghost:not(.attack):not(.held) { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--right-hand) 40%, transparent), inset 0 -5px 0 color-mix(in srgb, var(--ivory) 84%, #000); }
+.pkey.ghost[data-hand="l"]:not(.attack):not(.held) { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--left-hand) 45%, transparent), inset 0 -5px 0 color-mix(in srgb, var(--ivory) 84%, #000); }
+.pkey.black.ghost:not(.attack):not(.held) { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--right-hand) 70%, transparent), inset 0 -6px 0 #000; }
+.pkey.black.ghost[data-hand="l"]:not(.attack):not(.held) { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--left-hand) 70%, transparent), inset 0 -6px 0 #000; }
+.no-hands .pkey.ghost:not(.attack):not(.held) { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ink) 30%, transparent), inset 0 -5px 0 color-mix(in srgb, var(--ivory) 84%, #000); }
+
+/* ───── fingering numbers (Settings → Fingering numbers) ───── */
+.no-fing .sheet g.fing { display: none; }
+
+/* ───── first look: a small card on the stage before the first play ───── */
+.first-look {
+  position: absolute; z-index: 6; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(400px, calc(100% - 32px)); max-height: calc(100% - 24px); overflow: auto;
+  padding: 20px 22px 14px; border-radius: var(--radius-card);
+  background: var(--paper-raised); color: var(--ink); box-shadow: var(--shadow-paper), 0 0 0 1px var(--rule);
+  animation: fl-in 240ms var(--ease);
+}
+@keyframes fl-in { from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)); } }
+.fl-close {
+  position: absolute; top: 6px; right: 6px; width: 40px; height: 40px; border: 0; border-radius: var(--radius-control);
+  background: transparent; color: var(--ink-soft); font-size: 22px; line-height: 1;
+}
+.fl-close:hover { color: var(--ink); background: var(--paper-sunk); }
+.fl-kicker, .fl-sub {
+  margin: 0; font-family: var(--font-ui); font-size: 12.5px; font-weight: 500;
+  font-variant: all-small-caps; letter-spacing: .08em; color: var(--brass-ink);
+}
+.fl-title { margin: 2px 40px 10px 0; font-family: var(--font-display); font-size: 26px; font-weight: 600; line-height: 1.1; }
+.fl-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 4px 18px; margin: 0 0 12px; }
+.fl-facts div { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--rule); }
+.fl-facts dt { font-family: var(--font-ui); font-size: 12.5px; font-variant: all-small-caps; letter-spacing: .06em; color: var(--ink-soft); }
+.fl-facts dd { margin: 0; font-family: var(--font-text); font-size: 16px; font-variant-numeric: lining-nums tabular-nums; text-align: right; }
+.fl-tricky ul { list-style: none; margin: 4px 0 10px; padding: 0; }
+.fl-tricky li { display: flex; align-items: baseline; gap: 10px; padding: 2px 0; }
+.fl-bar {
+  flex: none; min-height: 32px; padding: 0; border: 0; background: none; color: var(--ink);
+  font-family: var(--font-text); font-size: 16px; text-decoration: underline; text-decoration-color: var(--brass); text-underline-offset: 3px;
+}
+.fl-why { font-family: var(--font-text); font-style: italic; font-size: 15px; color: var(--ink-soft); }
+.fl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .first-look { animation: none; } }

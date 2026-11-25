@@ -170,6 +170,8 @@
           </div>
           <p class="pop-kicker">Practise smarter</p>
           <div class="preset-list smart-list">
+            <!-- "Learn this piece" plan (src/learn/guide.js) -->
+            <button type="button" id="learn-toggle" hidden>Learn this piece, step by step<span class="preset-meta"></span></button>
             <button type="button" data-smart="weak" id="smart-weak">Practise my weak bars<span class="preset-meta" id="smart-weak-meta"></span></button>
             <button type="button" data-smart="phrase">This phrase<span class="preset-meta" id="smart-phrase-meta"></span></button>
             <button type="button" data-smart="next-phrase" id="smart-next">Next phrase ›<span class="preset-meta" id="smart-next-meta"></span></button>
@@ -237,6 +239,8 @@
     </div>
     <div class="cue">
       <div class="prompt" id="um-practice-status" role="status">Opening the score…</div>
+      <!-- The plan's one quiet affordance (src/learn/guide.js) -->
+      <button class="learn-next" id="learn-next" type="button" hidden><span class="learn-step">Next step</span><span class="learn-what"></span><span class="learn-arrow" aria-hidden="true">›</span></button>
       <div class="feedback" id="um-feedback" aria-live="polite"></div>
     </div>
     <div class="hud">
@@ -291,6 +295,7 @@
           </span>
         </div>
         <label class="set-row pop-toggle"><span>Note names inside the notes <small>N</small></span><input type="checkbox" id="set-names"><i></i></label>
+        <label class="set-row pop-toggle"><span>Fingering numbers <small>where the score has them</small></span><input type="checkbox" id="set-fing" checked><i></i></label>
         <label class="set-row pop-toggle"><span>Colour notes by hand <small class="hand-key"><b class="rh">right</b> · <b class="lh">left</b></small></span><input type="checkbox" id="set-hands"><i></i></label>
       </section>
 

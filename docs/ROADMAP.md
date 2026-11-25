@@ -107,11 +107,11 @@ Status is updated in place: ⏳ planned · 🔨 in progress · ✅ done.
 Same rules: four top-level places stay four (Today · Pieces · Exercises · Progress).
 New capability arrives inside an existing place or behind progressive disclosure.
 
-## Phase 12: Learn a piece, guided ⏳
-- [ ] P0 "Learn this piece" plan per piece: phrases become steps (listen → right hand → left hand → hands together slowly → up to tempo → join to the previous phrase); one "Next step" button in the player; progress saved per piece and shown on Today
-- [ ] P0 First look card before the first play: key, time signature, tempo, hand range, tricky bars (wide leaps, accidentals, fast runs), a 30-second listen
-- [ ] P1 Fingering: show printed fingerings (MusicXML `<fingering>` / MEI `<fing>`) with a toggle; suggest fingering for runs without any, marked as suggested
-- [ ] P1 Hand-position preview: at the start of a section, ghost the starting keys on the keyboard
+## Phase 12: Learn a piece, guided 🔨
+- [x] P0 "Learn this piece" plan per piece: phrases become steps (listen → right hand → left hand → hands together slowly → up to tempo → join to the previous phrase); one "Next step" button in the player; progress saved per piece and shown on Today
+- [x] P0 First look card before the first play: key, time signature, tempo, hand range, tricky bars (wide leaps, accidentals, fast runs), a 30-second listen
+- [ ] P1 Fingering: show printed fingerings (MusicXML `<fingering>` / MEI `<fing>`) with a toggle; suggest fingering for runs without any, marked as suggested (printed fingerings + Settings toggle done; suggested fingering still to do)
+- [x] P1 Hand-position preview: at the start of a section, ghost the starting keys on the keyboard
 - [ ] P2 Memorisation ladder: fade the score bar by bar as a phrase becomes secure
 
 ## Phase 13: The absolute beginner ⏳

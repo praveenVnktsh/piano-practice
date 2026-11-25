@@ -12,6 +12,8 @@
 //     trainer: {'YYYY-MM-DD': {drills, right, wrong, msTotal, notes, bestLevel}},   note reading only
 //     skills:  {rhythm|theory|ear: {drills, right, wrong, lastAt, lastAccuracy, levels: {id: best}}},
 //                                   the other drills (trainer:result levels 'rhythm:…', 'theory:…', 'ear:…')
+//     learn:   {songId: {title, active, done: [stepKey], total, next: {key, label} | null, startedAt, lastAt}},
+//                                   "Learn this piece" plans (learn:step events; src/learn/plan.mjs)
 //     pruned,                       number of raw events dropped so far
 //   },
 //   journal: [entry, ...]           practice-journal notes, oldest first (≤ MAX_JOURNAL)
@@ -20,12 +22,16 @@
 // }
 // entry = {id, at, tz, text, mood?: 'good' | 'okay' | 'hard', songId?, title?, minutes?}
 // goal  = {id, songId, title, bpm, accuracy, by: 'YYYY-MM-DD', createdAt}
-// event = {type: 'practice:result' | 'practice:session' | 'trainer:result', id, at, tz, ...payload}
+// event = {type: 'practice:result' | 'practice:session' | 'trainer:result' | 'learn:step', id, at, tz, ...payload}
+// learn:step = {songId, title, action: 'start' | 'done' | 'stop', key? (the step done), total, next: {key, label} | null}
 // `tz` is the client's Date#getTimezoneOffset() when the event happened, so day
 // keys are the player's *local* day even when the server runs elsewhere.
 
 export const VERSION = 1;
-export const EVENT_TYPES = ['practice:result', 'practice:session', 'trainer:result'];
+export const EVENT_TYPES = ['practice:result', 'practice:session', 'trainer:result', 'learn:step'];
+export const LEARN_ACTIONS = ['start', 'done', 'stop'];
+export const MAX_LEARN_KEYS = 400;
+const STEP_KEY_RE = /^\d{1,5}-\d{1,5}:[a-z]{1,12}$/;
 // trainer:result levels that aren't note reading: '<skill>:<level id>' (rhythm, theory and ear training).
 export const SKILLS = ['rhythm', 'theory', 'ear'];
 const SKILL_RE = /^(rhythm|theory|ear):([a-z0-9-]{1,32})$/;
@@ -75,6 +81,22 @@ export function sanitizeEvent(raw, now = Date.now()) {
     ev.durationMs = durationMs;
     return ev;
   }
+  if (type === 'learn:step') {
+    const songId = text(raw.songId, 200);
+    if (!songId || !LEARN_ACTIONS.includes(raw.action)) return null;
+    ev.songId = songId;
+    ev.title = text(raw.title, 200);
+    ev.action = raw.action;
+    if (raw.action === 'done') {
+      if (typeof raw.key !== 'string' || !STEP_KEY_RE.test(raw.key)) return null;
+      ev.key = raw.key;
+    }
+    const total = int(raw.total, 0, 10000);
+    if (total != null) ev.total = total;
+    ev.next = isObj(raw.next) && typeof raw.next.key === 'string' && STEP_KEY_RE.test(raw.next.key)
+      ? {key: raw.next.key, label: text(raw.next.label, 160)} : null;
+    return ev;
+  }
   if (type === 'practice:result') {
     const songId = text(raw.songId, 200);
     const accuracy = num(raw.accuracy, 0, 100);
@@ -118,7 +140,7 @@ export function sanitizeEvent(raw, now = Date.now()) {
 }
 
 export function emptyDoc() {
-  return {version: VERSION, settings: {dailyGoalMin: DEFAULT_GOAL_MIN}, events: [], totals: {days: {}, songs: {}, trainer: {}, skills: {}, pruned: 0}, journal: [], goals: [], updatedAt: 0};
+  return {version: VERSION, settings: {dailyGoalMin: DEFAULT_GOAL_MIN}, events: [], totals: {days: {}, songs: {}, trainer: {}, skills: {}, learn: {}, pruned: 0}, journal: [], goals: [], updatedAt: 0};
 }
 
 const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
@@ -130,7 +152,7 @@ export function normalizeDoc(json) {
   doc.settings = sanitizeSettings(json.settings, doc.settings);
   if (Array.isArray(json.events)) doc.events = json.events.map(e => sanitizeEvent(e, Infinity)).filter(Boolean);
   if (isObj(json.totals)) {
-    for (const k of ['days', 'songs', 'trainer', 'skills']) if (isObj(json.totals[k])) doc.totals[k] = json.totals[k];
+    for (const k of ['days', 'songs', 'trainer', 'skills', 'learn']) if (isObj(json.totals[k])) doc.totals[k] = json.totals[k];
     doc.totals.pruned = int(json.totals.pruned, 0, Number.MAX_SAFE_INTEGER) ?? 0;
   } else for (const ev of doc.events) addToTotals(doc.totals, ev); // totals missing: rebuild from raw events
   if (Array.isArray(json.journal)) doc.journal = json.journal.map(e => sanitizeJournalEntry(e, Infinity)).filter(Boolean).slice(-MAX_JOURNAL);
@@ -226,6 +248,7 @@ export function sanitizeSettings(raw, base = {dailyGoalMin: DEFAULT_GOAL_MIN}) {
 }
 
 function addToTotals(totals, ev) {
+  if (ev.type === 'learn:step') return addLearn(totals, ev);
   const day = dayKey(ev.at, ev.tz);
   const d = (totals.days[day] ||= {ms: 0, listenMs: 0, practiceMs: 0, trainerMs: 0, sessions: 0, results: 0});
   if (ev.type === 'practice:session') {
@@ -258,6 +281,24 @@ function addToTotals(totals, ev) {
     t.msTotal += ev.avgMs * notes; t.notes += notes;
     if (typeof ev.level === 'number') t.bestLevel = Math.max(t.bestLevel ?? 0, ev.level);
   }
+}
+
+// A "Learn this piece" plan: started / a step done / left. Not practice time (no day entry).
+function addLearn(totals, ev) {
+  const p = ((totals.learn ||= {})[ev.songId] ||= {title: '', active: false, done: [], total: 0, next: null, startedAt: 0, lastAt: 0});
+  if (ev.at < p.lastAt) { // an older event arriving late: only its step counts
+    if (ev.action === 'done' && !p.done.includes(ev.key)) p.done.push(ev.key);
+    return;
+  }
+  if (ev.title) p.title = ev.title;
+  if (ev.total != null) p.total = ev.total;
+  p.lastAt = ev.at;
+  if (ev.action === 'stop') { p.active = false; return; }
+  if (ev.action === 'start' && !p.active) p.startedAt = ev.at;
+  p.active = true;
+  if (ev.action === 'done' && !p.done.includes(ev.key)) p.done.push(ev.key);
+  if (p.done.length > MAX_LEARN_KEYS) p.done.splice(0, p.done.length - MAX_LEARN_KEYS);
+  p.next = ev.next;
 }
 
 function song(totals, ev) {

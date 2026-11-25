@@ -4,7 +4,7 @@
 //   GET  /__progress            → {store: 'disk', ...doc}   (doc shape: src/progress/model.js)
 //   POST /__progress/events     ← [event, ...]  or  {events: [event, ...]}
 //                               → {ok: true, added, rejected, total}
-//                                 events: practice:result / practice:session / trainer:result
+//                                 events: practice:result / practice:session / trainer:result / learn:step
 //                                 payloads (docs/ARCHITECTURE.md) tagged with `type`, plus
 //                                 optional `id` (dedupe key) and `tz` (getTimezoneOffset()).
 //   PUT  /__progress/settings   ← {dailyGoalMin} → {ok: true, settings}

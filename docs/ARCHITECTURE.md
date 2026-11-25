@@ -269,3 +269,30 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   `window.pianoErrors.stats`): the same error at most once a minute (with a repeat `count`), ≤ 10 a minute, ≤ 50 a session,
   and off for the session after the first failed post (production builds have no endpoint).
   `node tools/errors.mjs [-n N] [--follow] [--json] [--clear] [--dir PATH]`.
+
+## v6 additions (learn a piece, guided — Phase 12)
+
+- **`src/learn/`**: `plan.mjs` (pure: `buildPlan`, `resultMeets`, `listenMeets`, `currentStep`, `planProgress`,
+  `isSetUp`, `listenSpan`), `first-look.mjs` (pure: `firstLook(song, {tempo})` → key, meter, tempo, hand ranges,
+  `trickyBars`), `position.mjs` (pure: `startingKeys`), `guide.js` (`attachLearn(api)` from src/player.js:
+  the "Next step" button `#learn-next` under the stage, Bars ▾ → `#learn-toggle`, the first-look card).
+- **Plan steps** per phrase (`detectPhrases`; phrases that only replay a repeat are skipped): `listen` →
+  `right` → `left` (only when both hands play) → `slow` (play along at 60 % of the target) → `tempo`
+  (the slow-practice ladder to the target) → `join` (with the phrase before it); then `whole`.
+  Step keys are `"<first>-<last>:<kind>"`. A step is done by a `practice:result` covering its bars with its
+  hands, mode and tempo at ≥ 90 % accuracy, or (listen) by listening to the end of a covering section.
+  "Next step" sets the step up through `window.pianoPlayer` (`setSection`, `setHands`, `setMode`,
+  `setStrategy`, `setTempo`); once set up, the same button starts it.
+- **Event `learn:step`** (window CustomEvent, recorded by the progress store):
+  `detail: {songId, title, action: 'start' | 'done' | 'stop', key? (done step), total, next: {key, label} | null, at}`.
+  The progress document aggregates it into `totals.learn[songId] = {title, active, done: [key], total, next,
+  startedAt, lastAt}` (no practice time). Today shows the most recent active plan's `next` as the
+  current piece ("Next step") and sets sessionStorage `piano-practice.learn.apply = <songId>` so the player
+  sets that step up on opening.
+- **Per-song localStorage** (`piano-practice:song:<id>`) adds `learnOn`, `learnDone: [key]` and
+  `firstLookSeen` (the first-look card shows before the first play — no results yet — and never after it
+  is dismissed or the piece is played). Exercises (`ex:`) and sight-reading (`sr:`) get neither.
+- **Settings**: `piano-practice:settings.fingering` (default on) shows/hides Verovio's `g.fing`
+  (MusicXML `<fingering>` / MEI `<fing>`) via `.no-fing` on `#player`.
+- **Hand-position preview**: stopped at a section's start, the first five pitches of each practised hand
+  are ghosted on the keyboard (`.pkey.ghost`).
