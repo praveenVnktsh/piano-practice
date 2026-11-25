@@ -168,7 +168,9 @@ The player has one main choice at the top, **Listen | Practise**, and a play but
   pieces, when the instrument is *Auto*) with the score following.
 - **Practise** hands the music to you. Two modes, in the section strip:
   - **Wait**: the music waits for each note or chord. Learn the notes this way, as slowly as you
-    need.
+    need. Stuck (three wrong notes on one chord, or a long pause after a wrong one)? The chord's
+    letter names appear on its noteheads, its keys are outlined and named on the keyboard, and it
+    sounds once softly. The hint goes as soon as you play it.
   - **Play along**: a bar of count-in, then the music keeps time and marks each note early, late
     or on time.
 - **Hands**: `L · Both · R` (or **H**). While you practise one hand the app plays the other.

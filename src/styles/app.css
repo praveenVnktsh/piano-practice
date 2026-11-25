@@ -405,6 +405,12 @@ button.menu-row:hover > span:first-child { color: var(--brass); }
 }
 .sheet .nh-name.hollow { fill: var(--ink) !important; }
 .show-names .sheet .nh-name { display: inline; }
+/* Stuck in Wait mode: the chord's names on its noteheads, its keys called out (src/practice/stuck.mjs). */
+.sheet .note.s-hint .nh-name { display: inline; }
+.sheet .note.s-hint .notehead { fill: var(--brass); color: var(--brass); }
+.stuck .pkey.attack { box-shadow: inset 0 0 0 3px var(--brass), inset 0 -5px 0 color-mix(in srgb, var(--ivory) 84%, #000); }
+.stuck .pkey.attack .label { opacity: 1 !important; font-weight: 700; transform: scale(1.25); }
+.stuck-hint { color: var(--ink-soft); font-style: italic; }
 /* Suggested fingering (src/fingering/): small italic numerals in the secondary ink, never the printed ones. */
 .sheet g.sfing text { fill: var(--ink-soft); font-family: var(--font-text); font-style: italic; text-anchor: middle; pointer-events: none; }
 .no-fing .sheet g.sfing { display: none; }

@@ -21,6 +21,7 @@ import {playerMusicality, compactMusicality} from './analysis/musicality.mjs';
 import {renderMusicality} from './analysis/musicality-view.js';
 import {attachLearn} from './learn/guide.js';
 import {startingKeys} from './learn/position.mjs';
+import {StuckTracker, STUCK_AFTER_MS} from './practice/stuck.mjs';
 import {fingeringFor, drawSuggestedFingering} from './fingering/overlay.js';
 
 // Per-bar statistics from the progress store (src/progress/mastery.js, owned by
@@ -94,6 +95,10 @@ export function createPlayer(root) {
   let song = null, range = null, points = [], pos = 0;
   let playing = false, finished = false, loop = false;
   let follow = null, practicing = false, rightCount = 0, wrongCount = 0;
+  // Stuck in Wait mode (three wrong notes on one chord, or a long pause after a wrong one):
+  // the chord's names appear on its noteheads, its keys are called out, and it sounds once.
+  const stuck = new StuckTracker();
+  let stuckTimer = null, stuckOn = false;
   const matched = new Set();
   // Practice options: mode 'wait' | 'timed', hands 'both' | 'right' | 'left'.
   let mode = 'wait', hands = 'both', metronome = false, metroInWait = false, speedUp = false, zoom = 1;
@@ -251,21 +256,24 @@ export function createPlayer(root) {
   function labelNoteheads() {
     if (labelled || !sheetSvg || !sheetHost.clientHeight) return;
     labelled = true;
-    const NS = 'http://www.w3.org/2000/svg';
-    for (const [id, info] of song.noteNames ?? []) {
-      const head = sheetEls.get(id)?.querySelector('.notehead');
-      if (!head) continue;
-      let box;
-      try { box = head.getBBox(); } catch { continue; }
-      if (!box.width) continue;
-      const t = document.createElementNS(NS, 'text');
-      t.setAttribute('class', 'nh-name' + (info.hollow ? ' hollow' : ''));
-      t.setAttribute('x', box.x + box.width / 2);
-      t.setAttribute('y', box.y + box.height / 2);
-      t.setAttribute('font-size', box.height * (info.name.length > 1 ? .62 : .8));
-      t.textContent = info.name;
-      head.append(t);
-    }
+    for (const [id, info] of song.noteNames ?? []) labelNotehead(id, info);
+  }
+  // One notehead's letter (once); false while the score isn't laid out yet.
+  function labelNotehead(id, info = song?.noteNames?.get(id)) {
+    const head = sheetEls.get(id)?.querySelector('.notehead');
+    if (!head || !info) return false;
+    if (head.querySelector('.nh-name')) return true;
+    let box;
+    try { box = head.getBBox(); } catch { return false; }
+    if (!box.width) return false;
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('class', 'nh-name' + (info.hollow ? ' hollow' : ''));
+    t.setAttribute('x', box.x + box.width / 2);
+    t.setAttribute('y', box.y + box.height / 2);
+    t.setAttribute('font-size', box.height * (info.name.length > 1 ? .62 : .8));
+    t.textContent = info.name;
+    head.append(t);
+    return true;
   }
   // Suggested fingering where the score prints none (src/fingering/), drawn once laid out;
   // an easy piece (Grade 0–1) favours five-finger positions.
@@ -585,7 +593,7 @@ export function createPlayer(root) {
     // Key colour follows the hand (staff) of the note it plays.
     const keyHand = new Map();
     for (const e of [...active, ...(waiting ? follow.current.events : [])]) keyHand.set(e.n, e.hand);
-    const blind = strategy === 'memory' && practicing; // memory check: no key prompts
+    const blind = strategy === 'memory' && practicing && !stuckOn; // memory check: no key prompts (until stuck)
     // Hand-position preview: stopped at the start of the section, the keys each hand starts on.
     const atStart = !playing && !practicing && !finished && pos <= (points[0] ?? range.start) + EPS;
     const ghost = atStart && strategy !== 'memory' ? startingKeys(range.events, {hands}) : null;
@@ -666,6 +674,7 @@ export function createPlayer(root) {
     stopClock(); clearTimeout(autoTimer); autoTimer = null;
     playing = false; piano.silence(); piano.stopClicks();
     if (practicing) { practicing = false; follow = null; grader = null; }
+    clearStuck();
     refreshFreeClick();
     endSession();
     setButtons();
@@ -903,7 +912,8 @@ export function createPlayer(root) {
     const ev = n => g.events.find(e => e.n === n) || {n};
     const hand = n => ev(n).hand;
     // Memory check: no names, unless three slips in a row ask for a hint.
-    if (strategy === 'memory' && memoryHints < 3) setPrompt(follow.collected.size ? 'From memory · <b>and the rest of the chord</b>' : 'From memory · <b>keep going</b>');
+    if (stuckOn) setPrompt(`Here ${remaining.length > 1 ? 'they are' : 'it is'} · ${remaining.map(n => `<b class="${handClass(hand(n))}">${spelled(song, ev(n))}</b>`).join(' + ')} <span class="stuck-hint">— on the keys below</span>`);
+    else if (strategy === 'memory' && memoryHints < 3) setPrompt(follow.collected.size ? 'From memory · <b>and the rest of the chord</b>' : 'From memory · <b>keep going</b>');
     else setPrompt(`Play ${remaining.map(n => `<b class="${handClass(hand(n))}">${spelled(song, ev(n))}</b>`).join(' + ')}`);
     setStatus(`${measureName(song.measures[measureIndexAt(g.t)])} · ${follow.index + 1} / ${follow.groups.length}${hands !== 'both' ? ` · ${hands} hand` : ''}`);
   }
@@ -912,6 +922,7 @@ export function createPlayer(root) {
     hideResults(); stopAll();
     finished = false; matched.clear(); grades.clear(); rightCount = 0; wrongCount = 0;
     misses = new MissLog(50); played = []; pedalLog = []; memoryHints = 0;
+    clearStuck();
     const groups = handGroups(range, hands);
     if (!groups.some(g => g.notes.length)) {
       setPrompt(hands === 'both' ? 'This section has no notes' : `No ${hands}-hand notes in this section`); draw(); return;
@@ -967,11 +978,12 @@ export function createPlayer(root) {
     if (result === 'wrong') {
       wrongCount++; flashKey(n, 'wrong'); flash('Not quite.', 'bad');
       if (strategy === 'memory') { memoryHints++; practicePrompt(); }
+      if (stuck.wrong(index, performance.now())) showStuck(); else armStuckTimer(index);
       misses.add(group.t, measureLabelAt(group.t), {expected: group.notes.filter(x => !follow.collected.has(x)).map(x => spelled(song, group.events.find(e => e.n === x) || {n: x})), played: [name(n)]});
       return;
     }
     rightCount++; flashKey(n, 'hit');
-    if (result === 'advanced' || result === 'finished') memoryHints = 0;
+    if (result === 'advanced' || result === 'finished') { memoryHints = 0; clearStuck(); }
     playAuto(index); // the other hand comes in with the user's first note of the chord
     if (result === 'finished') return finishWait();
     if (result === 'advanced') {
@@ -982,6 +994,34 @@ export function createPlayer(root) {
       return;
     }
     draw(); practicePrompt();
+  }
+  function showStuck() {
+    if (!practicing || practiceMode !== 'wait' || !follow?.active || stuckOn) return;
+    stuckOn = true;
+    root.classList.add('stuck');
+    const g = follow.current;
+    const remaining = g.events.filter(e => g.notes.includes(e.n) && !follow.collected.has(e.n));
+    // Letters on these noteheads (hidden unless Note names is on, or this hint): made now if missing.
+    for (const e of remaining) { labelNotehead(e.id); sheetEls.get(e.id)?.classList.add('s-hint'); }
+    // Hear it once, softly, and make sure its keys are on screen.
+    if (!piano.muted) remaining.forEach((e, i) => piano.tone(e.n, .9, .35, i * .04));
+    q(`.pkey[data-note="${remaining[0]?.n}"]`)?.scrollIntoView?.({block: 'nearest', inline: 'center', behavior: 'smooth'});
+    draw(); practicePrompt();
+  }
+  function clearStuck() {
+    stuck.advance();
+    clearTimeout(stuckTimer); stuckTimer = null;
+    if (!stuckOn) return;
+    stuckOn = false;
+    root.classList.remove('stuck');
+    sheetHost.querySelectorAll('.s-hint').forEach(el => el.classList.remove('s-hint'));
+  }
+  function armStuckTimer(index) {
+    clearTimeout(stuckTimer);
+    stuckTimer = setTimeout(() => {
+      stuckTimer = null;
+      if (practicing && follow?.active && follow.index === index && stuck.check(index, performance.now())) showStuck();
+    }, STUCK_AFTER_MS + 50);
   }
   function finishWait() {
     const total = rightCount + wrongCount;
@@ -1713,7 +1753,7 @@ export function createPlayer(root) {
     handColors: () => !root.classList.contains('no-hands'),
     hideNotes: () => strategy === 'memory',
     barHeat: m => { const st = trouble.get(m.index); return st ? heatLevel(st.accuracy) : null; },
-    noteLabel: e => (root.classList.contains('show-names') ? song?.noteNames?.get(e.id)?.name ?? NAMES[e.n % 12] : null),
+    noteLabel: e => (root.classList.contains('show-names') || (stuckOn && follow?.current?.events.some(x => x.id === e.id)) ? song?.noteNames?.get(e.id)?.name ?? NAMES[e.n % 12] : null),
     noteState(e) {
       if (grades.has(e.id)) return grades.get(e.id);
       if (!wantHand(e)) return 'auto'; // the hand the app plays: greyed
