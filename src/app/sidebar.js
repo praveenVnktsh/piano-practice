@@ -1,7 +1,11 @@
 // Library sidebar: search, song sections, open/close (docked on wide screens, drawer on narrow).
 import {playHref} from './router.js';
+import {isExerciseId, exerciseTitleFor} from '../exercises/index.js';
+import '../exercises/practice-nav.css';
 
 const STORE_KEY = 'piano-practice.sidebar';
+const RECENT_KEY = 'piano-practice.recent-exercises';
+const RECENT_MAX = 4;
 const NARROW = '(max-width: 899.98px)';
 
 const load = () => { try { return localStorage.getItem(STORE_KEY); } catch { return null; } };
@@ -25,6 +29,18 @@ function el(tag, attrs = {}, ...children) {
 const icon = d => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = `<path d="${d}"/>`; return s; };
 const TRASH = 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3';
 
+// "Practice" block at the top of the sidebar: links to the learning views + recent exercises.
+const PRACTICE_LINKS = [
+  {href: '#/technique', text: 'Technique', d: 'M4 18c3-8 6-12 8-12s3 6 8 12M4 18h16'},
+  {href: '#/train/reading', text: 'Note reading', d: 'M3 7h18M3 11h18M3 15h18M9 19V9l6-2v10'},
+  {href: '#/progress', text: 'Progress', d: 'M4 20V10M10 20V4M16 20v-7M22 20H2'},
+];
+const readRecent = () => { try { const v = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(v) ? v.filter(isExerciseId) : []; } catch { return []; } };
+function rememberExercise(id) {
+  const list = [id, ...readRecent().filter(x => x !== id)].slice(0, RECENT_MAX);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch {}
+}
+
 function sourceLine(entry, where) {
   if (entry.kind === 'import') {
     const when = entry.added ? new Date(entry.added).toLocaleDateString(undefined, {day: 'numeric', month: 'short', year: 'numeric'}) : '';
@@ -39,6 +55,8 @@ export function createSidebar({shell, aside, toggle, scrim, onImport, onDelete})
   const search = aside.querySelector('#library-search');
   const lists = aside.querySelector('#library-lists');
   const notice = aside.querySelector('#library-notice');
+  const practice = el('nav', {class: 'lib-practice', 'aria-label': 'Practice'});
+  (aside.querySelector('.lib-top') || search.closest('label') || aside.firstChild)?.after(practice);
   const mq = matchMedia(NARROW);
   let data = {bundled: [], local: [], imports: [], importsWhere: 'browser'}, loaded = false, activeId = null, confirming = null;
   let isOpen = false;
@@ -96,6 +114,21 @@ export function createSidebar({shell, aside, toggle, scrim, onImport, onDelete})
   });
 
   search.addEventListener('input', () => render());
+
+  function renderPractice() {
+    const here = location.hash || '#/';
+    const links = PRACTICE_LINKS.map(l => el('a', {class: 'practice-link', href: l.href, 'aria-current': here === l.href ? 'page' : null}, icon(l.d), el('span', {text: l.text})));
+    const recent = readRecent().map(id => ({id, title: exerciseTitleFor(id)})).filter(r => r.title);
+    const nodes = [el('h2', {class: 'practice-h', text: 'Practice'}), el('div', {class: 'practice-links'}, ...links)];
+    if (recent.length) {
+      nodes.push(el('h3', {class: 'practice-h practice-h-sub', text: 'Recent exercises'}),
+        el('ul', {class: 'practice-recent', role: 'list'}, ...recent.map(r => el('li', {},
+          el('a', {class: 'practice-recent-link', href: playHref(r.id), title: r.title, 'aria-current': r.id === activeId ? 'page' : null}, r.title)))));
+    }
+    practice.replaceChildren(...nodes);
+  }
+  practice.addEventListener('click', e => { if (e.target.closest('a') && mq.matches) apply(false); });
+  window.addEventListener('hashchange', renderPractice);
 
   lists.addEventListener('click', e => {
     const link = e.target.closest('.song-link');
@@ -162,11 +195,14 @@ export function createSidebar({shell, aside, toggle, scrim, onImport, onDelete})
     if (hadFocus && !confirming) focusRow(hadFocus, '.song-link');
   }
   render();
+  renderPractice();
 
   return {
     setData(next) { data = {...data, ...next}; loaded = true; render(); },
     setActive(id) {
-      activeId = id; render();
+      activeId = id;
+      if (isExerciseId(id)) rememberExercise(id);
+      renderPractice(); render();
       lists.querySelector('.song.active')?.scrollIntoView({block: 'nearest'});
     },
     notice(text, tone = 'warn') {

@@ -242,7 +242,7 @@ export function createPlayer(root) {
     const p = livePos(); if (p == null) return;
     const target = xAt(p);
     sheetX = playing || scrub || Math.abs(target - sheetX) > 2000 ? target : sheetX + (target - sheetX) * .2;
-    const view = sheetHost.clientWidth, width = sheetTrack.scrollWidth;
+    const view = sheetHost.clientWidth;
     // The playhead stays at a fixed spot on screen; the music slides under it.
     const offset = view * (root.dataset.playhead === 'left' ? .3 : .5) - sheetX;
     sheetTrack.style.transform = `translateX(${offset}px)`;
@@ -409,8 +409,8 @@ export function createPlayer(root) {
     }
     // Visual position: the latest note onset passed.
     if (p < range.start - EPS) {
-      const left = clock.beats.filter(b => b.count && b.t > p - EPS).length;
-      setPrompt(`Get ready… <b>${left || 'Go'}</b>`);
+      const counted = clock.beats.filter(b => b.count && b.t <= p + EPS);
+      setPrompt(counted.length ? `Count in · <b>${counted.at(-1).beat + 1}</b>` : 'Get ready…');
       renderBeats(p);
     } else {
       let i = clock.shown;

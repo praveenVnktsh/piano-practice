@@ -88,7 +88,7 @@ export function mountReadingTrainer(container) {
   const ref = name => root.querySelector(`[data-ref="${name}"]`);
 
   // ───────── State ─────────
-  let level, items, round, keyRange;
+  let level, items, round;
 
   function syncControls() {
     ref('level').value = settings.level;
@@ -270,7 +270,7 @@ export function mountReadingTrainer(container) {
     lo = Math.floor(lo / 12) * 12;              // down to a C
     hi = Math.ceil((hi + 1) / 12) * 12;         // up to the next C
     if (hi - lo < 24) hi = lo + 24;             // at least two octaves
-    keyRange = [lo, hi];
+
     const whites = [];
     for (let n = lo; n <= hi; n++) if (!isBlack(n)) whites.push(n);
     const W = whites.length;
@@ -317,7 +317,7 @@ export function mountReadingTrainer(container) {
     e.preventDefault();
     const n = +k.dataset.note;
     k.classList.add('down');
-    if (settings.sound) piano.tone(n, 1.2, .7);
+    if (settings.sound) try { piano.tone(n, 1.2, .7); } catch {}
     onNote(n);
   });
   const up = e => { for (const k of ref('keys').querySelectorAll('.down')) if (!e || e.type !== 'pointerdown') k.classList.remove('down'); };
@@ -328,7 +328,7 @@ export function mountReadingTrainer(container) {
   ref('keys').addEventListener('click', e => {
     const k = e.target.closest('.tr-key');
     if (!k || e.detail !== 0) return;
-    if (settings.sound) piano.tone(+k.dataset.note, 1.2, .7);
+    if (settings.sound) try { piano.tone(+k.dataset.note, 1.2, .7); } catch {}
     onNote(+k.dataset.note);
   });
 
@@ -380,7 +380,7 @@ export function mountReadingTrainer(container) {
   };
   window.addEventListener('keydown', onKey, true);
 
-  piano.load();
+  try { piano.load(); } catch {} // no Web Audio (tests, very old browsers): keys stay silent
   setup();
 
   return {

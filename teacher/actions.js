@@ -32,12 +32,25 @@ const SPECS = {
       last: v => (Number.isInteger(v) && v >= 0) || 'last must be a 0-based measure index (integer ≥ 0)',
     },
   },
-  set_tempo: {req: {bpm: v => (typeof v === 'number' && Number.isFinite(v) && v >= 20 && v <= 300) || 'bpm must be a number from 20 to 300'}},
+  set_tempo: {
+    req: {
+      bpm: v =>
+        (typeof v === 'number' && Number.isFinite(v) && v >= 20 && v <= 300) || 'bpm must be a number from 20 to 300',
+    },
+  },
   set_hands: {req: {hands: v => HANDS.includes(v) || `hands must be one of ${HANDS.join(', ')}`}},
   set_mode: {req: {mode: v => MODES.includes(v) || `mode must be one of ${MODES.join(', ')}`}},
   set_loop: {req: {on: v => typeof v === 'boolean' || 'on must be true or false'}},
-  open_exercise: {req: {id: v => (typeof v === 'string' && v.length <= 120 && EXERCISE_ID.test(v)) || 'id must be an exercise id like ex:scale:C:major:both:2:up-down'}},
-  open_note_reading: {opt: {level: v => (typeof v === 'string' && LEVEL_ID.test(v)) || 'level must be a level id like treble'}},
+  open_exercise: {
+    req: {
+      id: v =>
+        (typeof v === 'string' && v.length <= 120 && EXERCISE_ID.test(v)) ||
+        'id must be an exercise id like ex:scale:C:major:both:2:up-down',
+    },
+  },
+  open_note_reading: {
+    opt: {level: v => (typeof v === 'string' && LEVEL_ID.test(v)) || 'level must be a level id like treble'},
+  },
   plan: {req: {items: v => checkItems(v)}},
 };
 export const ACTION_TYPES = Object.keys(SPECS);
@@ -48,9 +61,11 @@ function checkItems(items) {
   for (const [i, item] of items.entries()) {
     const where = `items[${i}]`;
     if (!isObj(item)) return `${where} must be an object`;
-    for (const key of Object.keys(item)) if (!['label', 'minutes', 'action'].includes(key)) return `${where}: unknown field ${key}`;
+    for (const key of Object.keys(item))
+      if (!['label', 'minutes', 'action'].includes(key)) return `${where}: unknown field ${key}`;
     if (!text(item.label, 200)) return `${where}.label must be text (≤ 200 chars)`;
-    if ('minutes' in item && !(typeof item.minutes === 'number' && item.minutes > 0 && item.minutes <= 180)) return `${where}.minutes must be a number from 1 to 180`;
+    if ('minutes' in item && !(typeof item.minutes === 'number' && item.minutes > 0 && item.minutes <= 180))
+      return `${where}.minutes must be a number from 1 to 180`;
     if ('action' in item) {
       if (isObj(item.action) && item.action.type === 'plan') return `${where}.action can't be another plan`;
       const err = actionError(item.action);
@@ -65,9 +80,11 @@ export function actionError(action) {
   if (!isObj(action)) return 'an action must be an object';
   const spec = SPECS[action.type];
   if (!spec) return `type must be one of ${ACTION_TYPES.join(', ')}`;
-  const req = spec.req || {}, opt = spec.opt || {};
+  const req = spec.req || {},
+    opt = spec.opt || {};
   for (const key of Object.keys(action)) {
-    if (key !== 'type' && key !== 'label' && !(key in req) && !(key in opt)) return `${action.type}: unknown field ${key}`;
+    if (key !== 'type' && key !== 'label' && !(key in req) && !(key in opt))
+      return `${action.type}: unknown field ${key}`;
   }
   if ('label' in action && !text(action.label, 80)) return `${action.type}: label must be text (≤ 80 chars)`;
   for (const [key, check] of Object.entries(req)) {
@@ -102,16 +119,26 @@ const bars = (first, last) => (first === last ? `bar ${first + 1}` : `bars ${fir
 export function describeAction(a, titleOf = () => '') {
   if (a.label) return a.label;
   switch (a.type) {
-    case 'open_song': return `Open ${titleOf(a.id) || a.id}`;
-    case 'set_section': return `Practise ${bars(a.first, a.last)}`;
-    case 'set_tempo': return `Tempo ${a.bpm} BPM`;
-    case 'set_hands': return a.hands === 'both' ? 'Both hands' : a.hands === 'right' ? 'Right hand only' : 'Left hand only';
-    case 'set_mode': return a.mode === 'wait' ? 'Wait mode' : 'Timed mode';
-    case 'set_loop': return a.on ? 'Loop on' : 'Loop off';
-    case 'open_exercise': return `Open ${exerciseName(a.id)}`;
-    case 'open_note_reading': return a.level ? `Note reading: ${a.level}` : 'Note reading';
-    case 'plan': return 'Practice plan';
-    default: return a.type;
+    case 'open_song':
+      return `Open ${titleOf(a.id) || a.id}`;
+    case 'set_section':
+      return `Practise ${bars(a.first, a.last)}`;
+    case 'set_tempo':
+      return `Tempo ${a.bpm} BPM`;
+    case 'set_hands':
+      return a.hands === 'both' ? 'Both hands' : a.hands === 'right' ? 'Right hand only' : 'Left hand only';
+    case 'set_mode':
+      return a.mode === 'wait' ? 'Wait mode' : 'Timed mode';
+    case 'set_loop':
+      return a.on ? 'Loop on' : 'Loop off';
+    case 'open_exercise':
+      return `Open ${exerciseName(a.id)}`;
+    case 'open_note_reading':
+      return a.level ? `Note reading: ${a.level}` : 'Note reading';
+    case 'plan':
+      return 'Practice plan';
+    default:
+      return a.type;
   }
 }
 

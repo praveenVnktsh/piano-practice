@@ -106,7 +106,7 @@ export function mountProgress(container) {
     const R = 44, C = 2 * Math.PI * R;
     const ring = `<svg viewBox="0 0 108 108" class="pg-ring" aria-hidden="true">
       <circle cx="54" cy="54" r="${R}" class="pg-ring-bg"/>
-      <circle cx="54" cy="54" r="${R}" class="pg-ring-fg${frac >= 1 ? ' done' : ''}" stroke-dasharray="${(frac * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 54 54)"/>
+      ${frac > 0 ? `<circle cx="54" cy="54" r="${R}" class="pg-ring-fg${frac >= 1 ? ' done' : ''}" stroke-dasharray="${(frac * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 54 54)"/>` : ''}
     </svg>`;
     const goalCtl = editingGoal
       ? el('form', {class: 'pg-goal-form', onsubmit: e => { e.preventDefault(); setGoal(+e.target.goal.value); }},
@@ -269,7 +269,7 @@ export function mountProgress(container) {
     return el('section', {class: 'pg-card pg-reading-card'},
       el('div', {class: 'pg-card-head'}, el('h3', {text: 'Note reading'}), el('a', {class: 'pg-link', href: '#/train/reading', text: 'Train'})),
       el('div', {class: 'pg-reading-stats'},
-        el('div', {}, el('strong', {class: 'acc', text: pct(last.accuracy)}), el('span', {class: 'pg-muted', text: 'accuracy (latest day)'})),
+        el('div', {}, el('strong', {class: 'acc', text: pct(last.accuracy)}), el('span', {class: 'pg-muted', text: 'accuracy'})),
         el('div', {}, el('strong', {class: 'speed', text: last.avgMs != null ? `${(last.avgMs / 1000).toFixed(1)} s` : '–'}), el('span', {class: 'pg-muted', text: 'per note'})),
         el('div', {}, el('strong', {text: String(sum.drills)}), el('span', {class: 'pg-muted', text: sum.drills === 1 ? 'drill' : 'drills'}))),
       el('div', {class: 'pg-chart small', role: 'img', 'aria-label': 'Note-reading accuracy and time per note by day', html: `<svg viewBox="0 0 ${W} ${H}" class="pg-trend">${svg}</svg>`}),

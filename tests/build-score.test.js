@@ -63,3 +63,42 @@ describe('buildScore()', () => {
     ]);
   });
 });
+
+// Grand staff in 3/4: staff 1 has a low note (still the right hand), staff 2 a
+// high one (still the left hand); hands come from staves, not pitch.
+const grand = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+ <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+ <part id="P1">
+  <measure number="1">
+   <attributes><divisions>1</divisions><key><fifths>0</fifths></key><time><beats>3</beats><beat-type>4</beat-type></time><staves>2</staves>
+    <clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>F</sign><line>4</line></clef></attributes>
+   <note><pitch><step>E</step><octave>3</octave></pitch><duration>3</duration><voice>1</voice><type>half</type><dot/><staff>1</staff></note>
+   <backup><duration>3</duration></backup>
+   <note><pitch><step>G</step><octave>4</octave></pitch><duration>3</duration><voice>5</voice><type>half</type><dot/><staff>2</staff><notations><technical><fingering>3</fingering></technical></notations></note>
+  </measure>
+ </part>
+</score-partwise>`;
+
+describe('buildScore() staves, hands and meter', () => {
+  let g;
+  beforeAll(async () => {
+    const tk = await createToolkit();
+    tk.setOptions({breaks: 'none'});
+    expect(tk.loadData(grand)).toBeTruthy();
+    g = buildScore(tk);
+  }, 30_000);
+
+  test('every note carries its staff and hand', () => {
+    expect(g.events.map(e => [e.n, e.staff, e.hand]).sort((a, b) => a[0] - b[0])).toEqual([[52, 1, 'r'], [67, 2, 'l']]);
+  });
+
+  test('measures carry their time signature', () => {
+    expect(g.measures[0].meter).toEqual({count: 3, unit: 4});
+    expect(score.measures[0].meter).toEqual({count: 4, unit: 4});
+  });
+
+  test('a single treble staff is the right hand', () => {
+    expect(score.events.every(e => e.hand === 'r' && e.staff === 1)).toBe(true);
+  });
+});

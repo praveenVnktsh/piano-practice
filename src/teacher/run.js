@@ -34,7 +34,8 @@ export async function runAction(action, {knownSong = () => true} = {}) {
     case 'set_section': {
       const p = player();
       const n = p.getState().measureCount;
-      if (Number.isInteger(n) && action.last >= n) throw new Error(`This piece has ${n} bars — that section doesn’t fit.`);
+      if (Number.isInteger(n) && action.last >= n)
+        throw new Error(`This piece has ${n} bars — that section doesn’t fit.`);
       p.setSection(action.first, action.last);
       return 'Section set';
     }

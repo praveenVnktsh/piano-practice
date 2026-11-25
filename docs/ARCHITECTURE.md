@@ -49,7 +49,11 @@ or `mxlBase64` instead of `data` for compressed MusicXML.
 
 ### Song loading (`src/song.js`)
 `loadSong({url} | {data} | {mxlBase64}) → Promise<Song>` where
-`Song = {measures, events, segments, fullSvg()}`; times are in quarter notes.
+`Song = {measures, events, segments, noteNames, fullSvg()}`; times are in quarter notes.
+Each event/segment carries `staff` (1 = top) and `hand` (`'r'` | `'l'`, from the staff, not
+the pitch); each measure carries `label`, `pickup`, `visit` (repeat pass) and
+`meter: {count, unit}`. Practice passages from `passage()` mark notes held over from
+before the section start as `carried` (they are not expected again).
 
 ### Player (`src/player.js`)
 `createPlayer(root) → {load(entry, songPromise), stop(), current}`.

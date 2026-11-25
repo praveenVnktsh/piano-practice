@@ -12,7 +12,12 @@ const SEEN_KEY = 'piano-practice.teacher.seen';
 const SHARE_KEY = 'piano-practice.teacher.share';
 const PLAN_KEY = 'piano-practice.teacher.plan.';
 const THINKING_STALE_MS = 20 * 60 * 1000;
-export const SUGGESTIONS = ['How should I practise this section?', 'Plan my 20 minutes today', 'Why do I keep missing bar 12?', 'Teach me the C major scale'];
+export const SUGGESTIONS = [
+  'How should I practise this section?',
+  'Plan my 20 minutes today',
+  'Why do I keep missing bar 12?',
+  'Teach me the C major scale',
+];
 
 const get = (key, fallback) => {
   try {
@@ -45,7 +50,11 @@ export function orderThread({messages = [], replies = []}) {
 
 export function createPanel(root = document.body, {api = API, EventSourceImpl = globalThis.EventSource} = {}) {
   let thread = {messages: [], replies: [], status: {thinking: null}};
-  let open = false, source = null, lastResult = null, titles = new Map(), library = null;
+  let open = false,
+    source = null,
+    lastResult = null,
+    titles = new Map(),
+    library = null;
   const pending = []; // messages sent but not yet seen in the thread
   const notes = new Map(); // `${replyId}:${index}` → {ok, text} after a tap
 
@@ -79,8 +88,14 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
   root.append(fab, panel);
 
   const $ = s => panel.querySelector(s);
-  const list = $('.tch-thread'), thinking = $('.tch-thinking'), quick = $('.tch-quick'), form = $('.tch-compose');
-  const input = $('textarea'), share = $('.tch-share input'), shareText = $('.tch-share em'), errorBox = $('.tch-error');
+  const list = $('.tch-thread'),
+    thinking = $('.tch-thinking'),
+    quick = $('.tch-quick'),
+    form = $('.tch-compose');
+  const input = $('textarea'),
+    share = $('.tch-share input'),
+    shareText = $('.tch-share em'),
+    errorBox = $('.tch-error');
   share.checked = get(SHARE_KEY, 'on') === 'on';
 
   // ───────── Data ─────────
@@ -96,7 +111,8 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
 
   function setThread(next) {
     thread = next;
-    for (let i = pending.length - 1; i >= 0; i--) if (thread.messages.some(m => m.id === pending[i].id)) pending.splice(i, 1);
+    for (let i = pending.length - 1; i >= 0; i--)
+      if (thread.messages.some(m => m.id === pending[i].id)) pending.splice(i, 1);
     const maxReply = Math.max(0, ...thread.replies.map(r => r.id));
     if (Number(get(SEEN_KEY, 0)) > maxReply) put(SEEN_KEY, String(maxReply)); // the thread was cleared
     if (open && document.visibilityState === 'visible') put(SEEN_KEY, String(maxReply));
@@ -122,7 +138,11 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
     render(true);
     try {
       const context = share.checked ? await collectContext() : null;
-      const res = await fetch(`${api}/messages`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({text, context})});
+      const res = await fetch(`${api}/messages`, {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({text, context}),
+      });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       local.id = body.id;
@@ -150,33 +170,43 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
   function actionButton(action, key) {
     const note = notes.get(key);
     const label = describeAction(action, id => titles.get(id));
-    return `<button type="button" class="tch-action" data-key="${escapeHtml(key)}">${escapeHtml(label)}</button>` +
-      (note ? `<span class="tch-note ${note.ok ? 'ok' : 'bad'}">${escapeHtml(note.text)}</span>` : '');
+    return (
+      `<button type="button" class="tch-action" data-key="${escapeHtml(key)}">${escapeHtml(label)}</button>` +
+      (note ? `<span class="tch-note ${note.ok ? 'ok' : 'bad'}">${escapeHtml(note.text)}</span>` : '')
+    );
   }
 
   function planCard(plan, replyId, index) {
     const ticks = planTicks(`${replyId}.${index}`);
     const total = plan.items.reduce((a, i) => a + (i.minutes || 0), 0);
-    const rows = plan.items.map((item, i) => `
+    const rows = plan.items.map(
+      (item, i) => `
       <li class="${ticks.has(i) ? 'done' : ''}">
         <label><input type="checkbox" data-plan="${replyId}.${index}" data-item="${i}" ${ticks.has(i) ? 'checked' : ''}>
           <span>${escapeHtml(item.label)}</span>${item.minutes ? `<small>${item.minutes} min</small>` : ''}</label>
         ${item.action ? `<div class="tch-plan-act">${actionButton(item.action, `${replyId}:${index}:${i}`)}</div>` : ''}
-      </li>`);
-    return `<div class="tch-plan"><div class="tch-plan-head"><strong>${escapeHtml(plan.label || 'Practice plan')}</strong>` +
-      `${total ? `<small>${total} min</small>` : ''}<small class="tch-count">${ticks.size}/${plan.items.length}</small></div><ol>${rows.join('')}</ol></div>`;
+      </li>`,
+    );
+    return (
+      `<div class="tch-plan"><div class="tch-plan-head"><strong>${escapeHtml(plan.label || 'Practice plan')}</strong>` +
+      `${total ? `<small>${total} min</small>` : ''}<small class="tch-count">${ticks.size}/${plan.items.length}</small></div><ol>${rows.join('')}</ol></div>`
+    );
   }
 
   function itemHtml(item) {
     if (item.kind === 'message') {
-      return `<div class="tch-msg mine"><div class="tch-bubble">${escapeHtml(item.text).replace(/\n/g, '<br>')}</div>` +
-        `<small>${item.sending ? 'Sending…' : time(item.at)}</small></div>`;
+      return (
+        `<div class="tch-msg mine"><div class="tch-bubble">${escapeHtml(item.text).replace(/\n/g, '<br>')}</div>` +
+        `<small>${item.sending ? 'Sending…' : time(item.at)}</small></div>`
+      );
     }
     const actions = item.actions || [];
     const buttons = actions.map((a, i) => (a.type === 'plan' ? '' : actionButton(a, `${item.id}:${i}`))).join('');
     const plans = actions.map((a, i) => (a.type === 'plan' ? planCard(a, item.id, i) : '')).join('');
-    return `<div class="tch-msg teacher"><div class="tch-letter">${renderMarkdown(item.text)}</div>` +
-      `${plans}${buttons ? `<div class="tch-actions">${buttons}</div>` : ''}<small>${time(item.at)}</small></div>`;
+    return (
+      `<div class="tch-msg teacher"><div class="tch-letter">${renderMarkdown(item.text)}</div>` +
+      `${plans}${buttons ? `<div class="tch-actions">${buttons}</div>` : ''}<small>${time(item.at)}</small></div>`
+    );
   }
 
   function isThinking() {
@@ -258,7 +288,9 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
       const r = lastResult;
       lastResult = null;
       const bars = Array.isArray(r.section) ? ` (bars ${r.section[0] + 1}–${r.section[1] + 1})` : '';
-      return send(`Feedback on my last attempt: ${r.title || r.songId}${bars}, ${Math.round(r.accuracy ?? 0)}% at ${r.tempo} BPM. What should I work on?`);
+      return send(
+        `Feedback on my last attempt: ${r.title || r.songId}${bars}, ${Math.round(r.accuracy ?? 0)}% at ${r.tempo} BPM. What should I work on?`,
+      );
     }
     const btn = e.target.closest('.tch-action');
     if (btn) {
@@ -297,7 +329,11 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
   // Start: the teacher needs the dev server; in a static build the button stays hidden.
   fab.hidden = true;
   const ready = fetch(api, {cache: 'no-store'})
-    .then(res => (res.ok && (res.headers.get('content-type') || '').includes('json') ? res.json() : Promise.reject(Error('no teacher'))))
+    .then(res =>
+      res.ok && (res.headers.get('content-type') || '').includes('json')
+        ? res.json()
+        : Promise.reject(Error('no teacher')),
+    )
     .then(data => {
       fab.hidden = false;
       setThread(data);

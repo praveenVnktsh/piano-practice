@@ -39,7 +39,7 @@
 .pg-btn.primary { background: var(--ebony); border-color: var(--ebony); color: var(--ivory); }
 .pg-btn.primary:hover { filter: brightness(1.2); }
 .pg-btn.small { height: 32px; padding: 0 10px; font-size: 13px; }
-.pg-link { border: 0; background: none; padding: 0; color: var(--brass); font: 600 13px var(--font-ui); text-decoration: none; cursor: pointer; }
+.pg-link { text-align: left; border: 0; background: none; padding: 0; color: var(--brass); font: 600 13px var(--font-ui); text-decoration: none; cursor: pointer; }
 .pg-link:hover { text-decoration: underline; }
 .pg :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .pg-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }

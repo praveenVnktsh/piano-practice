@@ -42,9 +42,11 @@ function runUpDown(up, down, fUp, fDown) {
   return seq;
 }
 
-function octavesFor(octaves) {
-  // [RH, LH] octave of the starting tonic: one octave apart, lower for long scales.
-  return octaves >= 3 ? [3, 2] : [4, 3];
+function octavesFor(octaves, tonic) {
+  // [RH, LH] octave of the starting tonic: one octave apart, lower for long scales, and an octave
+  // lower for A and B so short left-hand runs stay on the bass staff.
+  if (octaves >= 3) return [3, 2];
+  return ['A', 'B'].includes(tonic.step) ? [3, 2] : [4, 3];
 }
 
 function scaleNotes({tonic, mode, octaves}, hand, octave) {
@@ -221,11 +223,11 @@ function staffXml(measureNotes, {staff, voice, keyAlt, clef, placement}) {
   const bm = beams(measureNotes);
   let xml = '';
   measureNotes.forEach((n, ni) => {
-    // Clef with hysteresis: treble down to A3, bass up to E4.
+    // Clef with hysteresis: treble down to G3, bass up to G4 (three ledger lines either way).
     const ms = n.pitches.map(midi);
     const lo = Math.min(...ms), hi = Math.max(...ms);
-    if (clef.sign === 'G' && hi < 57) clef.sign = 'F';
-    else if (clef.sign === 'F' && lo > 64) clef.sign = 'G';
+    if (clef.sign === 'G' && hi < 55) clef.sign = 'F';
+    else if (clef.sign === 'F' && lo > 67) clef.sign = 'G';
     if (clef.sign !== clef.drawn) {
       xml += `   <attributes><clef number="${staff}">${CLEF[clef.sign]}</clef></attributes>\n`;
       clef.drawn = clef.sign;
@@ -256,8 +258,8 @@ function toMusicXML({title, fifths, tempo, rh, lh}) {
   const keyAlt = keySignatureAlters(fifths);
   const first = (ms, fallback) => ms ? midi(ms[0][0].pitches[0]) : fallback;
   const clefs = {
-    1: {sign: first(rh, 60) < 57 ? 'F' : 'G'},
-    2: {sign: first(lh, 48) > 64 ? 'G' : 'F'},
+    1: {sign: first(rh, 60) < 55 ? 'F' : 'G'},
+    2: {sign: first(lh, 48) > 67 ? 'G' : 'F'},
   };
   for (const c of Object.values(clefs)) { c.drawn = c.sign; c.altered = {}; }
   let body = '';
@@ -293,7 +295,7 @@ export const DEFAULT_TEMPO = {scale: 80, arpeggio: 72, 'five-finger': 90, progre
 export function generateExercise(params) {
   const p = normalizeParams(params);
   const title = exerciseTitle(p);
-  const [rhOct, lhOct] = p.type === 'chromatic' || p.type === 'five-finger' ? [4, 3] : octavesFor(p.octaves);
+  const [rhOct, lhOct] = octavesFor(p.type === 'five-finger' ? 1 : p.octaves, p.tonic);
   let rh = null, lh = null;
   if (p.type === 'progression') {
     const r = progressionNotes(p);

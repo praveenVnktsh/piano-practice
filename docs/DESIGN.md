@@ -41,6 +41,33 @@ Sizes on a modular scale (1.25). Numerals tabular in controls.
 
 Radii: 6px (controls), 10px (cards). Motion: 160–240 ms ease-out, no bounces.
 
+## Information architecture: few places, never overwhelming
+The student should always know where they are and what to do next. There are
+only **four top-level places**, shown as a quiet tab strip (sidebar on wide
+screens, bottom bar on phone/iPad portrait):
+
+1. **Today**: the home. One clear "Start practising" path: warm-up → current
+   piece → short reading drill, plus the daily goal and anything the teacher
+   assigned. Most days the student never needs to leave it.
+2. **Pieces**: the repertoire library (bundled, your songs, imports) with
+   status (learning / secure / polished).
+3. **Exercises**: everything that isn't a piece: technique (scales, arpeggios…),
+   note reading, and later rhythm/ear/theory, as a few large cards.
+4. **Progress**: history, streaks, mastery, the teacher's weekly letter.
+
+Everything else is **not** a top-level mode:
+- The **player** opens when you start a piece or exercise and has a clear
+  "← back" to where you came from. Inside it, one primary choice
+  (Listen | Practise); advanced options live in the ⋯ menu and Settings.
+- The **teacher** is a companion available from anywhere (one quiet button),
+  not a destination.
+- Settings, import, MIDI and the bridge are reached from ⋯ or the relevant
+  place, never as extra tabs.
+
+Rules: no more than four tabs, ever; no screen shows more than one primary
+button; advanced features are progressive disclosure (off by default, revealed
+when useful or asked for); every screen answers "what should I do now?".
+
 ## Simplified layout
 - **Top bar (one line):** ☰ library · *Title* in Cormorant with composer in
   italic beneath · centre: segmented `Listen | Practise` + play/pause ·

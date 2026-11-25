@@ -151,13 +151,13 @@ describe('generateExercise()', () => {
     expect(notes(fs).map(n => n.pitch)).toContain('E#5');
     expect(notes(fs).filter(n => n.accidental).length).toBe(0);
     const bm = xmlOf('ex:scale:B:harmonic-minor:right:1:up-down');
-    const as = notes(bm).filter(n => n.pitch === 'A#5');
+    const as = notes(bm).filter(n => n.pitch === 'A#4');
     expect(as[0].accidental).toBe('sharp');
     const gb = notes(xmlOf('ex:scale:Gb:major:right:1:up-down')).map(n => n.pitch);
     expect(gb).toContain('Cb5');
     // Melodic minor: raised going up, natural (with a courtesy accidental) coming down.
     const am = xmlOf('ex:scale:A:melodic-minor:right:1:up-down');
-    expect(notes(am).filter(n => n.staff === '1').map(n => n.pitch).join(' ')).toBe('A4 B4 C5 D5 E5 F#5 G#5 A5 G5 F5 E5 D5 C5 B4 A4');
+    expect(notes(am).filter(n => n.staff === '1').map(n => n.pitch).join(' ')).toBe('A3 B3 C4 D4 E4 F#4 G#4 A4 G4 F4 E4 D4 C4 B3 A3');
     expect(am).toMatch(/<accidental cautionary="yes">natural<\/accidental>/);
   });
 

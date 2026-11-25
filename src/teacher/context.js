@@ -55,14 +55,23 @@ const progressModules = import.meta.glob(['../progress/store.js', '../progress/s
 
 /** A small summary of getProgress(), or null when progress isn't available. */
 export async function progressSummary() {
-  const loadStore = progressModules['../progress/store.js'], loadStats = progressModules['../progress/stats.js'];
+  const loadStore = progressModules['../progress/store.js'],
+    loadStats = progressModules['../progress/stats.js'];
   if (!loadStore) return null;
   try {
     const [store, stats] = await Promise.all([loadStore(), loadStats ? loadStats() : {}]);
     const doc = await store.getProgress();
     if (!doc) return null;
-    const row = s => ({id: s.id, title: s.title, attempts: s.attempts, best: s.best, latest: s.latest, bestTempo: s.bestTempo || undefined,
-      minutes: Math.round(s.minutes || 0), lastAt: s.lastAt ? new Date(s.lastAt).toISOString() : undefined});
+    const row = s => ({
+      id: s.id,
+      title: s.title,
+      attempts: s.attempts,
+      best: s.best,
+      latest: s.latest,
+      bestTempo: s.bestTempo || undefined,
+      minutes: Math.round(s.minutes || 0),
+      lastAt: s.lastAt ? new Date(s.lastAt).toISOString() : undefined,
+    });
     return {
       dailyGoalMin: doc.settings?.dailyGoalMin,
       todayMinutes: stats.todayMinutes ? Math.round(stats.todayMinutes(doc)) : undefined,
@@ -89,7 +98,8 @@ export async function collectContext() {
     at: new Date().toISOString(),
   };
   // Trim the biggest parts until it fits.
-  while (JSON.stringify(context).length > MAX_CONTEXT_CHARS && context.recentResults.length) context.recentResults.pop();
+  while (JSON.stringify(context).length > MAX_CONTEXT_CHARS && context.recentResults.length)
+    context.recentResults.pop();
   if (JSON.stringify(context).length > MAX_CONTEXT_CHARS) context.progress = null;
   return context;
 }
@@ -99,10 +109,18 @@ export function sharingLine(state = playerState(), last = recentResults()[0]) {
   const parts = [];
   if (state?.songId) {
     parts.push(state.title || state.songId);
-    if (state.sectionLabel) parts.push(`bars ${state.sectionLabel}`);
+    if (state.sectionLabel) parts.push(state.sectionLabel);
     else if (Array.isArray(state.section)) parts.push(`bars ${state.section[0] + 1}–${state.section[1] + 1}`);
     if (state.tempo) parts.push(`${Math.round(state.tempo)} BPM`);
-  } else parts.push(location.hash.startsWith('#/train') ? 'note-reading trainer' : location.hash.startsWith('#/technique') ? 'technique' : 'no song open');
-  if (last && typeof last.accuracy === 'number' && (!state?.songId || last.songId === state.songId)) parts.push(`last attempt ${Math.round(last.accuracy)}%`);
+  } else
+    parts.push(
+      location.hash.startsWith('#/train')
+        ? 'note-reading trainer'
+        : location.hash.startsWith('#/technique')
+          ? 'technique'
+          : 'no song open',
+    );
+  if (last && typeof last.accuracy === 'number' && (!state?.songId || last.songId === state.songId))
+    parts.push(`last attempt ${Math.round(last.accuracy)}%`);
   return parts.join(' · ');
 }

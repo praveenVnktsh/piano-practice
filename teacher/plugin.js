@@ -41,7 +41,10 @@ function readJson(req) {
 /** One watcher per directory shared by every open stream; pushes the thread when it changes. */
 function createHub(dir, {pollMs = 1500} = {}) {
   const clients = new Set();
-  let watcher = null, poll = null, timer = null, last = '';
+  let watcher = null,
+    poll = null,
+    timer = null,
+    last = '';
   const snapshot = () => JSON.stringify(readThread(dir));
   const push = (force = false) => {
     const now = snapshot();
@@ -98,7 +101,12 @@ export function teacherHandler(dir = TEACHER_DIR, options) {
     try {
       if (path === '/' && req.method === 'GET') return send(res, 200, readThread(dir));
       if (path === '/stream' && req.method === 'GET') {
-        res.writeHead(200, {'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no'});
+        res.writeHead(200, {
+          'content-type': 'text/event-stream',
+          'cache-control': 'no-store',
+          connection: 'keep-alive',
+          'x-accel-buffering': 'no',
+        });
         res.write('retry: 2000\n\n');
         hub.add(res);
         req.on('close', () => hub.remove(res));
@@ -112,7 +120,8 @@ export function teacherHandler(dir = TEACHER_DIR, options) {
       }
       if (path === '/status' && req.method === 'POST') {
         const body = await readJson(req);
-        if (!body || typeof body !== 'object' || !('thinking' in body)) throw new Error('send {thinking: <message id> | null}');
+        if (!body || typeof body !== 'object' || !('thinking' in body))
+          throw new Error('send {thinking: <message id> | null}');
         const status = setThinking(dir, body.thinking);
         hub.changed();
         return send(res, 200, status);

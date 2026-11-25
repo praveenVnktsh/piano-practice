@@ -1,4 +1,6 @@
-// Bundled + local song catalogs (public/songs/catalog.json, public/songs/local/catalog.json).
+// Bundled + local song catalogs (public/songs/catalog.json, public/songs/local/catalog.json),
+// plus generated technique exercises ("ex:…" ids, src/exercises/index.js).
+import {isExerciseId, resolveExercise} from '../exercises/index.js';
 
 const BASE = import.meta.env.BASE_URL || '/';
 
@@ -28,8 +30,20 @@ export async function loadCatalogs() {
   };
 }
 
+/**
+ * Entries that aren't in a catalog file: "ex:…" exercise ids are generated on demand.
+ * → {entry (kind: 'exercise'), source: {data}} or null for unknown / invalid ids.
+ */
+export function resolveEntry(id) {
+  if (!isExerciseId(id)) return null;
+  const r = resolveExercise(id);
+  return r && {entry: {...r.entry, kind: 'exercise', source: r.source}, source: r.source};
+}
+export {resolveExercise, isExerciseId};
+
 /** Song source for loadSong() from any library entry. */
 export function songSource(entry) {
+  if (entry.kind === 'exercise') return entry.source ?? resolveExercise(entry.id)?.source;
   // Imports saved on the Mac have a file (served from public/); browser-only ones carry their data.
   if (entry.kind === 'import' && !entry.file) return entry.mxlBase64 ? {mxlBase64: entry.mxlBase64} : {data: entry.data};
   return {url: entry.file};

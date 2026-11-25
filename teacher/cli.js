@@ -11,7 +11,16 @@
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ACTION_TYPES} from './actions.js';
-import {addReply, openMessages, PROFILE_TEMPLATE, readMessages, readProfile, readReplies, setThinking, TEACHER_DIR} from './store.js';
+import {
+  addReply,
+  openMessages,
+  PROFILE_TEMPLATE,
+  readMessages,
+  readProfile,
+  readReplies,
+  setThinking,
+  TEACHER_DIR,
+} from './store.js';
 
 export const USAGE = `usage: node teacher/cli.js list [--open]
        node teacher/cli.js show <id>
@@ -37,8 +46,10 @@ Any action may add "label" (≤ 80 chars) for its button text. Allowed: ${ACTION
 const pct = v => (typeof v === 'number' ? `${Math.round(v)}%` : '?');
 
 function bars(section, label) {
-  if (label) return `bars ${label}`;
-  if (Array.isArray(section)) return `section [${section[0]}, ${section[1]}] (bars ${section[0] + 1}–${section[1] + 1})`;
+  if (label && Array.isArray(section)) return `${label} (section [${section[0]}, ${section[1]}])`;
+  if (label) return label;
+  if (Array.isArray(section))
+    return `section [${section[0]}, ${section[1]}] (bars ${section[0] + 1}–${section[1] + 1})`;
   return '';
 }
 
@@ -57,14 +68,18 @@ export function formatContext(context, {full = false} = {}) {
   } else out.push('  player: no song open');
   for (const r of (context.recentResults || []).slice(0, full ? 10 : 3)) {
     const when = r.at ? new Date(r.at).toLocaleString() : '';
-    const timing = r.timing ? ` · timing early ${r.timing.early} / late ${r.timing.late} / on time ${r.timing.onTime}` : '';
+    const timing = r.timing
+      ? ` · timing early ${r.timing.early} / late ${r.timing.late} / on time ${r.timing.onTime}`
+      : '';
     out.push(
       `  result: ${r.title || r.songId} · bars ${(r.section || []).map(n => n + 1).join('–')} · ${r.hands} · ${r.mode} · ${r.tempo} BPM · ` +
         `${pct(r.accuracy)} (${r.right} right, ${r.wrong} wrong)${timing} · ${when}`,
     );
     const misses = r.misses || [];
     for (const m of misses.slice(0, full ? 50 : 8)) {
-      out.push(`      miss bar ${m.measure}: expected ${(m.expected || []).join(' ')}; played ${(m.played || []).join(' ') || '—'}`);
+      out.push(
+        `      miss bar ${m.measure}: expected ${(m.expected || []).join(' ')}; played ${(m.played || []).join(' ') || '—'}`,
+      );
     }
     if (!full && misses.length > 8) out.push(`      … ${misses.length - 8} more misses (show the message for all)`);
   }
@@ -79,14 +94,25 @@ export function formatContext(context, {full = false} = {}) {
         ` (longest ${g.streak?.longest ?? 0}) · ${Math.round(g.totalMinutes || 0)} min total`,
     );
     for (const s of (g.recentSongs || []).slice(0, full ? 10 : 5)) {
-      out.push(`      song ${s.title} [${s.id}]: ${s.attempts} attempts, best ${pct(s.best)}, latest ${pct(s.latest)}${s.bestTempo ? `, best tempo ${s.bestTempo}` : ''}`);
+      out.push(
+        `      song ${s.title} [${s.id}]: ${s.attempts} attempts, best ${pct(s.best)}, latest ${pct(s.latest)}${s.bestTempo ? `, best tempo ${s.bestTempo}` : ''}`,
+      );
     }
     for (const s of (g.recentExercises || []).slice(0, full ? 10 : 5)) {
       out.push(`      exercise [${s.id}]: ${s.attempts} attempts, best ${pct(s.best)}`);
     }
-    if (g.reading?.drills) out.push(`      note reading: ${g.reading.drills} drills, ${pct(g.reading.accuracy)}, avg ${Math.round(g.reading.avgMs || 0)} ms`);
+    if (g.reading?.drills)
+      out.push(
+        `      note reading: ${g.reading.drills} drills, ${pct(g.reading.accuracy)}, avg ${Math.round(g.reading.avgMs || 0)} ms`,
+      );
   }
-  if (full) out.push('  raw context:', ...JSON.stringify(context, null, 2).split('\n').map(l => '    ' + l));
+  if (full)
+    out.push(
+      '  raw context:',
+      ...JSON.stringify(context, null, 2)
+        .split('\n')
+        .map(l => '    ' + l),
+    );
   return out.join('\n');
 }
 
@@ -95,7 +121,9 @@ function formatMessage(m, replies, {context = false, full = false} = {}) {
   const lines = [head, ...m.text.split('\n').map(l => `  > ${l}`)];
   if (context) lines.push(formatContext(m.context, {full}));
   for (const r of replies) {
-    lines.push(`  <- reply ${r.id}: ${r.text.split('\n')[0].slice(0, full ? 10000 : 100)}${r.actions ? ` [${r.actions.length} action(s)]` : ''}`);
+    lines.push(
+      `  <- reply ${r.id}: ${r.text.split('\n')[0].slice(0, full ? 10000 : 100)}${r.actions ? ` [${r.actions.length} action(s)]` : ''}`,
+    );
   }
   return lines.join('\n');
 }
@@ -130,13 +158,15 @@ export function main(argv, dir = TEACHER_DIR, out = console.log, err = console.e
         try {
           actions = JSON.parse(raw);
         } catch (e) {
-          throw new Error(`--actions is not valid JSON: ${e.message}`);
+          throw new Error(`--actions is not valid JSON: ${e.message}`, {cause: e});
         }
         args.splice(at, 2);
       }
       const [id, ...text] = args;
       const reply = addReply(dir, id, text.join(' '), actions);
-      out(`Replied to #${reply.replyTo} (reply ${reply.id}${reply.actions ? `, ${reply.actions.length} action(s)` : ''}).`);
+      out(
+        `Replied to #${reply.replyTo} (reply ${reply.id}${reply.actions ? `, ${reply.actions.length} action(s)` : ''}).`,
+      );
       return 0;
     }
     if (command === 'profile') {
@@ -157,4 +187,5 @@ export function main(argv, dir = TEACHER_DIR, out = console.log, err = console.e
   return 1;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exitCode = main(process.argv.slice(2));
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+  process.exitCode = main(process.argv.slice(2));

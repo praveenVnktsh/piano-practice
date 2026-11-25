@@ -14,7 +14,15 @@ describe('teacher actions', () => {
     [{type: 'open_exercise', id: 'ex:arpeggio:Fs:minor:right:2'}],
     [{type: 'open_note_reading'}],
     [{type: 'open_note_reading', level: 'treble-ledger'}],
-    [{type: 'plan', items: [{label: 'Warm up', minutes: 5, action: {type: 'open_exercise', id: 'ex:five-finger:G:major:both'}}, {label: 'Run-through'}]}],
+    [
+      {
+        type: 'plan',
+        items: [
+          {label: 'Warm up', minutes: 5, action: {type: 'open_exercise', id: 'ex:five-finger:G:major:both'}},
+          {label: 'Run-through'},
+        ],
+      },
+    ],
   ])('accepts %j', action => {
     expect(actionError(action)).toBe('');
   });

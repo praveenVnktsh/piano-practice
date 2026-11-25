@@ -20,9 +20,12 @@ const HEADING = /^\s{0,3}#{1,6}\s+(.*)$/;
 
 /** Markdown text → safe HTML string. */
 export function renderMarkdown(src) {
-  const lines = String(src ?? '').replace(/\r\n?/g, '\n').split('\n');
+  const lines = String(src ?? '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n');
   const out = [];
-  let para = [], list = null;
+  let para = [],
+    list = null;
   const flushPara = () => {
     if (para.length) out.push(`<p>${para.map(inline).join('<br>')}</p>`);
     para = [];

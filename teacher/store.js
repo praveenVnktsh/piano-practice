@@ -8,7 +8,8 @@ import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {validateActions} from './actions.js';
 
-export const TEACHER_DIR = process.env.TEACHER_DIR || resolve(dirname(fileURLToPath(import.meta.url)), '..', '.teacher');
+export const TEACHER_DIR =
+  process.env.TEACHER_DIR || resolve(dirname(fileURLToPath(import.meta.url)), '..', '.teacher');
 export const MAX_TEXT = 4000;
 export const MAX_REPLY = 20000;
 export const MAX_CONTEXT_BYTES = 64 * 1024;
@@ -16,7 +17,7 @@ export const MAX_CONTEXT_BYTES = 64 * 1024;
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 function jsonl(dir, file) {
-  let text = '';
+  let text;
   try {
     text = readFileSync(join(dir, file), 'utf8');
   } catch {
@@ -39,7 +40,9 @@ export const readReplies = dir => jsonl(dir, 'replies.jsonl');
 export function readStatus(dir) {
   try {
     const s = JSON.parse(readFileSync(join(dir, 'status.json'), 'utf8'));
-    return isObj(s) && Number.isInteger(s.thinking) ? {thinking: s.thinking, at: s.at ?? null} : {thinking: null, at: null};
+    return isObj(s) && Number.isInteger(s.thinking)
+      ? {thinking: s.thinking, at: s.at ?? null}
+      : {thinking: null, at: null};
   } catch {
     return {thinking: null, at: null};
   }
@@ -77,7 +80,8 @@ export function addMessage(dir, fields) {
   if (text.length > MAX_TEXT) throw new Error(`a message is at most ${MAX_TEXT} characters`);
   const context = fields.context ?? null;
   if (context !== null && !isObj(context)) throw new Error('context must be an object');
-  if (context && Buffer.byteLength(JSON.stringify(context)) > MAX_CONTEXT_BYTES) throw new Error('context is too large');
+  if (context && Buffer.byteLength(JSON.stringify(context)) > MAX_CONTEXT_BYTES)
+    throw new Error('context is too large');
   const message = {id: nextId(readMessages(dir)), at: new Date().toISOString(), text, context};
   mkdirSync(dir, {recursive: true});
   appendFileSync(join(dir, 'messages.jsonl'), JSON.stringify(message) + '\n');
@@ -92,7 +96,13 @@ export function addReply(dir, replyTo, text, actions) {
   if (!said) throw new Error('a reply needs text');
   if (said.length > MAX_REPLY) throw new Error(`a reply is at most ${MAX_REPLY} characters`);
   const checked = validateActions(actions);
-  const reply = {id: nextId(readReplies(dir)), replyTo: id, at: new Date().toISOString(), text: said, ...(checked.length ? {actions: checked} : {})};
+  const reply = {
+    id: nextId(readReplies(dir)),
+    replyTo: id,
+    at: new Date().toISOString(),
+    text: said,
+    ...(checked.length ? {actions: checked} : {}),
+  };
   mkdirSync(dir, {recursive: true});
   appendFileSync(join(dir, 'replies.jsonl'), JSON.stringify(reply) + '\n');
   if (readStatus(dir).thinking === id) setThinking(dir, null);

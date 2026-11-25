@@ -128,14 +128,12 @@ export async function startApp() {
     sidebar.setData({bundled: cat.bundled, local: cat.local});
   });
 
-  // Exercise ids ("ex:…") are generated on demand; the catalog knows how (src/exercises/index.js).
+  // Ids that aren't in a catalog ("ex:…" exercises are generated on demand): catalog.resolveEntry.
   async function resolveSpecial(id) {
-    const resolve = catalog.resolveEntry || catalog.resolveExercise;
-    if (!id.startsWith('ex:') || typeof resolve !== 'function') return null;
+    if (typeof catalog.resolveEntry !== 'function') return null;
     try {
-      const r = await resolve(id);
-      if (!r) return null;
-      return r.entry ? {entry: {id, ...r.entry}, source: r.source} : {entry: r, source: null};
+      const r = await catalog.resolveEntry(id);
+      return r?.entry ? {entry: {id, ...r.entry}, source: r.source} : null;
     } catch (e) {
       console.warn('Could not build exercise', id, e);
       return null;
