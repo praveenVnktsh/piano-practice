@@ -786,6 +786,10 @@ button.menu-row:hover > span:first-child { color: var(--brass); }
 .prompt-link i { font-style: italic; }
 /* Stuck → "Loop bar 7 slowly?": a quiet offer after the hint (src/practice/repair.mjs). */
 .repair-offer { color: var(--ink-soft); font-style: italic; margin-left: 6px; }
+/* The offer gets its own line, so it's never cut off (phones especially). */
+.prompt:has(.repair-offer) { white-space: normal; line-height: 22px; }
+.prompt .repair-offer { display: block; margin: 2px auto 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+@media (max-width: 600px) { .prompt .stuck-hint { display: none; } }
 .repair-offer:hover { color: var(--ink); }
 /* The repair loop's tag reads "… · End loop": no × as well. */
 .strategy-tag.repair::after { content: none; }
