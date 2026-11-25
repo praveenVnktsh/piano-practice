@@ -137,7 +137,8 @@ mounted) and the public site shows one quiet line in Progress instead. sessionSt
 - `window.pianoPlayer` (set by src/player.js once created) — a small control API the AI teacher's tools call:
   `getState() → {songId, title, composer, section: [first, last], sectionLabel, measureCount, tempo, targetTempo,
   mode: 'wait'|'timed', hands: 'both'|'right'|'left', view: 'falling'|'sheet'|'pages', playing, practicing, loop,
-  strategy: 'off'|'ladder'|'dotted'|'reversed'|'blocked'|'memory', chain: {dir, section, goal} | null, latencyMs}`,
+  strategy: 'off'|'ladder'|'dotted'|'reversed'|'blocked'|'memory', chain: {dir, section, goal} | null, latencyMs,
+  repair: {section, clean, tempo, original: {section, loop, tempo}} | null, repairOffer: [first, last] | null, controlKey}`,
   `setSection(first, last)` (0-based measure indices), `setTempo(bpm)`, `setHands(h)`, `setMode(m)`, `setLoop(bool)`,
   `setStrategy(s)`, `listen()`, `practice()`, `stop()`. Each setter returns the new `getState()`.
 - `practice:result` additionally carries `misses: [{measure: '<label>', expected: ['F♯4', ...], played: ['G4', ...]}]`
@@ -152,7 +153,8 @@ mounted) and the public site shows one quiet line in Progress instead. sessionSt
   - `articulation`: `{legatoPairs, detachedPairs, overlapMs (mean; + = keys overlap), staccato: {count, held},
     pedal?: {presses, marks, caught}, remarks: [..]}`. Legato is judged under slurs (pieces) or everywhere (exercises).
   - `strategy` ('ladder' | 'dotted' | 'reversed' | 'blocked' | 'memory') when a practice strategy was on;
-    `chain: {dir: 'forward'|'backward', section: [first, last]}` (the whole passage being chained) while chaining.
+    `chain: {dir: 'forward'|'backward', section: [first, last]}` (the whole passage being chained) while chaining;
+    `repair: {section: [first, last]}` (the section the repair loop will put back) during a repair loop.
   `remarks` are the short sentences the results card shows (at most two in total).
 - Per-song localStorage (`piano-practice:song:<id>`) also keeps `best: {"<first>-<last>[:right|:left]": bpm}`,
   the highest play-along tempo with ≥ 95 % accuracy per section; global settings keep `latencyMs` (Settings → Calibrate).
@@ -445,3 +447,30 @@ mounted) and the public site shows one quiet line in Progress instead. sessionSt
   made on demand), stronger `.pkey.attack` outline and names, the prompt "Here they are · …", the
   chord played once softly (unless muted), and names on the falling notes. It also lifts the
   memory check's hidden keys for that chord. Cleared when the chord is played, on stop and restart.
+
+## Repair loop and control key
+- `src/practice/repair.mjs` (pure): `repairSection(measures, mi, t)` — the stuck bar, plus the next
+  when the chord is on the bar's last beat; `startRepair({first, last, mode, tempo, section, loop})`
+  keeps what to put back and, in Play along, starts at `slowTempo` (70 %, ≥ 40, ≤ the tempo; Wait
+  keeps the tempo); `repairStep(state, accuracy)` after each pass — a clean pass (≥ 95 %) below the
+  original tempo raises it ~10 %, at the original tempo (any clean pass in Wait) counts; a slip
+  resets the count; `done` at `REPAIR_PASSES` (3); `repairRestore(state)` → `{section, loop, tempo,
+  resumeAt}` (the bar after, or null past the section); `repairStatus` → the status line.
+- `src/practice/control-key.mjs` (pure): `DEFAULT_CONTROL_KEY` (108, C8), `normaliseControlKey`,
+  `isControlPress` / `isControlRelease` (MIDI bytes, any channel), `pieceUsesKey(events, key)`,
+  `controlAction({offer, repair, practicing, loop})` → `'accept' | 'restart' | 'start'`.
+- Player: `showStuck` sets `repairOffer` (not inside a repair loop, a chain or a performance run);
+  the stuck prompt ends with a `[data-repair]` link. `acceptRepair` → `setRange(…, {repairing: true})`,
+  Loop on, slow tempo, `startPractice()`. While `repair` is set: `emitResult` skips the ladder and
+  speed trainer and calls `repairStep`; the result carries `repair: {section}` (its `section` is the
+  small one, so the learn plan only ticks a step that one bar covers, and the best clean tempo is
+  kept for those bars); the status line shows `repairStatus`; the strategy tag reads
+  "Repair loop · bar N · End loop" and ends it. `endRepair({resume})` puts the section, loop and
+  tempo back and, when done by itself, sets the playhead to `resumeAt` and calls `startPractice()`
+  (the resume-from-playhead path). Any other `setRange` or a new piece ends it without resuming.
+- Control key: `midiMessage` swallows a note-on/off of `controlKey` (saved as `controlKey` in
+  `piano-practice:settings`) before `userAttack` — no `piano:note`, recording, grading or sound —
+  when a song is open, the player is on screen, no calibration runs and the piece doesn't use that
+  pitch (`getState().controlKey`). On-screen keys and the microphone never act as the control key.
+  Settings → *Control key on your piano* → *Change…* takes the next MIDI note-on as the new key.
+  `getState()` also has `repair` and `repairOffer`.

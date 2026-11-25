@@ -784,6 +784,16 @@ button.menu-row:hover > span:first-child { color: var(--brass); }
 /* "Next in setlist →" at the end of a listen. */
 .prompt-link { font: inherit; font-size: inherit; color: var(--ink); padding: 0; text-decoration-color: var(--brass); cursor: pointer; }
 .prompt-link i { font-style: italic; }
+/* Stuck → "Loop bar 7 slowly?": a quiet offer after the hint (src/practice/repair.mjs). */
+.repair-offer { color: var(--ink-soft); font-style: italic; margin-left: 6px; }
+/* The offer gets its own line, so it's never cut off (phones especially). */
+.prompt:has(.repair-offer) { white-space: normal; line-height: 22px; }
+.prompt .repair-offer { display: block; margin: 2px auto 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+@media (max-width: 600px) { .prompt .stuck-hint { display: none; } }
+.repair-offer:hover { color: var(--ink); }
+/* The repair loop's tag reads "… · End loop": no × as well. */
+.strategy-tag.repair::after { content: none; }
+.ctl-pick { white-space: nowrap; }
 
 /* The import dialog's MuseScore steps (src/app/import-dialog.js). */
 .dlg-guide ol { margin: 8px 0 0; padding-left: 22px; font: 16px/1.45 var(--font-text); color: var(--ink-soft); }

@@ -170,7 +170,10 @@ The player has one main choice at the top, **Listen | Practise**, and a play but
   - **Wait**: the music waits for each note or chord. Learn the notes this way, as slowly as you
     need. Stuck (three wrong notes on one chord, or a long pause after a wrong one)? The chord's
     letter names appear on its noteheads, its keys are outlined and named on the keyboard, and it
-    sounds once softly. The hint goes as soon as you play it.
+    sounds once softly. The hint goes as soon as you play it. It also offers, quietly, to
+    **loop the bar slowly**: accept and the bar (and the next, if the chord was on its last beat)
+    loops until you play it cleanly three times running; then the section, loop and tempo come
+    back and practice carries on from the bar after. *End loop* on the stage stops it early.
   - **Play along**: a bar of count-in, then the music keeps time and marks each note early, late
     or on time.
 - **Hands**: `L · Both · R` (or **H**). While you practise one hand the app plays the other.
@@ -184,6 +187,10 @@ The player has one main choice at the top, **Listen | Practise**, and a play but
 - **Strategies** (⋯ → Strategy), one at a time: the slow-practice ladder, dotted and
   reversed-dotted rhythms, blocked chords from broken figures, and the memory check (the score
   hides while you play).
+- **Control key**: with a MIDI piano, the top key (C8) drives the player instead of playing a
+  note. It starts practising, restarts the pass from the top of the section or loop, and accepts
+  the "loop this bar slowly?" offer. Choose another key in Settings → *Control key on your piano*.
+  A piece that plays that key itself keeps it as a note (Settings says so).
 - **View** (⋯): *Notation* (one long line that scrolls under the playhead), *Pages* (a page at
   a time, turned for you; arrow keys or a Bluetooth page-turner pedal turn it by hand) or
   *Falling notes*. Note names, zoom, theme and full screen are in ⋯ too.

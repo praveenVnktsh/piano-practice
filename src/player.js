@@ -23,6 +23,8 @@ import {renderMusicality} from './analysis/musicality-view.js';
 import {attachLearn} from './learn/guide.js';
 import {startingKeys} from './learn/position.mjs';
 import {StuckTracker, STUCK_AFTER_MS} from './practice/stuck.mjs';
+import {repairSection, startRepair, repairStep, repairStatus, repairRestore, REPAIR_PASSES} from './practice/repair.mjs';
+import {normaliseControlKey, isControlPress, isControlRelease, pieceUsesKey, controlAction, keyName} from './practice/control-key.mjs';
 import {fingeringFor, drawSuggestedFingering} from './fingering/overlay.js';
 
 // Per-bar statistics from the progress store (src/progress/mastery.js, owned by
@@ -103,6 +105,11 @@ export function createPlayer(root) {
   // the chord's names appear on its noteheads, its keys are called out, and it sounds once.
   const stuck = new StuckTracker();
   let stuckTimer = null, stuckOn = false;
+  // Stuck → "Loop bar N slowly?" (src/practice/repair.mjs): `repairOffer` is the bars on offer
+  // while the hint shows; `repair` the running repair loop (with what to put back afterwards).
+  let repairOffer = null, repair = null;
+  // The control key on the MIDI piano (src/practice/control-key.mjs): drives the player, never a note.
+  let controlKey = normaliseControlKey(load().controlKey), choosingControl = false;
   const matched = new Set();
   // Practice options: mode 'wait' | 'timed', hands 'both' | 'right' | 'left'.
   let mode = 'wait', hands = 'both', metronome = false, metroInWait = false, speedUp = false, zoom = 1;
@@ -208,8 +215,10 @@ export function createPlayer(root) {
 
   // ───────── Section ─────────
   // `keep` keeps a running chain (the chain itself moves the section).
-  function setRange(first, last, {quiet = false, keep = false} = {}) {
+  // `repairing`: the repair loop setting its own bars; any other new section ends a repair loop.
+  function setRange(first, last, {quiet = false, keep = false, repairing = false} = {}) {
     stopAll();
+    if (repair && !repairing) endRepair({keepSection: true});
     if (!keep) chain = null;
     first = Math.max(0, Math.min(song.measures.length - 1, first));
     last = Math.max(first, Math.min(song.measures.length - 1, last));
@@ -834,6 +843,7 @@ export function createPlayer(root) {
     if (r.musicality) detail.musicality = compactMusicality(r.musicality);
     if (strategy !== 'off') detail.strategy = strategy;
     if (chain) detail.chain = {dir: chain.dir, section: [...chain.goal]};
+    if (repair) detail.repair = {section: [...repair.original.section]};
     if (r.performance) detail.performance = {score: r.performance.score, accuracy: r.performance.accuracy, timing: r.performance.timing, evenness: r.performance.evenness};
     emit('practice:result', detail);
     r.memory = strategy === 'memory';
@@ -844,9 +854,18 @@ export function createPlayer(root) {
       if (res.improved) { saveSong({best: res.bests}); r.newBest = detail.tempo; }
     }
     // Slow-practice ladder, else the speed trainer: a clean pass raises the tempo toward the target (not in a performance run).
-    const next = r.performance ? detail.tempo : strategy === 'ladder' ? ladderNext(detail.tempo, targetTempo(), r.accuracy, {threshold: CLEAN})
+    const next = r.performance || repair ? detail.tempo : strategy === 'ladder' ? ladderNext(detail.tempo, targetTempo(), r.accuracy, {threshold: CLEAN})
       : speedUp ? speedUpTempo(detail.tempo, targetTempo(), r.accuracy) : detail.tempo;
     if (next !== detail.tempo) { setTempoValue(next); r.tempoTo = tempo(); flash(`♩ = ${r.tempoTo}`); }
+    // Repair loop: clean passes bring the tempo back, then count toward the finish.
+    if (repair) {
+      const step = repairStep(repair, r.accuracy);
+      repair = step.state;
+      r.repairDone = step.done;
+      if (!step.done && step.tempo !== tempo()) { setTempoValue(step.tempo); r.tempoTo = tempo(); }
+      flash(step.done ? 'Repaired.' : step.raised ? `Clean · ♩ = ${step.tempo}` : step.clean ? `Clean · ${step.clean} of ${REPAIR_PASSES}` : 'Once more, slowly.', step.clean || step.raised || step.done ? 'good' : 'bad');
+      setStatus(repairLine());
+    }
     // Chaining: a clean pass adds a bar.
     r.chainNext = null;
     if (chain) {
@@ -913,10 +932,10 @@ export function createPlayer(root) {
     const ev = n => g.events.find(e => e.n === n) || {n};
     const hand = n => ev(n).hand;
     // Memory check: no names, unless three slips in a row ask for a hint.
-    if (stuckOn) setPrompt(`Here ${remaining.length > 1 ? 'they are' : 'it is'} · ${remaining.map(n => `<b class="${handClass(hand(n))}">${spelled(song, ev(n))}</b>`).join(' + ')} <span class="stuck-hint">— on the keys below</span>`);
+    if (stuckOn) setPrompt(`Here ${remaining.length > 1 ? 'they are' : 'it is'} · ${remaining.map(n => `<b class="${handClass(hand(n))}">${spelled(song, ev(n))}</b>`).join(' + ')} <span class="stuck-hint">— on the keys below</span>${offerHtml()}`);
     else if (strategy === 'memory' && memoryHints < 3) setPrompt(follow.collected.size ? 'From memory · <b>and the rest of the chord</b>' : 'From memory · <b>keep going</b>');
     else setPrompt(`Play ${remaining.map(n => `<b class="${handClass(hand(n))}">${spelled(song, ev(n))}</b>`).join(' + ')}`);
-    setStatus(`${measureName(song.measures[measureIndexAt(g.t)])} · ${follow.index + 1} / ${follow.groups.length}${hands !== 'both' ? ` · ${hands} hand` : ''}`);
+    setStatus(repair ? repairLine() : `${measureName(song.measures[measureIndexAt(g.t)])} · ${follow.index + 1} / ${follow.groups.length}${hands !== 'both' ? ` · ${hands} hand` : ''}`);
   }
   // Where a new pass starts: the playhead, when it sits inside the section past its first note.
   function resumePoint() {
@@ -1018,6 +1037,9 @@ export function createPlayer(root) {
     const remaining = g.events.filter(e => g.notes.includes(e.n) && !follow.collected.has(e.n));
     // Letters on these noteheads (hidden unless Note names is on, or this hint): made now if missing.
     for (const e of remaining) { labelNotehead(e.id); sheetEls.get(e.id)?.classList.add('s-hint'); }
+    // Offer to loop the bar slowly (not inside a repair loop, a chain or a performance run).
+    const bars = !repair && !chain && !perf ? repairSection(song.measures, measureIndexAt(g.t), g.t) : null;
+    repairOffer = bars ? {first: bars[0], last: bars[1]} : null;
     // Hear it once, softly, and make sure its keys are on screen.
     if (!piano.muted) remaining.forEach((e, i) => piano.tone(e.n, .9, .35, i * .04));
     q(`.pkey[data-note="${remaining[0]?.n}"]`)?.scrollIntoView?.({block: 'nearest', inline: 'center', behavior: 'smooth'});
@@ -1025,6 +1047,7 @@ export function createPlayer(root) {
   }
   function clearStuck() {
     stuck.advance();
+    repairOffer = null;
     clearTimeout(stuckTimer); stuckTimer = null;
     if (!stuckOn) return;
     stuckOn = false;
@@ -1038,14 +1061,75 @@ export function createPlayer(root) {
       if (practicing && follow?.active && follow.index === index && stuck.check(index, performance.now())) showStuck();
     }, STUCK_AFTER_MS + 50);
   }
+  // ───────── Repair loop (stuck → loop the bar slowly) ─────────
+  const repairBars = (a, b) => barsText(song.measures, a, b);
+  const repairLine = () => (repair && song ? repairStatus(repair, repairBars(repair.first, repair.last).replace(/^./, c => c.toUpperCase())) : '');
+  // The quiet offer at the end of the stuck prompt.
+  function offerHtml() {
+    if (!repairOffer || repair) return '';
+    const how = controlLive() ? `Press ${keyName(controlKey)} (your control key) or tap here` : 'Tap here';
+    return ` <button type="button" class="link-btn prompt-link repair-offer" data-repair>Loop ${repairBars(repairOffer.first, repairOffer.last)} slowly? ${how}</button>`;
+  }
+  function acceptRepair() {
+    if (!repairOffer || !song || !range) return;
+    const {first, last} = repairOffer;
+    repair = startRepair({first, last, mode: practiceMode, tempo: tempo(), section: [range.first, range.last], loop});
+    setRange(first, last, {quiet: true, repairing: true});
+    setLoop(true);
+    if (repair.tempo !== tempo()) setTempoValue(repair.tempo);
+    showStrategy();
+    startPractice();
+    setStatus(repairLine());
+  }
+  // The repair loop ends: by itself after the clean passes (`resume`: carry on from the bar after),
+  // or early (End loop, another section, another piece). The section, loop and tempo come back.
+  function endRepair({resume = false, keepSection = false} = {}) {
+    if (!repair) return;
+    const done = repair, back = repairRestore(done);
+    repair = null;
+    if (!keepSection && song) setRange(back.section[0], back.section[1], {quiet: true});
+    setLoop(back.loop);
+    if (tempo() !== back.tempo) setTempoValue(back.tempo);
+    showStrategy();
+    if (keepSection || !song) return;
+    const where = repairBars(done.first, done.last);
+    if (resume) {
+      if (back.resumeAt != null) pos = points.find(t => t >= song.measures[back.resumeAt].start - EPS) ?? pos;
+      startPractice();
+      flash(back.resumeAt != null ? `${where.replace(/^./, c => c.toUpperCase())} repaired · on from ${barsText(song.measures, back.resumeAt)}` : 'Repaired.');
+    } else {
+      // Stopped at the repaired bar: ▶ carries on from there.
+      pos = points.find(t => t >= song.measures[done.first].start - EPS) ?? pos; draw();
+      setStatus(sectionLabel());
+      setPrompt(`Loop ended · press <b class="glyph">▶</b> to carry on from ${where}`);
+    }
+  }
+  q('#um-practice-status').addEventListener('click', e => { if (e.target.closest?.('[data-repair]')) acceptRepair(); });
+
+  // ───────── Control key (one key on the MIDI piano drives the player) ─────────
+  // Off for a piece that plays that pitch itself, and while the player is off screen.
+  const controlLive = () => !song || !pieceUsesKey(song.events, controlKey);
+  const onScreen = () => root.isConnected && !!root.getClientRects().length;
+  function controlPress() {
+    if (!song || !range) return;
+    if (perf) return; // a performance run isn't restarted mid-way
+    const act = controlAction({offer: !!repairOffer && stuckOn && !repair, repair: !!repair, practicing, loop});
+    if (act === 'accept') return acceptRepair();
+    stopAll();
+    if (intent !== 'practice') setIntent('practice');
+    if (act === 'restart') { finished = false; pos = range.start; } // from the top of the section / loop
+    startPractice();
+  }
+
   function finishWait() {
     const total = rightCount + wrongCount;
     const r = {right: rightCount, wrong: wrongCount, accuracy: total ? Math.round(100 * rightCount / total) : 100, timing: null};
     emitResult(r);
+    if (r.repairDone) { endRepair({resume: true}); return; }
     if (continueChain(r)) return;
     const quiet = stopForStep; stopForStep = false;
     if (loop && !quiet) {
-      flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : 'Once more.');
+      if (!repair) flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : 'Once more.');
       follow.reset(); passFirst = null; autoPlayed = new Set(); matched.clear(); rightCount = 0; wrongCount = 0;
       pos = follow.current.t; draw(); practicePrompt(); runAuto(true);
       return;
@@ -1088,7 +1172,7 @@ export function createPlayer(root) {
     newGrader(start);
     practicing = true; passStartedAt = performance.now(); beginSession('practice');
     pos = passFirst != null ? (points.find(t => t >= start - EPS) ?? start) : (points[0] ?? range.start); setButtons(); draw();
-    setStatus(`Play along · ${passFirst != null ? `from ${measureName(song.measures[mi])}` : sectionLabel()} · ♩ = ${tempo()}`);
+    setStatus(repair ? repairLine() : `Play along · ${passFirst != null ? `from ${measureName(song.measures[mi])}` : sectionLabel()} · ♩ = ${tempo()}`);
     startClock('timed', start, {count: true});
   }
   function gradeNote(note, grade) {
@@ -1124,8 +1208,10 @@ export function createPlayer(root) {
     const r = {...s, counts: {...grader.counts}};
     if (perf) r.performance = performanceScore({counts: r.counts, evenness: evenness(played.filter(p => p.id != null))});
     emitResult(r);
+    if (r.repairDone) { stopAll(); setTimeout(() => endRepair({resume: true}), 300); return true; }
     if (r.chainNext) { stopAll(); setTimeout(() => continueChain(r), 300); return true; }
     if (!loop || stopForStep) return false;
+    if (repair) return false;
     flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : `${r.accuracy}% · once more.`);
     return false;
   }
@@ -1577,13 +1663,16 @@ export function createPlayer(root) {
     const parts = [];
     if (perf) parts.push('Performance run');
     if (strategy !== 'off') parts.push(STRATEGIES[strategy]);
+    if (repair && song) parts.push(`Repair loop · ${barsText(song.measures, repair.first, repair.last)}`);
     if (chain && song) parts.push(`Chaining ${chain.dir === 'backward' ? '←' : '→'} ${rangeText(chain.first, chain.last)} of ${rangeText(...chain.goal)}`);
     tag.hidden = !parts.length;
-    tag.textContent = parts.join(' · ');
-    tag.setAttribute('aria-label', parts.join(', ') + '. Turn off');
+    tag.textContent = parts.join(' · ') + (repair ? ' · End loop' : '');
+    tag.classList.toggle('repair', !!repair);
+    tag.setAttribute('aria-label', parts.join(', ') + (repair ? '. End the loop' : '. Turn off'));
   }
   q('#um-strategy').onclick = () => {
     if (perf) { stopAll(); draw(); showStrategy(); return; } // ends the performance run
+    if (repair) { endRepair(); return; } // ends the repair loop, everything put back
     if (chain) { const [a, b] = chain.goal; chain = null; setRange(a, b); }
     if (strategy !== 'off') setStrategy('off');
     showStrategy();
@@ -1651,6 +1740,13 @@ export function createPlayer(root) {
   function midiMessage(source, [status, n, velocity], time = performance.now()) {
     const command = status & 240;
     if (command !== 144 && command !== 128 && command !== 176) return;
+    // Settings → Control key → Change…: the next key pressed becomes the control key.
+    if (choosingControl && command === 144 && velocity > 0) { setControlKey(n); return; }
+    // The control key drives the player and is never a note (unless this piece plays it).
+    if (song && controlLive() && onScreen() && !calib) {
+      if (isControlPress([status, n, velocity], controlKey)) { controlPress(); return; }
+      if (isControlRelease([status, n, velocity], controlKey) && ![...midiHeld.values()].some(h => h.has(n))) return;
+    }
     const key = source + ':' + (status & 15);
     if (!midiHeld.has(key)) midiHeld.set(key, new Set());
     const held = midiHeld.get(key);
@@ -2105,11 +2201,16 @@ export function createPlayer(root) {
     loop = v; save({loop}); root.classList.toggle('looping', loop);
     q('#sec-loop').checked = loop; q('#set-loop').checked = loop;
   }
-  const closeSettings = () => { if (settingsModal.hidden) return; settingsModal.hidden = true; cancelCalibration(); settingsFocus.closed(); };
+  const closeSettings = () => {
+    if (settingsModal.hidden) return;
+    settingsModal.hidden = true; cancelCalibration(); settingsFocus.closed();
+    if (choosingControl) { choosingControl = false; showControlKey(); }
+  };
   const settingsFocus = modalFocus(settingsModal, closeSettings);
   q('#settings-btn').onclick = () => {
     const opener = q('#more-btn');
     closePopovers(); opener.focus({preventScroll: true});
+    showControlKey();
     settingsFocus.open(); settingsModal.hidden = false; settingsFocus.focusFirst();
   };
   q('#settings-close').onclick = closeSettings;
@@ -2129,6 +2230,22 @@ export function createPlayer(root) {
   q('#names-btn').onchange = () => setNames(q('#names-btn').checked);
   root.querySelectorAll('input[name="menu-view"]').forEach(input => input.onchange = () => { viewHinted = false; save({view: input.value}); applySettings(load()); draw(); });
   q('#set-pedal').onchange = () => { save({pedal: q('#set-pedal').checked}); applySettings(load()); };
+
+  // ───────── Control key (Settings) ─────────
+  function showControlKey() {
+    const k = keyName(controlKey);
+    q('#ctl-key').textContent = k;
+    q('#ctl-change').textContent = choosingControl ? 'Cancel' : 'Change…';
+    q('#ctl-note').textContent = choosingControl ? 'press the key on your piano'
+      : !controlLive() ? `this piece uses ${k}, so here it plays as a note`
+      : 'starts practising, restarts the pass, accepts a loop offer';
+  }
+  function setControlKey(n) {
+    choosingControl = false;
+    controlKey = normaliseControlKey(n); save({controlKey});
+    showControlKey(); practicePrompt();
+  }
+  q('#ctl-change').onclick = () => { choosingControl = !choosingControl; showControlKey(); };
 
   // ───────── Latency calibration (Settings) ─────────
   // Eight clicks at 100 BPM; the user taps along on the piano, the on-screen
@@ -2348,6 +2465,7 @@ export function createPlayer(root) {
     // A practice strategy belongs to the passage it was chosen for: a new piece starts plain
     // (a memory check carried over would open an unseen piece with its score hidden).
     if (current?.id !== entry?.id) setStrategy('off');
+    endRepair({keepSection: true}); // put the loop and tempo back before leaving the piece
     current = entry;
     piano.load();
     showFavourite();
@@ -2384,7 +2502,7 @@ export function createPlayer(root) {
   setZoom(+saved.zoom || 1);
   setHarmony(!!saved.harmony, {persist: false});
   loadCollections().then(showFavourite).catch(() => {});
-  latencyMs = clampLatency(saved.latencyMs); showLatency();
+  latencyMs = clampLatency(saved.latencyMs); showLatency(); showControlKey();
   // The piano samples load with the first piece opened (loadEntry), not while Today renders.
   applySettings(saved);
   showTheme(); showFullscreen();
@@ -2409,6 +2527,8 @@ export function createPlayer(root) {
       section: range ? [range.first, range.last] : null, sectionLabel: song && range ? sectionLabel() : '',
       measureCount: song?.measures.length ?? 0, tempo: tempo(), targetTempo: song ? targetTempo() : null,
       mode, hands, view: root.dataset.view, playing, practicing, loop, position: song && range ? livePos() : null,
+      repair: repair ? {section: [repair.first, repair.last], clean: repair.clean, tempo: repair.tempo, original: {...repair.original, section: [...repair.original.section]}} : null,
+      repairOffer: repairOffer && stuckOn ? [repairOffer.first, repairOffer.last] : null, controlKey,
       strategy, chain: chain ? {dir: chain.dir, section: [chain.first, chain.last], goal: [...chain.goal]} : null, latencyMs,
     };
   }
