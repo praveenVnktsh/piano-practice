@@ -204,7 +204,7 @@
    <note><chord/><pitch><step>A</step><alter>-1</alter><octave>3</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><accidental>flat</accidental><staff>2</staff></note>
    <note><pitch><step>G</step><octave>2</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
    <note><chord/><pitch><step>G</step><octave>3</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
-   <note><pitch><step>F</step><octave>2</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
+   <note><pitch><step>F</step><octave>2</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><accidental cautionary="yes">natural</accidental><staff>2</staff></note>
    <note><chord/><pitch><step>F</step><octave>3</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
   </measure>
   <measure number="7">
@@ -222,12 +222,12 @@
    <forward><duration>960</duration><voice>2</voice><staff>1</staff></forward>
    <note><pitch><step>G</step><octave>3</octave></pitch><duration>480</duration><voice>2</voice><type>quarter</type><staff>1</staff></note>
    <note><chord/><pitch><step>D</step><octave>4</octave></pitch><duration>480</duration><voice>2</voice><type>quarter</type><staff>1</staff></note>
-   <forward><duration>480</duration><voice>2</voice><staff>1</staff></forward>
+   <note print-object="no"><rest/><duration>480</duration><voice>2</voice><type>quarter</type><staff>1</staff></note>
    <backup><duration>1920</duration></backup>
    <forward><duration>960</duration><voice>3</voice><staff>1</staff></forward>
    <note><pitch><step>G</step><octave>4</octave></pitch><duration>360</duration><voice>3</voice><type>eighth</type><dot/><staff>1</staff><beam number="1">begin</beam></note>
    <note><pitch><step>F</step><octave>4</octave></pitch><duration>120</duration><voice>3</voice><type>16th</type><staff>1</staff><beam number="1">end</beam><beam number="2">backward hook</beam></note>
-   <forward><duration>480</duration><voice>3</voice><staff>1</staff></forward>
+   <note print-object="no"><rest/><duration>480</duration><voice>3</voice><type>quarter</type><staff>1</staff></note>
    <backup><duration>1920</duration></backup>
    <note><pitch><step>E</step><alter>-1</alter><octave>2</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
    <note><chord/><pitch><step>E</step><alter>-1</alter><octave>3</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
@@ -256,13 +256,13 @@
    <forward><duration>960</duration><voice>2</voice><staff>1</staff></forward>
    <note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>360</duration><voice>2</voice><type>eighth</type><dot/><staff>1</staff><beam number="1">begin</beam></note>
    <note><pitch><step>D</step><octave>4</octave></pitch><duration>120</duration><voice>2</voice><type>16th</type><accidental>natural</accidental><staff>1</staff><beam number="1">end</beam><beam number="2">backward hook</beam></note>
-   <forward><duration>480</duration><voice>2</voice><staff>1</staff></forward>
+   <note print-object="no"><rest/><duration>480</duration><voice>2</voice><type>quarter</type><staff>1</staff></note>
    <backup><duration>1920</duration></backup>
    <forward><duration>960</duration><voice>3</voice><staff>1</staff></forward>
    <note><pitch><step>F</step><octave>3</octave></pitch><duration>480</duration><voice>3</voice><type>quarter</type><staff>1</staff></note>
    <note><chord/><pitch><step>G</step><octave>3</octave></pitch><duration>480</duration><voice>3</voice><type>quarter</type><staff>1</staff></note>
    <note><chord/><pitch><step>B</step><octave>3</octave></pitch><duration>480</duration><voice>3</voice><type>quarter</type><accidental>natural</accidental><staff>1</staff></note>
-   <forward><duration>480</duration><voice>3</voice><staff>1</staff></forward>
+   <note print-object="no"><rest/><duration>480</duration><voice>3</voice><type>quarter</type><staff>1</staff></note>
    <backup><duration>1920</duration></backup>
    <note><pitch><step>A</step><alter>-1</alter><octave>1</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
    <note><chord/><pitch><step>A</step><alter>-1</alter><octave>2</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
@@ -328,7 +328,7 @@
    <note><chord/><pitch><step>A</step><alter>-1</alter><octave>3</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><accidental>flat</accidental><staff>2</staff></note>
    <note><pitch><step>G</step><octave>2</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
    <note><chord/><pitch><step>G</step><octave>3</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
-   <note><pitch><step>F</step><octave>2</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
+   <note><pitch><step>F</step><octave>2</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><accidental cautionary="yes">natural</accidental><staff>2</staff></note>
    <note><chord/><pitch><step>F</step><octave>3</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
   </measure>
   <measure number="11">
@@ -346,12 +346,12 @@
    <forward><duration>960</duration><voice>2</voice><staff>1</staff></forward>
    <note><pitch><step>G</step><octave>3</octave></pitch><duration>480</duration><voice>2</voice><type>quarter</type><staff>1</staff></note>
    <note><chord/><pitch><step>D</step><octave>4</octave></pitch><duration>480</duration><voice>2</voice><type>quarter</type><staff>1</staff></note>
-   <forward><duration>480</duration><voice>2</voice><staff>1</staff></forward>
+   <note print-object="no"><rest/><duration>480</duration><voice>2</voice><type>quarter</type><staff>1</staff></note>
    <backup><duration>1920</duration></backup>
    <forward><duration>960</duration><voice>3</voice><staff>1</staff></forward>
    <note><pitch><step>G</step><octave>4</octave></pitch><duration>360</duration><voice>3</voice><type>eighth</type><dot/><staff>1</staff><beam number="1">begin</beam></note>
    <note><pitch><step>F</step><octave>4</octave></pitch><duration>120</duration><voice>3</voice><type>16th</type><staff>1</staff><beam number="1">end</beam><beam number="2">backward hook</beam></note>
-   <forward><duration>480</duration><voice>3</voice><staff>1</staff></forward>
+   <note print-object="no"><rest/><duration>480</duration><voice>3</voice><type>quarter</type><staff>1</staff></note>
    <backup><duration>1920</duration></backup>
    <note><pitch><step>E</step><alter>-1</alter><octave>2</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
    <note><chord/><pitch><step>E</step><alter>-1</alter><octave>3</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
@@ -380,13 +380,13 @@
    <forward><duration>960</duration><voice>2</voice><staff>1</staff></forward>
    <note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>360</duration><voice>2</voice><type>eighth</type><dot/><staff>1</staff><beam number="1">begin</beam></note>
    <note><pitch><step>D</step><octave>4</octave></pitch><duration>120</duration><voice>2</voice><type>16th</type><accidental>natural</accidental><staff>1</staff><beam number="1">end</beam><beam number="2">backward hook</beam></note>
-   <forward><duration>480</duration><voice>2</voice><staff>1</staff></forward>
+   <note print-object="no"><rest/><duration>480</duration><voice>2</voice><type>quarter</type><staff>1</staff></note>
    <backup><duration>1920</duration></backup>
    <forward><duration>960</duration><voice>3</voice><staff>1</staff></forward>
    <note><pitch><step>F</step><octave>3</octave></pitch><duration>480</duration><voice>3</voice><type>quarter</type><staff>1</staff></note>
    <note><chord/><pitch><step>G</step><octave>3</octave></pitch><duration>480</duration><voice>3</voice><type>quarter</type><staff>1</staff></note>
    <note><chord/><pitch><step>B</step><octave>3</octave></pitch><duration>480</duration><voice>3</voice><type>quarter</type><accidental>natural</accidental><staff>1</staff></note>
-   <forward><duration>480</duration><voice>3</voice><staff>1</staff></forward>
+   <note print-object="no"><rest/><duration>480</duration><voice>3</voice><type>quarter</type><staff>1</staff></note>
    <backup><duration>1920</duration></backup>
    <note><pitch><step>A</step><alter>-1</alter><octave>1</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>
    <note><chord/><pitch><step>A</step><alter>-1</alter><octave>2</octave></pitch><duration>480</duration><voice>4</voice><type>quarter</type><staff>2</staff></note>

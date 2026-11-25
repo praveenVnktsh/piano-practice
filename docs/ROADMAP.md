@@ -140,7 +140,7 @@ New capability arrives inside an existing place or behind progressive disclosure
 
 ## Phase 17: Library breadth ⏳
 - [x] P1 MIDI file import: a .mid becomes a playable piece (quantised, hands split by pitch or track) for falling notes; the sheet is engraved when quantisation is clean
-- [ ] P1 Repertoire to 50+ verified pieces, filling Grades 1–3 especially (Türk, Gurlitt, Kabalevsky's PD-eligible, Diabelli, more Burgmüller and Czerny)
+- [x] P1 Repertoire to 50+ verified pieces, filling Grades 1–3 especially: 85 bundled pieces (39 new from Mutopia: Anna Magdalena notebook, Mozart K. 2, Schumann Op. 68, Burgmüller Op. 100, Czerny Op. 840/821, Handel, Pleyel, Wanhal, André, Müller, Streabbog, Kuhlau, Beethoven), each compared note by note with LilyPond's own MIDI file (`tools/compare-mutopia-midi.mjs`) and checked by `tests/repertoire.test.js`. Türk and Gurlitt are not on Mutopia, Diabelli's Op. 149/163 there are duets, Kabalevsky is not public domain
 - [ ] P2 Duets: teacher/primo part plays from the sampler while you play secondo (and vice versa)
 
 ## Phase 18: Practice anywhere ✅

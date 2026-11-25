@@ -41,7 +41,8 @@ export const LEVELS = [
   {
     id: 'grade-1', name: 'Grade 1', short: 'Grade 1', grade: 1,
     blurb: 'Hands together, simple dance pieces, and the first sharps and flats.',
-    repertoire: {ids: ['minuet-in-g', 'bach-minuet-anh116', 'bach-minuet-anh113', 'schumann-melodie'], need: 3},
+    repertoire: {ids: ['minuet-in-g', 'bach-minuet-anh116', 'mozart-minuet-k2', 'bach-minuet-anh113', 'schumann-melodie', 'schumann-humming-song',
+      'bach-minuet-anh120', 'bach-air-anh131'], need: 3},
     technique: [
       sc('C', 'major', 1), sc('G', 'major', 1), sc('F', 'major', 1), sc('D', 'major', 1),
       sc('A', 'harmonic-minor', 1), sc('D', 'harmonic-minor', 1),
@@ -53,7 +54,9 @@ export const LEVELS = [
   {
     id: 'grade-2', name: 'Grade 2', short: 'Grade 2', grade: 2,
     blurb: 'Two octaves, steadier rhythm, and pieces with a singing melody over an accompaniment.',
-    repertoire: {ids: ['bach-minuet-anh115', 'burgmuller-candeur', 'schumann-soldiers-march', 'tchaikovsky-old-french-song', 'bach-musette-anh126', 'tchaikovsky-morning-prayer', 'schumann-poor-orphan', 'schumann-wild-rider'], need: 3},
+    repertoire: {ids: ['bach-minuet-anh115', 'burgmuller-candeur', 'schumann-soldiers-march', 'tchaikovsky-old-french-song', 'bach-musette-anh126', 'tchaikovsky-morning-prayer', 'schumann-poor-orphan', 'schumann-wild-rider',
+      'bach-minuet-anh121', 'bach-minuet-anh118', 'bach-polonaise-anh119', 'bach-polonaise-anh128', 'schumann-little-piece', 'schumann-chorale',
+      'handel-menuet-d-minor', 'handel-menuet-d', 'pleyel-minuet-c', 'streabbog-valse'], need: 3},
     technique: [
       sc('G', 'major', 2), sc('D', 'major', 2), sc('A', 'major', 2), sc('F', 'major', 2), sc('Bb', 'major', 2),
       sc('E', 'harmonic-minor', 2), sc('D', 'harmonic-minor', 2), sc('G', 'harmonic-minor', 2),
@@ -65,7 +68,11 @@ export const LEVELS = [
   {
     id: 'grade-3', name: 'Grade 3', short: 'Grade 3', grade: 3,
     blurb: 'Keys with more sharps and flats, Baroque counterpoint, and the first real Romantic miniatures.',
-    repertoire: {ids: ['clementi-sonatina-op36-1', 'burgmuller-arabesque', 'bach-little-prelude-bwv939', 'schumann-happy-farmer', 'burgmuller-pastorale', 'tchaikovsky-wooden-soldiers', 'schumann-first-loss'], need: 3},
+    repertoire: {ids: ['clementi-sonatina-op36-1', 'burgmuller-arabesque', 'bach-little-prelude-bwv939', 'schumann-happy-farmer', 'burgmuller-pastorale', 'tchaikovsky-wooden-soldiers', 'schumann-first-loss',
+      'burgmuller-progres', 'burgmuller-innocence', 'schumann-hunting-song', 'kuhlau-sonatina-op20-1-2', 'bach-polonaise-anh117b', 'bach-march-anh127',
+      'burgmuller-courant-limpide', 'burgmuller-tendre-fleur', 'schumann-folk-song', 'schumann-reapers-song', 'schumann-little-study', 'handel-gavotte-g',
+      'burgmuller-petite-reunion', 'burgmuller-gracieuse', 'burgmuller-consolation', 'wanhal-rondo-op42-1', 'andre-sonatina-op34-1', 'muller-siciliano',
+      'czerny-op840-1', 'czerny-op840-2'], need: 3},
     technique: [
       sc('A', 'major', 2), sc('E', 'major', 2), sc('B', 'major', 2), sc('Eb', 'major', 2),
       sc('B', 'harmonic-minor', 2), sc('C', 'harmonic-minor', 2), sc('G', 'melodic-minor', 2),
@@ -77,7 +84,8 @@ export const LEVELS = [
   {
     id: 'grade-4', name: 'Grade 4', short: 'Grade 4', grade: 4,
     blurb: 'Three octaves, flats beyond three, and pieces that ask for shape and colour.',
-    repertoire: {ids: ['fur-elise', 'bach-prelude-in-c', 'burgmuller-ballade', 'chopin-prelude-op28-7', 'satie-gymnopedie-1', 'kuhlau-sonatina-op20-1', 'czerny-op821-1', 'grieg-albumblatt-op12-7'], need: 3},
+    repertoire: {ids: ['fur-elise', 'bach-prelude-in-c', 'burgmuller-ballade', 'chopin-prelude-op28-7', 'satie-gymnopedie-1', 'kuhlau-sonatina-op20-1', 'czerny-op821-1', 'grieg-albumblatt-op12-7',
+      'beethoven-sonata-op49-2-2', 'burgmuller-chasse', 'beethoven-minuet-woo82', 'burgmuller-bergeronnette', 'czerny-op821-2'], need: 3},
     technique: [
       sc('Ab', 'major', 3), sc('Db', 'major', 3), sc('E', 'major', 3),
       sc('Fs', 'harmonic-minor', 3), sc('Cs', 'harmonic-minor', 3), sc('F', 'melodic-minor', 2),

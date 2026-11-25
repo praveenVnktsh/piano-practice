@@ -126,6 +126,9 @@ const MARKUP_FUNCTIONS = new Set(('bold italic upright medium huge large normals
   'rotate scale whiteout transparent hbracket super sub fontCaps musicglyph note note-by-number strut null tied-lyric ' +
   'larger smaller bigger arrow-head draw-line draw-circle epsfile score-lines put-adjacent').split(' '));
 
+// Markup functions that take only Scheme arguments: the markup ends after them.
+const MARKUP_SCHEME_ONLY = new Set('hspace vspace char musicglyph tied-lyric fromproperty draw-line draw-circle note-by-number arrow-head epsfile strut null'.split(' '));
+
 function tokenize(src) {
   const tokens = [];
   let i = 0, lang = 'nl';
@@ -177,19 +180,22 @@ function tokenize(src) {
     if (src.startsWith('\\markup', i) || src.startsWith('\\markuplist', i)) {
       i += src.startsWith('\\markuplist', i) ? 11 : 7;
       // markup arguments: commands then one braced block or a word/string
+      let schemeOnly = false; // a function whose arguments are all Scheme values (\char ##x2014, \tied-lyric #"1~5")
       for (;;) {
         while (/\s/.test(src[i])) i++;
+        if (schemeOnly && src[i] !== '#') break;
         if (src[i] === '{') { i = balanced('{', '}'); break; }
         if (src[i] === '"') { i = readString(); break; }
         if (src[i] === '\\') {
           const s0 = ++i; while (/[A-Za-z-]/.test(src[i])) i++;
           // Markup functions take further arguments; anything else (a variable) is the argument.
-          if (MARKUP_FUNCTIONS.has(src.slice(s0, i))) continue;
+          const name = src.slice(s0, i);
+          if (MARKUP_FUNCTIONS.has(name)) { schemeOnly = MARKUP_SCHEME_ONLY.has(name); continue; }
           break;
         }
         if (src[i] === '#') {
           let j = i + 1; if (src[j] === "'") j++;
-          if (src[j] === '(') { i = j; i = balanced('(', ')'); } else { while (j < n && !/\s/.test(src[j])) j++; i = j; }
+          if (src[j] === '(') { i = j; i = balanced('(', ')'); } else if (src[j] === '"') { i = j; i = readString(); } else { while (j < n && !/\s/.test(src[j])) j++; i = j; }
           continue;
         }
         while (i < n && !/[\s{}]/.test(src[i])) i++;
@@ -233,6 +239,12 @@ function tokenize(src) {
       }
       const word = src.slice(i, j);
       let dur = '';
+      // LilyPond allows space between a note and its duration ("g 2"): only after a note name,
+      // rest, skip or q, and only a valid duration, so "volta 2" or "indent = 0" stay as they are.
+      if (!/\d/.test(src[j]) && (noteName(letters, lang) || /^[rsRq]$/.test(letters))) {
+        let k = j; while (k < n && /[ \t\r\n]/.test(src[k])) k++;
+        if (/^(1|2|4|8|16|32|64|128)(?![\d/])/.test(src.slice(k, k + 4))) j = k;
+      }
       if (/\d/.test(src[j])) {
         let k = j; while (/\d/.test(src[k])) k++; while (src[k] === '.') k++;
         while (src[k] === '*' && /\d/.test(src[k + 1])) { k++; while (/[\d/]/.test(src[k])) k++; }
@@ -579,6 +591,9 @@ export function lilypondToEvents(src, {read, path = '', unfold = true} = {}) {
         if (type === 'Voice') sub.voice = `${ctx.voice}/${name ?? (v === 'context' ? 'ctx' : ++voiceSeq)}`;
         const r = music(i, sub);
         ctx.t = Math.max(ctx.t, sub.t);
+        // \relative octaves and default durations are lexical: the music after \new / \context
+        // continues from its last note (e.g. << \context Voice = "x" { … e } e,2. >>).
+        if (!sub.discard || ctx.discard) { ctx.ref = sub.ref; ctx.dur = sub.dur; ctx.lastChord = sub.lastChord; }
         return {i: r.i, t: ctx.t};
       }
       case 'change': {
@@ -946,7 +961,9 @@ function unfoldRepeats(score) {
   score.events = events;
   score.keys = restate(score.keys);
   score.times = restate(score.times);
-  score.partials = remap(score.partials, (p, iv) => p.t > EPS || iv.off < EPS);
+  // A replayed pickup stays a short bar where the section before it ends on a bar line;
+  // after a short last bar it completes that bar (measureGrid only cuts at a full bar line).
+  score.partials = remap(score.partials);
   score.clefChanges = clefs;
   score.cadenzas = remap(score.cadenzas.filter(c => c.end != null));
 }
@@ -1093,7 +1110,7 @@ export function eventsToMusicXML(score, {title, composer, rights, source} = {}) 
     }
     prevKey = fifths;
     if (bar.full || k === 0) prevTime = timeStr;
-    const shown = {};
+    const shown = {}, heardAlter = {};
     let wrote = false;
     for (const v of voiceIds) {
       const items = perMeasure[k].get(v);
@@ -1121,7 +1138,17 @@ export function eventsToMusicXML(score, {title, composer, rights, source} = {}) 
       pieces.forEach((pc, idx) => {
         for (const c of clefChanges)
           if (!c.done && c.staff === pc.staff && c.t >= barStart(k) - EPS && c.t <= barStart(k) + pc.pos + EPS) { xml += clefXml(c); c.done = true; }
-        if (pc.forward) { xml += `   <forward><duration>${Math.round(pc.forward)}</duration><voice>${vn}</voice><staff>${pc.staff}</staff></forward>\n`; tupletAcc = 0; return; }
+        if (pc.forward) {
+          tupletAcc = 0;
+          // Verovio (6.x) drops a <forward> that a clef change follows and plays the voice's notes
+          // from the start of the bar; invisible rests keep them in place.
+          const clefNext = clefChanges.some(c => !c.done && c.staff === pc.staff && c.t > barStart(k) + pc.pos + EPS && c.t <= barStart(k) + pc.pos + pc.forward + EPS);
+          const rests = clefNext ? splitValue(pc.forward) : [];
+          if (rests.length && !rests.some(r => r.tuplet)) {
+            for (const r of rests) xml += `   <note print-object="no"><rest/><duration>${Math.round(r.d)}</duration><voice>${vn}</voice><type>${r.type}</type>${'<dot/>'.repeat(r.dots)}<staff>${pc.staff}</staff></note>\n`;
+          } else xml += `   <forward><duration>${Math.round(pc.forward)}</duration><voice>${vn}</voice><staff>${pc.staff}</staff></forward>\n`;
+          return;
+        }
         const val = pc.value;
         let tupletStart = false, tupletStop = false;
         if (!pc.grace && val.tuplet) {
@@ -1146,7 +1173,16 @@ export function eventsToMusicXML(score, {title, composer, rights, source} = {}) 
             const key = p.step + p.octave;
             const st = (shown[pc.staff] ??= {});
             const cur = st[key] ?? keyAlters[p.step] ?? 0;
-            if (p.alter !== cur && !stop) x += `<accidental>${{'-2': 'flat-flat', '-1': 'flat', 0: 'natural', 1: 'sharp', 2: 'double-sharp'}[p.alter]}</accidental>`;
+            // Verovio (6.x) plays a note without <accidental> by the last accidental shown on its
+            // note name in the bar, in any octave, staff or voice (else the key signature), not by
+            // <alter>. Where that differs from the pitch (F3 under an F♯5, a tied-over sharp in the
+            // next bar) the accidental is shown as a cautionary one, so the note sounds as written.
+            const heard = heardAlter[p.step] ?? keyAlters[p.step] ?? 0;
+            const needed = p.alter !== cur && !stop;
+            if (needed || p.alter !== heard) {
+              x += `<accidental${needed ? '' : ' cautionary="yes"'}>${{'-2': 'flat-flat', '-1': 'flat', 0: 'natural', 1: 'sharp', 2: 'double-sharp'}[p.alter]}</accidental>`;
+              heardAlter[p.step] = p.alter;
+            }
             st[key] = p.alter;
           }
           if (!pc.grace && val.tuplet) x += '<time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>';

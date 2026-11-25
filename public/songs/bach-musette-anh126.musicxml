@@ -2,7 +2,7 @@
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
  <work><work-title>Musette in D, BWV Anh. 126</work-title></work>
- <identification><creator type="composer">Johann Sebastian Bach (Notebook for Anna Magdalena Bach)</creator><rights>Public Domain. Typeset by Allen Garvin for the Mutopia Project (https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=79); converted to MusicXML by Piano Practice.</rights><encoding><software>ly2musicxml</software></encoding><source>https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=79</source></identification>
+ <identification><creator type="composer">Johann Sebastian Bach</creator><rights>Public Domain. Typeset by Allen Garvin for the Mutopia Project (https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=79); converted to MusicXML by Piano Practice.</rights><encoding><software>ly2musicxml</software></encoding><source>https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=79</source></identification>
  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
  <part id="P1">
   <measure number="1">

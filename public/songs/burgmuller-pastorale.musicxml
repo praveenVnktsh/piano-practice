@@ -418,7 +418,7 @@
    <backup><duration>1440</duration></backup>
    <note><pitch><step>D</step><octave>4</octave></pitch><duration>720</duration><tie type="start"/><voice>3</voice><type>quarter</type><dot/><staff>2</staff><notations><tied type="start"/></notations></note>
    <note><pitch><step>D</step><octave>4</octave></pitch><duration>480</duration><tie type="stop"/><voice>3</voice><type>quarter</type><staff>2</staff><notations><tied type="stop"/></notations></note>
-   <forward><duration>240</duration><voice>3</voice><staff>2</staff></forward>
+   <note print-object="no"><rest/><duration>240</duration><voice>3</voice><type>eighth</type><staff>2</staff></note>
   </measure>
   <measure number="27">
    <note><pitch><step>D</step><octave>5</octave></pitch><duration>720</duration><voice>1</voice><type>quarter</type><dot/><staff>1</staff></note>
