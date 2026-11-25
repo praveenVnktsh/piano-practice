@@ -9,7 +9,9 @@
 //   totals: {                       aggregates over *every* event ever added (survive pruning)
 //     days:    {'YYYY-MM-DD': {ms, listenMs, practiceMs, trainerMs, sessions, results}},
 //     songs:   {songId: {title, attempts, best, latest, lastAt, ms, bestTempo}},
-//     trainer: {'YYYY-MM-DD': {drills, right, wrong, msTotal, notes, bestLevel}},
+//     trainer: {'YYYY-MM-DD': {drills, right, wrong, msTotal, notes, bestLevel}},   note reading only
+//     skills:  {rhythm|theory|ear: {drills, right, wrong, lastAt, lastAccuracy, levels: {id: best}}},
+//                                   the other drills (trainer:result levels 'rhythm:…', 'theory:…', 'ear:…')
 //     pruned,                       number of raw events dropped so far
 //   },
 //   journal: [entry, ...]           practice-journal notes, oldest first (≤ MAX_JOURNAL)
@@ -24,6 +26,11 @@
 
 export const VERSION = 1;
 export const EVENT_TYPES = ['practice:result', 'practice:session', 'trainer:result'];
+// trainer:result levels that aren't note reading: '<skill>:<level id>' (rhythm, theory and ear training).
+export const SKILLS = ['rhythm', 'theory', 'ear'];
+const SKILL_RE = /^(rhythm|theory|ear):([a-z0-9-]{1,32})$/;
+/** 'rhythm:quavers' → {skill: 'rhythm', id: 'quavers'}; null for note-reading levels. */
+export const skillOf = level => { const m = typeof level === 'string' ? SKILL_RE.exec(level) : null; return m ? {skill: m[1], id: m[2]} : null; };
 export const DEFAULT_GOAL_MIN = 15;
 export const MIN_SESSION_MS = 3000;
 export const MAX_EVENTS = 20000;          // raw events kept on disk
@@ -111,7 +118,7 @@ export function sanitizeEvent(raw, now = Date.now()) {
 }
 
 export function emptyDoc() {
-  return {version: VERSION, settings: {dailyGoalMin: DEFAULT_GOAL_MIN}, events: [], totals: {days: {}, songs: {}, trainer: {}, pruned: 0}, journal: [], goals: [], updatedAt: 0};
+  return {version: VERSION, settings: {dailyGoalMin: DEFAULT_GOAL_MIN}, events: [], totals: {days: {}, songs: {}, trainer: {}, skills: {}, pruned: 0}, journal: [], goals: [], updatedAt: 0};
 }
 
 const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
@@ -123,7 +130,7 @@ export function normalizeDoc(json) {
   doc.settings = sanitizeSettings(json.settings, doc.settings);
   if (Array.isArray(json.events)) doc.events = json.events.map(e => sanitizeEvent(e, Infinity)).filter(Boolean);
   if (isObj(json.totals)) {
-    for (const k of ['days', 'songs', 'trainer']) if (isObj(json.totals[k])) doc.totals[k] = json.totals[k];
+    for (const k of ['days', 'songs', 'trainer', 'skills']) if (isObj(json.totals[k])) doc.totals[k] = json.totals[k];
     doc.totals.pruned = int(json.totals.pruned, 0, Number.MAX_SAFE_INTEGER) ?? 0;
   } else for (const ev of doc.events) addToTotals(doc.totals, ev); // totals missing: rebuild from raw events
   if (Array.isArray(json.journal)) doc.journal = json.journal.map(e => sanitizeJournalEntry(e, Infinity)).filter(Boolean).slice(-MAX_JOURNAL);
@@ -237,6 +244,14 @@ function addToTotals(totals, ev) {
     s.lastAt = Math.max(s.lastAt, ev.at);
   } else {
     d.ms += ev.durationMs; d.trainerMs += ev.durationMs;
+    const sk = skillOf(ev.level);
+    if (sk) {
+      const s = ((totals.skills ||= {})[sk.skill] ||= {drills: 0, right: 0, wrong: 0, lastAt: 0, lastAccuracy: null, levels: {}});
+      s.drills++; s.right += ev.right; s.wrong += ev.wrong;
+      if (ev.at >= s.lastAt) { s.lastAt = ev.at; s.lastAccuracy = ev.accuracy; }
+      s.levels[sk.id] = Math.max(s.levels[sk.id] ?? 0, ev.accuracy);
+      return;
+    }
     const t = (totals.trainer[day] ||= {drills: 0, right: 0, wrong: 0, msTotal: 0, notes: 0, bestLevel: null});
     const notes = ev.right + ev.wrong;
     t.drills++; t.right += ev.right; t.wrong += ev.wrong;

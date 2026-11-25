@@ -1,10 +1,12 @@
 // Exercises hub (#/exercises) and technique builder (#/technique): pick an exercise type, key, mode, hands and octaves, then open
 // the generated, fingered score in the player.  mountTechnique(container, {open}) → {destroy()}.
+import '../theory/engrave.css';
 import './exercises.css';
 import {MAJOR_KEYS, MINOR_KEYS, CHROMATIC_STARTS, parseKey, pitchClass, keyFifths, keyLabel, chordFromNumeral, pitchName} from './theory.js';
 import {scaleFingering, arpeggioFingering, fiveFingerFingering, chromaticFinger} from './fingering.js';
 import {exerciseId, exerciseTitleFor, resolveExercise, dailyWarmup, listPresets, PROGRESSIONS} from './index.js';
 import {readRecent} from '../app/sidebar.js';
+import {engrave} from '../theory/engrave.js';
 
 const STORE_KEY = 'piano-practice.technique';
 const TYPES = [
@@ -200,6 +202,35 @@ const READING_ART = (() => {
   return `<svg viewBox="0 0 240 100" aria-hidden="true" class="ex-art">${STAFF(10, 230, 10, 9)}${head(88, 37)}<line x1="93.2" x2="93.2" y1="37" y2="9" class="ex-stem"/>${head(124, 23)}<line x1="118.8" x2="118.8" y1="23" y2="51" class="ex-stem"/>${head(160, 50)}<line x1="153" x2="167" y1="55" y2="55" class="ex-ledger"/><line x1="165.2" x2="165.2" y1="50" y2="22" class="ex-stem"/><line x1="124" x2="124" y1="58" y2="68" class="ex-arrow"/>${keys}</svg>`;
 })();
 
+// A bar of rhythm on one line, and a short tune on a treble staff, engraved like the exercises themselves.
+const RHYTHM_ART = (() => {
+  const ev = (dur, extra = {}) => ({dur, ...extra});
+  const {svg} = engrave({staff: 'line', time: [4, 4], measures: [[ev(1), ev(.5), ev(.5), ev(1.5), ev(.5)], [ev(1 / 3, {tuplet: 3}), ev(1 / 3, {tuplet: 3}), ev(1 / 3, {tuplet: 3}), ev(1), ev(2)]]});
+  return svg.replace('<svg class="eg"', '<svg class="eg ex-art" aria-hidden="true"');
+})();
+const SIGHT_ART = (() => {
+  const n = (dur, step, octave, alter = 0) => ({dur, pitches: [{step, alter, octave}]});
+  const {svg} = engrave({staff: 'treble', key: 1, time: [3, 4], measures: [[n(1, 'D', 5), n(.5, 'B', 4), n(.5, 'C', 5), n(1, 'D', 5)], [n(1.5, 'G', 4), n(.5, 'A', 4), n(1, 'B', 4)], [n(3, 'G', 4)]]});
+  return svg.replace('<svg class="eg"', '<svg class="eg ex-art" aria-hidden="true"');
+})();
+// The circle of fifths, quietly.
+const THEORY_ART = (() => {
+  const keys = ['C', 'G', 'D', 'A', 'E', 'B', 'F♯', 'D♭', 'A♭', 'E♭', 'B♭', 'F'];
+  const cx = 120, cy = 50, R = 40;
+  const labels = keys.map((k, i) => {
+    const a = (i / 12) * 2 * Math.PI - Math.PI / 2;
+    return `<text x="${(cx + R * Math.cos(a)).toFixed(1)}" y="${(cy + R * Math.sin(a) + 3.5).toFixed(1)}" text-anchor="middle" class="ex-key${i === 0 ? ' on' : ''}">${k}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 240 100" aria-hidden="true" class="ex-art"><circle cx="${cx}" cy="${cy}" r="${R - 11}" class="ex-ring"/><circle cx="${cx}" cy="${cy}" r="${R + 9}" class="ex-ring"/>${labels}</svg>`;
+})();
+// Two notes heard, then named: a harmonic interval and a quiet arc of sound.
+const EAR_ART = (() => {
+  const n = (step, octave) => ({step, alter: 0, octave});
+  const {svg} = engrave({staff: 'treble', clef: true, barlines: false, final: false, measures: [[{dur: 2, pitches: [n('C', 5)]}, {dur: 2, pitches: [n('C', 5), n('G', 5)]}]]});
+  const arcs = [14, 22, 30].map(r => `<path d="M ${200 - r * .6} ${50 - r} A ${r} ${r} 0 0 1 ${200 - r * .6} ${50 + r}" class="ex-arc"/>`).join('');
+  return `<svg viewBox="0 0 240 100" aria-hidden="true" class="ex-art"><g transform="translate(6 2) scale(.62)">${svg.replace(/^<svg[^>]*>|<\/svg>$/g, '')}</g>${arcs}</svg>`;
+})();
+
 export function mountExercises(container, {open} = {}) {
   const warm = dailyWarmup();
   const root = el('div', {class: 'exh'});
@@ -212,15 +243,19 @@ export function mountExercises(container, {open} = {}) {
     el('span', {class: 'exh-go', 'aria-hidden': 'true', text: 'Open →'}));
   const tech = big('#/technique', 'Hands', 'Technique', 'Scales, arpeggios, five-finger patterns, chords and the chromatic scale — fingered, in any key.', `Today’s key: ${keyLabel(warm.key)} major`);
   const read = big('#/train/reading', 'Eyes', 'Note reading', 'A note appears on the staff; find it on the keys. From landmark notes to ledger lines.', 'Two minutes a day is plenty');
+  const sight = big('#/exercises/sight-reading', 'Eyes and hands', 'Sight-reading', 'A new short piece at your level, every time. Read it once, then play it through in time.', 'Four to eight bars, never seen before');
+  const rhythm = big('#/exercises/rhythm', 'Pulse', 'Rhythm', 'Read a line of rhythm and tap it on any key, after a bar of count-in.', 'From crotchets to triplets and 6/8');
+  const theory = big('#/exercises/theory', 'Understanding', 'Theory', 'Short lessons with examples to hear: note values, keys, intervals, chords and cadences.', 'A few minutes each, with questions');
+  const ear = big('#/exercises/ear', 'Ears', 'Ear training', 'Hear an interval, a chord or a cadence and name it — or play back a short melody.', 'Answer by playing or tapping');
   tech.querySelector('.exh-art').innerHTML = SCALE_ART;
   read.querySelector('.exh-art').innerHTML = READING_ART;
-  const later = (title, text) => el('li', {class: 'exh-later'}, el('h3', {text: title}), el('p', {text}), el('span', {class: 'exh-soon', text: 'Coming later'}));
+  sight.querySelector('.exh-art').innerHTML = SIGHT_ART;
+  rhythm.querySelector('.exh-art').innerHTML = RHYTHM_ART;
+  theory.querySelector('.exh-art').innerHTML = THEORY_ART;
+  ear.querySelector('.exh-art').innerHTML = EAR_ART;
   root.append(
     el('p', {class: 'exh-lead', text: 'Everything that isn’t a piece. Short, regular and unhurried.'}),
-    el('div', {class: 'exh-cards'}, tech, read),
-    el('ul', {class: 'exh-laters', role: 'list', 'aria-label': 'Coming later'},
-      later('Rhythm', 'Clap and tap patterns against the metronome.'),
-      later('Ear', 'Intervals and chords, heard then named.')),
+    el('div', {class: 'exh-cards'}, tech, read, sight, rhythm, theory, ear),
   );
   const recent = readRecent().map(id => ({id, title: exerciseTitleFor(id)})).filter(r => r.title);
   if (recent.length) {

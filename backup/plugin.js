@@ -20,6 +20,10 @@ import {randomBytes} from 'node:crypto';
 import {existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {DATA_DIR} from '../progress-store/plugin.js';
+import {RECORDINGS_DIR, listTakes, listExams, readTake, readExam, saveTake, saveExam} from '../recordings/store.js';
+
+const MAX_RECORDINGS_BYTES = 60 * 1024 * 1024; // recordings in one backup (newest kept first)
+const MAX_RECORDING_ITEMS = 10000;
 import {TEACHER_DIR} from '../teacher/store.js';
 import {SONGS_DIR, URL_BASE, ID_RE} from '../song-store/plugin.js';
 import {normalizeDoc} from '../src/progress/model.js';
@@ -66,7 +70,7 @@ const files = (dir, re) => {
 
 // ───────── export ─────────
 
-export function collectServer({dataDir = DATA_DIR, teacherDir = TEACHER_DIR, songsDir = SONGS_DIR, maxImportBytes = MAX_IMPORT_FILES_BYTES} = {}) {
+export function collectServer({dataDir = DATA_DIR, teacherDir = TEACHER_DIR, songsDir = SONGS_DIR, recordingsDir = RECORDINGS_DIR, maxImportBytes = MAX_IMPORT_FILES_BYTES} = {}) {
   const data = {};
   for (const name of files(dataDir, DATA_NAME)) {
     try { data[name] = JSON.parse(readFileSync(join(dataDir, name), 'utf8')); } catch { /* unreadable file: left out */ }
@@ -88,7 +92,19 @@ export function collectServer({dataDir = DATA_DIR, teacherDir = TEACHER_DIR, son
     total += size;
     scores[name] = readFileSync(path).toString('base64');
   }
-  return {format: FORMAT, version: VERSION, exportedAt: new Date().toISOString(), server: {data, teacher, imports: {index, files: scores, skipped}}};
+  // Recorded takes and mock-exam sheets (.data/recordings/**), newest first, size-capped.
+  const recordings = {takes: [], exams: [], skipped: 0};
+  let recBytes = 0;
+  const keep = (list, into) => {
+    for (const item of list) {
+      const size = JSON.stringify(item).length;
+      if (recBytes + size > MAX_RECORDINGS_BYTES) { recordings.skipped++; continue; }
+      recBytes += size; into.push(item);
+    }
+  };
+  try { keep(listTakes(recordingsDir), recordings.takes); } catch {}
+  try { keep(listExams(recordingsDir), recordings.exams); } catch {}
+  return {format: FORMAT, version: VERSION, exportedAt: new Date().toISOString(), server: {data, teacher, imports: {index, files: scores, skipped}, recordings}};
 }
 
 // ───────── validation ─────────
@@ -139,10 +155,13 @@ export function validateServerPart(backup) {
     if (!SCORE_NAME.test(name) || typeof b64 !== 'string' || !/^[A-Za-z0-9+/]*={0,2}$/.test(b64)) throw new HttpError(400, `bad score file: ${name.slice(0, 60)}`);
     scores[name] = Buffer.from(b64, 'base64');
   }
+  const rec = isObj(s.recordings) ? s.recordings : {};
+  const takes = Array.isArray(rec.takes) ? rec.takes : [], exams = Array.isArray(rec.exams) ? rec.exams : [];
+  if (takes.length + exams.length > MAX_RECORDING_ITEMS || ![...takes, ...exams].every(isObj)) throw new HttpError(400, 'the recordings section is malformed');
   const progress = data['progress.json'];
   const count = text => (text || '').split('\n').filter(l => l.trim()).length;
   return {
-    data, teacher, imports: {index, files: scores},
+    data, teacher, imports: {index, files: scores}, recordings: {takes, exams},
     summary: {
       exportedAt: typeof backup.exportedAt === 'string' ? backup.exportedAt.slice(0, 40) : null,
       events: progress ? progress.events.length : 0,
@@ -152,16 +171,18 @@ export function validateServerPart(backup) {
       teacherReplies: count(teacher['replies.jsonl']),
       teacherProfile: typeof teacher['student.md'] === 'string',
       imports: index.length,
+      recordings: takes.length,
+      examSheets: exams.length,
     },
   };
 }
 
 // ───────── restore ─────────
 
-export function restoreServer(backup, {dataDir = DATA_DIR, teacherDir = TEACHER_DIR, songsDir = SONGS_DIR, now = Date.now()} = {}) {
+export function restoreServer(backup, {dataDir = DATA_DIR, teacherDir = TEACHER_DIR, songsDir = SONGS_DIR, recordingsDir = RECORDINGS_DIR, now = Date.now()} = {}) {
   const parsed = validateServerPart(backup);
   // Keep what's there now, so the restore can be undone.
-  const before = collectServer({dataDir, teacherDir, songsDir});
+  const before = collectServer({dataDir, teacherDir, songsDir, recordingsDir});
   const snapshotDir = join(dataDir, 'backups');
   const snapshot = `before-restore-${new Date(now).toISOString().replace(/[:.]/g, '-')}.json`;
   writeAtomic(snapshotDir, snapshot, JSON.stringify(before));
@@ -185,7 +206,16 @@ export function restoreServer(backup, {dataDir = DATA_DIR, teacherDir = TEACHER_
     }
     if (added) writeAtomic(songsDir, 'index.json', JSON.stringify({songs: current}, null, 2) + '\n');
   }
-  return {restored: {...parsed.summary, importsAdded: added}, snapshot: `.data/backups/${snapshot}`};
+  // Recordings: add takes and exam sheets this Mac doesn't have; never overwrite or delete.
+  // Each item goes through the recordings store's own validation; invalid ones are skipped.
+  let takesAdded = 0, examsAdded = 0, recordingsSkipped = 0;
+  for (const take of parsed.recordings.takes) {
+    try { if (!readTake(recordingsDir, take.id)) { saveTake(recordingsDir, take); takesAdded++; } } catch { recordingsSkipped++; }
+  }
+  for (const exam of parsed.recordings.exams) {
+    try { if (!readExam(recordingsDir, exam.id)) { saveExam(recordingsDir, exam); examsAdded++; } } catch { recordingsSkipped++; }
+  }
+  return {restored: {...parsed.summary, importsAdded: added, takesAdded, examsAdded, recordingsSkipped}, snapshot: `.data/backups/${snapshot}`};
 }
 
 // ───────── HTTP ─────────

@@ -52,6 +52,8 @@
       <button class="play-btn" id="um-play" type="button" aria-label="Listen" title="Play / pause (Space)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>
       </button>
+      <!-- Record a take (src/record/player-ui.js). -->
+      <button class="rec-btn" id="rec-btn" type="button" aria-pressed="false" aria-label="Record" title="Record a take (R)"><span class="rec-dot" aria-hidden="true"></span><span class="rec-word">Rec</span></button>
     </div>
 
     <div class="tb-right">
@@ -135,6 +137,7 @@
           </div>
           <div class="menu-group">
             <button class="menu-row" id="fullscreen-btn" type="button"><span>Full screen</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+            <button class="menu-row" id="rec-list-btn" type="button"><span>Recordings…</span></button>
             <button class="menu-row" id="settings-btn" type="button"><span>Settings…</span></button>
           </div>
         </div>
@@ -219,6 +222,7 @@
       <div class="loader"><div class="spinner"></div><p>Opening the score…</p></div>
       <p class="memory-note" aria-hidden="true">Playing from memory</p>
       <button class="strategy-tag" id="um-strategy" type="button" title="Turn off" hidden></button>
+      <div class="rec-strip" id="rec-strip" role="status" aria-live="polite" hidden></div>
     </div>
     <div class="cue">
       <div class="prompt" id="um-practice-status">Opening the score…</div>
@@ -312,7 +316,7 @@
         </div>
       </section>
 
-      <p class="shortcuts"><span class="label-caps">Shortcuts</span> Space play/pause · P practise · L loop · H hands · K metronome · M sound · N note names · +/− zoom · ←/→ note · Shift+←/→ bar · Pages view: ←/→ or PageUp/PageDown (page-turner pedals) turn the page</p>
+      <p class="shortcuts"><span class="label-caps">Shortcuts</span> Space play/pause · P practise · R record · L loop · H hands · K metronome · M sound · N note names · +/− zoom · ←/→ note · Shift+←/→ bar · Pages view: ←/→ or PageUp/PageDown (page-turner pedals) turn the page</p>
     </div>
   </div>
 
@@ -338,6 +342,8 @@
       </div>
     </div>
   </div>
+  <!-- ───────── Recordings: takes and their report (src/record/review.js) ───────── -->
+  <div class="rec-review" id="rec-review" hidden></div>
 </div><!-- /#player -->
 </div><!-- /.shell -->
 

@@ -9,7 +9,11 @@ import {dirname, join, relative, resolve, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const SOURCE = join(dirname(fileURLToPath(import.meta.url)), 'sw.js');
-const SKIP = [/^sw\.js$/, /^songs\/local\//, /\.map$/, /^THIRD-PARTY-NOTICES\.txt$/, /(^|\/)\.[^/]+$/];
+// Not precached: the multi-layer grand (≈9 MB) and harpsichord samples are cached on first use
+// instead (the worker serves /samples/ cache-first), and the Mutopia index is fetched on demand.
+// The 2 MB single-layer piano in samples/piano/ stays precached, so the app always has a sound offline.
+const SKIP = [/^sw\.js$/, /^songs\/local\//, /\.map$/, /^THIRD-PARTY-NOTICES\.txt$/, /(^|\/)\.[^/]+$/,
+  /^samples\/(grand|harpsichord)\//, /^songs\/mutopia-index\.json$/];
 
 function walk(dir, root = dir, out = []) {
   for (const name of readdirSync(dir)) {

@@ -1,0 +1,233 @@
+/* Recordings (src/record/): the ● Rec toggle, the stage strip, the review overlay (a programme
+   note), the mock-exam dialog and results sheet, the Progress card, and the print layout.
+   Colours and fonts come from src/styles/tokens.css only. */
+
+/* ───── ● Rec, beside play/pause ───── */
+.rec-btn {
+  height: 36px; flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px 0 10px;
+  border: 1px solid var(--rule-strong); border-radius: 18px; background: transparent; color: var(--ink-soft);
+  font-size: 13px; font-weight: 600; font-variant: all-small-caps; letter-spacing: .08em;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.rec-btn:hover { color: var(--ink); border-color: var(--ink-soft); }
+.rec-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--oxblood); box-sizing: border-box; transition: background var(--dur); }
+.rec-btn[aria-pressed="true"] { color: var(--oxblood); border-color: color-mix(in srgb, var(--oxblood) 55%, transparent); background: var(--oxblood-soft); }
+.rec-btn[aria-pressed="true"] .rec-dot { background: var(--oxblood); }
+@media (pointer: coarse) { .rec-btn { height: var(--hit, 44px); } }
+@media (max-width: 640px) {
+  .rec-btn { width: 40px; padding: 0; justify-content: center; }
+  .rec-word { display: none; }
+}
+
+/* ───── the strip on the stage (recording, playing back, exam) ───── */
+.rec-strip {
+  position: absolute; z-index: 7; top: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px); padding: 5px 6px 5px 14px;
+  background: var(--paper-raised); color: var(--ink); border-radius: 999px;
+  box-shadow: var(--shadow-paper), 0 0 0 1px var(--rule);
+  font-family: var(--font-text); font-size: 16px; white-space: nowrap;
+  animation: rec-in var(--dur) var(--ease);
+}
+.rec-strip > span { overflow: hidden; text-overflow: ellipsis; min-width: 0; font-variant-numeric: tabular-nums lining-nums; }
+@keyframes rec-in { from { opacity: 0; transform: translate(-50%, -4px); } }
+.rec-strip-dot, .rec-strip-saved, .rec-strip-play, .rec-strip-exam { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.rec-strip-dot { background: var(--oxblood); animation: rec-breathe 1.8s ease-in-out infinite alternate; }
+.rec-strip-saved { background: var(--sage); }
+.rec-strip-play { background: var(--brass); }
+.rec-strip-exam { background: var(--ink); }
+@keyframes rec-breathe { to { opacity: .35; } }
+.rec-strip-btn {
+  flex: none; height: 32px; padding: 0 12px; border: 0; border-radius: 16px; background: transparent; color: var(--ink-soft);
+  font-family: var(--font-ui); font-size: 13.5px; font-weight: 500; letter-spacing: .02em;
+}
+.rec-strip-btn:hover { background: var(--paper-sunk); color: var(--ink); }
+.rec-strip-btn.is-primary { background: var(--ink); color: var(--paper-raised); }
+.rec-strip-btn.is-primary:hover { opacity: .88; }
+.rec-strip.is-warn { color: var(--oxblood); }
+@media (pointer: coarse) { .rec-strip-btn { height: 40px; padding: 0 14px; border-radius: 20px; } }
+@media (max-width: 640px) {
+  .rec-strip { top: 6px; font-size: 14.5px; gap: 4px; padding-left: 12px; max-width: calc(100% - 16px); }
+  .rec-strip-btn { padding: 0 9px; }
+}
+
+/* ───── the review overlay ───── */
+.rec-review, .rec-modal {
+  position: fixed; inset: 0; z-index: 85; display: grid; place-items: center; padding: 16px;
+  background: color-mix(in srgb, var(--ebony) 38%, transparent);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  animation: rec-fade var(--dur) var(--ease);
+}
+.rec-review[hidden] { display: none; }
+.rec-modal { z-index: 90; }
+@keyframes rec-fade { from { opacity: 0; } }
+.rec-sheet, .rec-modal-card {
+  width: min(1000px, 100%); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
+  background: var(--paper-raised); color: var(--ink);
+  border-radius: var(--radius-card); box-shadow: var(--shadow-paper), 0 0 0 1px var(--rule);
+  padding: 22px 30px 26px;
+  animation: rec-rise 240ms var(--ease);
+}
+.rec-modal-card { width: min(560px, 100%); }
+@keyframes rec-rise { from { opacity: 0; transform: translateY(8px); } }
+.rec-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-bottom: 12px; margin-bottom: 18px; border-bottom: 1px solid var(--rule); }
+.rec-kicker, .rec-label { margin: 0; font-size: 12.5px; font-weight: 600; font-variant: all-small-caps; letter-spacing: .09em; color: var(--ink-soft); }
+.rec-piece { margin: 2px 0 0; font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1.05; }
+.rec-piece em { font-family: var(--font-text); font-style: italic; font-weight: 400; font-size: 18px; color: var(--ink-soft); }
+.rec-body { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 30px; align-items: start; }
+
+.rec-takes { position: sticky; top: 0; padding-right: 20px; border-right: 1px solid var(--rule); }
+.rec-takes ol { margin: 8px 0 0; padding: 0; list-style: none; }
+.rec-take {
+  width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name acc" "meta acc";
+  gap: 1px 10px; align-items: center; padding: 9px 10px; border: 0; border-radius: var(--radius-control);
+  background: transparent; color: var(--ink); text-align: left;
+}
+.rec-take:hover { background: var(--paper-sunk); }
+.rec-take[aria-current="true"] { background: var(--paper-sunk); box-shadow: inset 2px 0 0 var(--brass); }
+.rec-take-name { grid-area: name; font-family: var(--font-display); font-size: 19px; font-weight: 600; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec-take-meta { grid-area: meta; font-size: 12.5px; color: var(--ink-soft); }
+.rec-take-acc { grid-area: acc; font-family: var(--font-text); font-size: 18px; font-variant-numeric: tabular-nums lining-nums; color: var(--ink-soft); }
+
+.rec-note { min-width: 0; }
+.rec-note > .note-kicker, .rec-take-title, .rec-figure { text-align: center; }
+.rec-take-title { margin: 4px 0 0; font-family: var(--font-display); font-weight: 600; font-size: 26px; }
+.rec-figure { margin: 6px 0 14px; }
+.rec-acc { font-size: 92px; }
+.rec-verdict { margin: 2px 0 0; font-family: var(--font-display); font-style: italic; font-size: 27px; font-weight: 500; }
+.rec-rename { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 6px; }
+.rec-input, .rec-select {
+  height: 40px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: var(--radius-control);
+  background: var(--paper); color: var(--ink); font: inherit; font-size: 15px;
+}
+.rec-input { width: min(260px, 100%); font-family: var(--font-display); font-size: 20px; }
+.rec-input:focus, .rec-select:focus { outline: 2px solid var(--brass); outline-offset: 1px; }
+
+.rec-stats { width: 100%; border-collapse: collapse; margin: 0 0 18px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.rec-stats th, .rec-stats td { padding: 7px 0; text-align: left; vertical-align: baseline; }
+.rec-stats tr + tr > * { border-top: 1px solid var(--rule); }
+.rec-stats th { width: 26%; font-size: 13px; font-weight: 600; font-variant: all-small-caps; letter-spacing: .08em; color: var(--ink-soft); }
+.rec-num { width: 22%; font-family: var(--font-text); font-size: 20px; font-variant-numeric: tabular-nums lining-nums; }
+.rec-detail { font-family: var(--font-text); font-style: italic; font-size: 15.5px; color: var(--ink-soft); }
+
+.rec-fig { margin: 0 0 16px; }
+.rec-fig-head { display: flex; justify-content: space-between; align-items: baseline; }
+.rec-fig-note { font-family: var(--font-text); font-size: 16px; font-variant-numeric: lining-nums; }
+.rec-curve { display: block; width: 100%; height: auto; margin: 4px 0 2px; overflow: visible; }
+.rec-curve .c-line { fill: none; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.rec-curve .c-ref { stroke: var(--brass); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.rec-curve .c-bar { stroke: var(--rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.rec-curve .c-zero { stroke: var(--rule-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.rec-curve .c-dot { fill: var(--ink); }
+.rec-curve .c-dot.far { fill: var(--oxblood); }
+.rec-curve text { font-family: var(--font-ui); font-size: 10px; fill: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.touch-cap .k-ref { border-top: 1px dashed var(--brass); }
+.touch-cap .k-dot { width: 4px; height: 4px; border: 0; border-radius: 50%; background: var(--ink); }
+
+.rec-bars { display: flex; flex-wrap: wrap; gap: 3px; margin: 0 0 16px; }
+.rec-bar {
+  min-width: 30px; height: 28px; padding: 0 4px; border: 0; border-radius: 4px; background: var(--paper-sunk);
+  border-bottom: 2px solid var(--rule-strong); color: var(--ink-soft); font-size: 11px; font-variant-numeric: tabular-nums;
+}
+.rec-bar:hover { color: var(--ink); }
+.rec-bar.heat-good { background: var(--sage-soft); border-bottom-color: var(--sage); }
+.rec-bar.heat-fair { background: var(--brass-soft); border-bottom-color: var(--brass); }
+.rec-bar.heat-weak { background: var(--oxblood-soft); border-bottom-color: var(--oxblood); color: var(--ink); }
+@media (pointer: coarse) { .rec-bar { min-width: 40px; height: 40px; } }
+
+.rec-section { margin: 0 0 16px; }
+.rec-lines { margin: 6px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+.rec-lines li { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.rec-line-bar { font-size: 13px; font-weight: 600; font-variant: all-small-caps; letter-spacing: .08em; color: var(--ink-soft); }
+.rec-line-text { font-family: var(--font-text); font-size: 16.5px; }
+.rec-line-go { font-size: 13.5px; }
+.rec-clean { margin: 0 0 16px; font-family: var(--font-text); font-style: italic; font-size: 17px; color: var(--sage); text-align: center; }
+.rec-dyn { width: 100%; border-collapse: collapse; margin-top: 6px; font-family: var(--font-text); font-size: 16px; }
+.rec-dyn th { text-align: left; font-family: var(--font-ui); font-size: 12px; font-weight: 600; font-variant: all-small-caps; letter-spacing: .08em; color: var(--ink-soft); padding: 4px 0; border-bottom: 1px solid var(--rule); }
+.rec-dyn td { padding: 5px 0; border-bottom: 1px solid var(--rule); }
+.rec-dyn-mark { font-style: italic; font-weight: 500; width: 22%; }
+.rec-dyn tr.ok td:last-child { color: var(--sage); }
+.rec-remarks { text-align: center; }
+.rec-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); }
+.rec-confirm { display: inline-flex; }
+.rec-danger { color: var(--oxblood); }
+.rec-message { margin: 10px 0 0; text-align: center; font-family: var(--font-text); font-style: italic; font-size: 15.5px; color: var(--ink-soft); }
+.rec-message:empty { display: none; }
+.rec-empty { font-family: var(--font-text); font-style: italic; font-size: 16.5px; color: var(--ink-soft); }
+.rec-empty-state { max-width: 440px; margin: 10px auto 6px; text-align: center; }
+.rec-empty-title { margin: 0 0 4px; font-family: var(--font-display); font-weight: 600; font-size: 26px; }
+
+@media (max-width: 760px) {
+  .rec-sheet, .rec-modal-card { padding: 16px 18px 20px; }
+  .rec-piece { font-size: 25px; }
+  .rec-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .rec-takes { position: static; padding: 0 0 10px; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .rec-takes ol { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .rec-takes li { flex: none; width: 170px; }
+  .rec-acc { font-size: 76px; }
+  .rec-lines li { grid-template-columns: 70px minmax(0, 1fr) auto; }
+  .rec-stats th { width: 30%; }
+  .rec-num { width: 26%; font-size: 18px; }
+}
+
+/* ───── mock exam: setup and results ───── */
+.rec-setup-note { margin: 4px 0 14px; font-family: var(--font-text); font-style: italic; font-size: 15.5px; color: var(--ink-soft); }
+.rec-field { margin: 0 0 14px; padding: 0; border: 0; display: grid; gap: 6px; }
+.rec-field legend { margin-bottom: 6px; }
+.rec-field .rec-select { width: 100%; }
+.rec-field-row { grid-template-columns: auto auto 1fr; align-items: center; }
+.rec-field-row .rec-select { width: auto; }
+.rec-field-row .rec-setup-note { margin: 0; }
+.rec-check { display: flex; align-items: center; gap: 8px; font-family: var(--font-text); font-size: 16.5px; min-height: 40px; }
+.rec-check input { width: 18px; height: 18px; accent-color: var(--ink); }
+.rec-exam-sheet { width: min(680px, 100%); }
+.rec-exam-total { text-align: center; margin-bottom: 14px; }
+.rec-band { margin: 0; font-family: var(--font-display); font-style: italic; font-size: 30px; font-weight: 500; }
+.rec-exam-items { margin: 0 0 14px; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+.rec-exam-item { padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.rec-exam-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto 92px; gap: 10px; align-items: baseline; }
+.rec-exam-n { font-family: var(--font-display); font-size: 20px; color: var(--ink-faint); }
+.rec-exam-what { display: grid; min-width: 0; }
+.rec-exam-title { font-family: var(--font-display); font-size: 20px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec-exam-mark { font-family: var(--font-text); font-size: 16px; color: var(--ink-soft); font-variant-numeric: tabular-nums lining-nums; }
+.rec-exam-mark strong { font-size: 24px; font-weight: 500; color: var(--ink); }
+.rec-exam-band { font-family: var(--font-text); font-style: italic; font-size: 16px; text-align: right; }
+.rec-exam-comment { margin: 4px 0 0 32px; font-family: var(--font-text); font-size: 16px; line-height: 1.4; }
+.rec-exam-link { margin-left: 32px; font-size: 13.5px; }
+@media (max-width: 520px) {
+  .rec-exam-row { grid-template-columns: 18px minmax(0, 1fr) auto; }
+  .rec-exam-band { grid-column: 2 / -1; text-align: left; }
+  .rec-exam-comment, .rec-exam-link { margin-left: 28px; }
+  .rec-field-row { grid-template-columns: 1fr 1fr; }
+  .rec-field-row .rec-setup-note { grid-column: 1 / -1; }
+}
+
+/* ───── Progress → Recordings ───── */
+.pg-recordings { min-width: 0; }
+.rec-card-list, .rec-card-exams ul { margin: 0; padding: 0; list-style: none; }
+.rec-card-row {
+  width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0;
+  border: 0; border-top: 1px solid var(--rule); background: none; color: inherit; text-decoration: none; text-align: left; font: inherit;
+}
+.rec-card-row:hover .rec-card-title { text-decoration: underline; text-decoration-color: var(--rule-strong); text-underline-offset: 3px; }
+.rec-card-main { display: grid; min-width: 0; }
+.rec-card-title { font-family: var(--font-display); font-size: 19px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec-card-acc { font-family: var(--font-text); font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums lining-nums; }
+.rec-card-exams { margin-top: 12px; }
+
+/* ───── print: only the report (or the exam sheet), on white paper ───── */
+@media print {
+  @page { margin: 14mm; }
+  :is(html.rec-print, html:has(#rec-review:not([hidden]))) {
+    --paper: #fff; --paper-raised: #fff; --paper-sunk: #f3f1ec; --ink: #000; --ink-soft: #444; --ink-faint: #777;
+    --rule: rgba(0, 0, 0, .18); --rule-strong: rgba(0, 0, 0, .35); background: #fff;
+  }
+  :is(html.rec-print, html:has(#rec-review:not([hidden]))) body { background: #fff; }
+  html:has(#rec-review:not([hidden])) body > :not(#rec-review),
+  html.rec-print:has(.rec-exam-modal) body > :not(.rec-exam-modal),
+  .rec-actions, .rec-close, .rec-exam-modal .close-btn, .rec-takes, .rec-line-go, .rec-exam-link { display: none !important; }
+  .rec-review, .rec-modal { position: static; display: block; padding: 0; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; animation: none; }
+  .rec-sheet, .rec-modal-card { width: 100%; max-height: none; overflow: visible; box-shadow: none; padding: 0; animation: none; }
+  .rec-body { display: block; }
+  .rec-bar { border: 1px solid var(--rule); }
+}
+.rec-card-list > li:first-child > .rec-card-row { border-top: 0; }

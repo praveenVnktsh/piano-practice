@@ -8,9 +8,10 @@ import {pieceMastery, STATUS_LABEL} from './mastery.js';
 import {curriculum} from '../curriculum/levels.js';
 import {loadCatalogs} from '../app/catalog.js';
 import {mountBackupControls} from '../pwa/backup.js';
+import {mountRecordingsSection} from '../record/section.js';
 import {getTheme, setTheme, THEMES, THEME_EVENT} from '../app/theme.js';
 import {DEFAULT_GOAL_MIN} from './model.js';
-import {addDays, dayKey, keyStats, lastDays, minutesByDay, readingSummary, readingTrend, songStats, streaks, exerciseStats, STREAK_MIN_MINUTES} from './stats.js';
+import {addDays, dayKey, keyStats, lastDays, minutesByDay, readingSummary, readingTrend, songStats, streaks, exerciseStats, skillSummary, STREAK_MIN_MINUTES} from './stats.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
 
@@ -57,6 +58,9 @@ export function mountProgress(container) {
   // Export / import of all data (src/pwa/backup.js): mounted once, moved into Settings on each render.
   const backupHost = el('div', {class: 'pg-backup'});
   const bk = mountBackupControls(backupHost);
+  // Recordings (src/record/section.js): mounted once, placed on each render like the backup controls.
+  const recHost = el('div', {class: 'pg-recordings'});
+  const recs = mountRecordingsSection(recHost);
   const root = el('div', {class: 'pg'});
   container.replaceChildren(root);
 
@@ -115,6 +119,7 @@ export function mountProgress(container) {
       lettersSection({letters, onRead: markRead}),
       learningRow(now),
       el('div', {class: 'pg-grid pg-mid'}, barsCard(now, goal), heatmapCard(now)),
+      recHost,
       el('div', {class: 'pg-grid pg-bottom'}, songsCard(now), keysCard(now), readingCard()),
       settingsCard(goal),
     ].filter(Boolean));
@@ -315,7 +320,8 @@ export function mountProgress(container) {
     if (!trend.length) {
       return el('section', {class: 'pg-card pg-reading-card'},
         el('div', {class: 'pg-card-head'}, el('h3', {text: 'Note reading'}), el('a', {class: 'pg-link', href: '#/train/reading', text: 'Train'})),
-        el('p', {class: 'pg-empty', text: 'Do a note-reading drill to see your accuracy and speed improve over time.'}));
+        el('p', {class: 'pg-empty', text: 'Do a note-reading drill to see your accuracy and speed improve over time.'}),
+        skillsLine());
     }
     const W = 300, H = 120, pad = {l: 8, r: 8, t: 12, b: 20};
     const n = trend.length;
@@ -338,7 +344,22 @@ export function mountProgress(container) {
         el('div', {}, el('strong', {text: String(sum.drills)}), el('span', {class: 'pg-muted', text: sum.drills === 1 ? 'drill' : 'drills'}))),
       el('div', {class: 'pg-chart small', role: 'img', 'aria-label': 'Note-reading accuracy and time per note by day', html: `<svg viewBox="0 0 ${W} ${H}" class="pg-trend">${svg}</svg>`}),
       el('div', {class: 'pg-legend'}, legend('acc', 'Accuracy'), legend('speed', 'Time per note')),
+      skillsLine(),
     );
+  }
+
+  // Sight-reading · Rhythm · Theory · Ear: one compact line under the note-reading trend.
+  function skillsLine() {
+    const s = skillSummary(doc);
+    const items = [
+      s.sightReading && ['#/exercises/sight-reading', 'Sight-reading', `${s.sightReading.pieces} ${s.sightReading.pieces === 1 ? 'piece' : 'pieces'}`],
+      s.rhythm && ['#/exercises/rhythm', 'Rhythm', pct(s.rhythm.lastAccuracy)],
+      s.theory && ['#/exercises/theory', 'Theory', `${s.theory.levels} of 6 lessons`],
+      s.ear && ['#/exercises/ear', 'Ear', pct(s.ear.lastAccuracy)],
+    ].filter(Boolean);
+    if (!items.length) return null;
+    return el('p', {class: 'pg-skills', 'aria-label': 'Other exercises'}, items.map(([href, name, value]) =>
+      el('a', {class: 'pg-skill', href}, el('span', {class: 'pg-skill-name', text: name}), ' ', el('strong', {text: value}))));
   }
 
   const onTheme = () => render();
@@ -355,6 +376,7 @@ export function mountProgress(container) {
     destroy() {
       destroyed = true;
       bk?.destroy?.();
+      recs?.destroy?.();
       window.removeEventListener(CHANGE_EVENT, onChange);
       window.removeEventListener(THEME_EVENT, onTheme);
       window.removeEventListener('focus', onFocus);

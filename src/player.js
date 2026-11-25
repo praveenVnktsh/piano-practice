@@ -1,8 +1,10 @@
 import {passage, FollowNotes, handGroups, handFilter, TimedGrader, TIMING, beatsOf, countIn, measureBeats, beatInfo, speedUpTempo, MissLog} from './score-core.mjs';
 import {createHighway} from './highway.js';
 import {createPiano} from './piano.js';
+import {mountSoundSettings} from './audio/sound-ui.js'; // [sound] instrument, room, metronome sound, microphone
 import {onRelayMidi, onRelayStatus, relayAvailable} from './midi-relay.js';
 import {setTheme as setAppTheme, getTheme, THEME_EVENT} from './app/theme.js';
+import {attachRecording} from './record/player-ui.js';
 import {
   BarTally, normaliseBarStats, mergeBarStats, heatLevel, weakPassage, startChain, chainStep, detectPhrases, phraseAt, nextPhrase,
   rhythmVariation, blockChords, applyTiming, ladderRungs, ladderNext, recordBest, nextTempoStep, evenness, evennessRemark,
@@ -466,7 +468,7 @@ export function createPlayer(root) {
       let v = .58 + Math.random() * .08;
       if (e.n === top && att.length > 1 || e.n >= 67) v += .14;
       if (e.n < 48) v += .06;
-      piano.tone(e.n, beats * quarterMs() / 1000, Math.min(1, v), delay);
+      piano.tone(e.n, beats * quarterMs() / 1000, Math.min(1, v), delay, {pedal, key: e.d * quarterMs() / 1000}); // [sound] pedal → resonance; key length for the harpsichord
     }
   }
 
@@ -490,6 +492,7 @@ export function createPlayer(root) {
     : 'Press <b class="glyph">▶</b> · the music waits for each note');
 
   function stopAll() {
+    stopExternal();
     if (scrub) { scrub = null; clearTimeout(wheelTimer); root.classList.remove('scrubbing'); }
     stopClock(); clearTimeout(autoTimer); autoTimer = null;
     playing = false; piano.silence(); piano.stopClicks();
@@ -945,6 +948,7 @@ export function createPlayer(root) {
   function userAttack(n, {source = 'screen', velocity = 96, time = performance.now()} = {}) {
     if (calib) { if (source === 'screen') tone(n); calibTap(time); return; }
     emit('piano:note', {note: n, velocity, source, time});
+    recording.noteOn(n, velocity, time, source);
     if (source === 'screen') tone(n);
     q('#um-midi-last').textContent = `Last note: ${name(n)} (MIDI ${n})`;
     let rec = null;
@@ -953,6 +957,7 @@ export function createPlayer(root) {
     else practiceAttack(n, rec);
   }
   function userRelease(n, time = performance.now()) {
+    recording.noteOff(n, time);
     for (let i = played.length - 1; i >= 0; i--) if (played[i].n === n && played[i].off == null) { played[i].off = time; break; }
   }
   // Sustain pedal (CC 64): shown on the keybed's felt strip, logged against the score.
@@ -1197,6 +1202,7 @@ export function createPlayer(root) {
     else if (e.key === 'p' || e.key === 'P') { setIntent('practice'); startPractice(); }
     else if (e.key === 'l' || e.key === 'L') { q('#sec-loop').click(); }
     else if (e.key === 'm' || e.key === 'M') setMuted(!piano.muted);
+    else if (e.key === 'r' || e.key === 'R') recording.toggle();
     else if (e.key === 'n' || e.key === 'N') setNames(!root.classList.contains('show-names'));
     else if (e.key === 'k' || e.key === 'K') setMetronome(!metronome);
     else if (e.key === 'h' || e.key === 'H') setHands(HANDS[(HANDS.indexOf(hands) + 1) % HANDS.length]);
@@ -1249,7 +1255,7 @@ export function createPlayer(root) {
       const already = held.has(n); held.add(n);
       if (!already) userAttack(n, {source: source.startsWith('local:') ? 'midi' : 'relay', velocity, time});
     } else if (command === 128 || command === 144) { if (held.delete(n)) userRelease(n, time); }
-    else if (n === 64) setPedal(velocity >= 64);
+    else if (n === 64) { setPedal(velocity >= 64); recording.pedal(velocity, time); }
     else if (n === 120 || n === 123) held.clear();
     renderMidi();
   }
@@ -1302,9 +1308,50 @@ export function createPlayer(root) {
   function livePos() {
     if (!song || !range) return null;
     if (scrub) return scrub.t;
+    if (external) return Math.max(range.start, Math.min(range.end, external.pos()));
     if (clock) return Math.min(range.end, clockPos());
     return pos;
   }
+
+  // ───────── Take playback (src/record/) ─────────
+  // A recorded take drives the position: `posFn()` → score time, from the take's timing
+  // aligned to the score. The highway, the sheet and the keys follow it like Listen.
+  let external = null;
+  function playExternal(posFn, onStop) {
+    stopAll(); hideResults();
+    finished = false; matched.clear(); grades.clear();
+    external = {pos: posFn, onStop, shown: -1};
+    const step = () => {
+      if (!external) return;
+      const p = external.pos();
+      let i = -1;
+      while (i + 1 < points.length && points[i + 1] <= p + EPS) i++;
+      if (i !== external.shown) { external.shown = i; pos = points[Math.max(0, i)] ?? pos; draw(); }
+    };
+    external.timer = setInterval(step, 30);
+    step();
+    root.classList.add('playing-take');
+  }
+  function stopExternal() {
+    if (!external) return;
+    const e = external;
+    external = null;
+    clearInterval(e.timer);
+    root.classList.remove('playing-take');
+    midiHeld.delete('take:0'); renderMidi();
+    e.onStop?.();
+  }
+  const recording = attachRecording({
+    root, piano,
+    song: () => song, range: () => range, current: () => current, state: () => getState(),
+    tempo, busy: () => (playing ? 'listen' : practicing ? 'practice' : null),
+    setRange: (a, b) => setRange(a, b, {quiet: true}),
+    setLoop: v => setLoop(v),
+    stop: () => { stopAll(); draw(); },
+    playExternal, stopExternal,
+    keys: notes => { if (notes.length) midiHeld.set('take:0', new Set(notes)); else midiHeld.delete('take:0'); renderMidi(); },
+    flash, setStatus, setPrompt, measureName: i => measureName(song.measures[i]),
+  });
 
   // ───────── Highway ─────────
   const highway = createHighway({
@@ -1595,6 +1642,8 @@ export function createPlayer(root) {
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => highway.refreshColors());
 
   // ───────── Sound ─────────
+  // [sound] Settings rows + ⋯ microphone toggle (src/audio/sound-ui.js); mic notes enter like any key press.
+  mountSoundSettings(root, piano, {onMicNote: (n, velocity, time) => userAttack(n, {source: 'mic', velocity, time}), onMicRelease: (n, time) => userRelease(n, time)});
   function setMuted(v) {
     piano.setMuted(v); save({muted: !!v});
     root.classList.toggle('muted', !!v);
@@ -1813,6 +1862,7 @@ export function createPlayer(root) {
     setRange(first, last);
     refreshTrouble();
     holdPagesAwake(root.dataset.view === 'pages');
+    recording.loaded(entry);
   }
 
   function showError(entry, err) {
@@ -1826,8 +1876,10 @@ export function createPlayer(root) {
   // Swap to another song. Only the most recent call wins.
   async function loadEntry(entry, songPromise) {
     const token = ++loadToken;
+    recording.leaving();
     stopAll(); hideResults();
     current = entry;
+    piano.setSong(entry); // [sound] Auto instrument (harpsichord for Baroque)
     showLoading(entry);
     let s;
     try { s = await songPromise; } catch (err) {
@@ -1868,6 +1920,7 @@ export function createPlayer(root) {
 
   function stopPublic() {
     holdPagesAwake(false); // leaving the player; reacquired when a song opens in Pages view
+    recording.leaving();
     const busy = playing || practicing;
     stopAll(); hideResults();
     if (busy && song) { setStatus(sectionLabel()); setPrompt(promptIdle()); }

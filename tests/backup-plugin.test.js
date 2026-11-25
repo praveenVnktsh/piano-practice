@@ -5,6 +5,7 @@ import {Readable} from 'node:stream';
 import {join} from 'node:path';
 import {collectServer, restoreServer, validateServerPart, backupHandler, FORMAT} from '../backup/plugin.js';
 import {emptyDoc} from '../src/progress/model.js';
+import {saveTake, listTakes} from '../recordings/store.js';
 
 let root, dirs;
 const AT = Date.UTC(2026, 0, 5);
@@ -12,7 +13,7 @@ const write = (dir, name, text) => { mkdirSync(dir, {recursive: true}); writeFil
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'pp-backup-'));
-  dirs = {dataDir: join(root, 'data'), teacherDir: join(root, 'teacher'), songsDir: join(root, 'imports')};
+  dirs = {dataDir: join(root, 'data'), teacherDir: join(root, 'teacher'), songsDir: join(root, 'imports'), recordingsDir: join(root, 'recordings')};
   const doc = emptyDoc();
   doc.events.push({type: 'practice:session', id: 'a1', at: AT, songId: 'x', kind: 'listen', durationMs: 5000});
   doc.journal.push({id: 'journal0001', at: AT, text: 'Slow hands'});
@@ -26,7 +27,30 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(root, {recursive: true, force: true}));
 
+const TAKE = {id: 'take000001', songId: 'fur-elise', title: 'Für Elise', at: 1764000000000, tempo: 72, section: [0, 7],
+  hands: 'both', mode: 'free', source: 'midi', notes: [[0, 64, 80, 200], [250, 63, 70, 200]], pedal: [[0, 127]]};
+
 describe('backup plugin', () => {
+  it('backs up recorded takes and restores only the missing ones', () => {
+    saveTake(dirs.recordingsDir, TAKE);
+    const b = collectServer(dirs);
+    expect(b.server.recordings.takes.map(t => t.id)).toEqual(['take000001']);
+    const fresh = {dataDir: join(root, 'd3'), teacherDir: join(root, 't3'), songsDir: join(root, 'i3'), recordingsDir: join(root, 'r3')};
+    const out = restoreServer(JSON.parse(JSON.stringify(b)), fresh);
+    expect(out.restored.takesAdded).toBe(1);
+    expect(listTakes(fresh.recordingsDir).map(t => t.id)).toEqual(['take000001']);
+    // Restoring again adds nothing and never overwrites.
+    expect(restoreServer(JSON.parse(JSON.stringify(b)), fresh).restored.takesAdded).toBe(0);
+  });
+
+  it('skips an invalid take instead of failing the whole restore', () => {
+    const b = collectServer(dirs);
+    b.server.recordings = {takes: [{id: '../../etc', songId: 'x'}], exams: []};
+    const out = restoreServer(b, dirs);
+    expect(out.restored.takesAdded).toBe(0);
+    expect(out.restored.recordingsSkipped).toBe(1);
+  });
+
   it('collects progress, teacher files (not status) and imported scores', () => {
     const b = collectServer(dirs);
     expect(b.format).toBe(FORMAT);
@@ -38,7 +62,7 @@ describe('backup plugin', () => {
 
   it('round-trips into empty folders and keeps a snapshot of what was there', () => {
     const b = collectServer(dirs);
-    const fresh = {dataDir: join(root, 'd2'), teacherDir: join(root, 't2'), songsDir: join(root, 'i2')};
+    const fresh = {dataDir: join(root, 'd2'), teacherDir: join(root, 't2'), songsDir: join(root, 'i2'), recordingsDir: join(root, 'r2')};
     const out = restoreServer(JSON.parse(JSON.stringify(b)), fresh);
     expect(out.restored.events).toBe(1);
     expect(out.restored.journal).toBe(1);

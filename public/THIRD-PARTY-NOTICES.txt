@@ -22,10 +22,30 @@ Audiveris 5.11.0 — optional optical music recognition helper.
 SAMPLES
 -------
 
-Salamander Grand Piano samples (public/samples/piano)
+Salamander Grand Piano V3 (public/samples/grand)
+  Recorded by Alexander Holm (Yamaha C5). Licensed under Creative Commons
+  Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/).
+  Source: SalamanderGrandPianoV3_44.1khz16bit.tar.bz2 from
+  https://archive.org/details/SalamanderGrandPianoV3
+  Changes: velocity layers 4, 7, 10, 13 and 16 (of 16) for every third semitone
+  A0–C8, and the 88 release (hammer/damper) noises; folded to mono, shortened
+  with a fade-out and encoded as VBR MP3 (src/audio/build-samples.mjs).
+
+Salamander Grand Piano samples (public/samples/piano, fallback)
   Recorded by Alexander Holm. Licensed under Creative Commons Attribution 3.0
   (https://creativecommons.org/licenses/by/3.0/). MP3 subset as distributed by
   the Tone.js project (https://tonejs.github.io/audio/salamander/).
+
+Harpsichord samples (public/samples/harpsichord)
+  "Harpsichord, French" from the Versilian Community Sample Library (VCSL),
+  Versilian Studios LLC. Dedicated to the public domain under CC0 1.0
+  (https://creativecommons.org/publicdomain/zero/1.0/); credited with thanks.
+  Source: https://github.com/sgossner/VCSL (Chordophones/Zithers/Harpsichord,
+  French: Sustains rr1 and Releases). Changes: folded to mono, shortened with a
+  fade-out and encoded as VBR MP3 (src/audio/build-samples.mjs).
+
+Room impulse response and metronome sounds are synthesised in code
+(src/audio/reverb.js, src/audio/metronome.js); no third-party recordings.
 
 SCORES
 ------

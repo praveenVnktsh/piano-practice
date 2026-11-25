@@ -14,9 +14,14 @@
 //   node teacher/cli.js letter "<markdown>"    a (weekly) review letter, shown on Progress
 //   node teacher/cli.js letters                letters written so far, newest first
 //   node teacher/cli.js progress [--days N]    mastery, trouble bars, reviews, plateaus, path, goals, journal
+//   node teacher/cli.js recordings [<songId>]  recorded takes (and mock exams), newest first
+//   node teacher/cli.js review <takeId>        a take compared with the score, bar by bar
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ACTION_TYPES} from './actions.js';
+import {RECORDINGS_DIR, listExams, listTakes, readTake} from '../recordings/store.js';
+import {takeMeta} from '../src/record/take.mjs';
+import {examText, reportText, takeLine} from '../src/record/text.mjs';
 import {progressReport, readCatalog, readProgressDoc} from './report.js';
 import {
   addAssignment,
@@ -45,7 +50,9 @@ export const USAGE = `usage: node teacher/cli.js list [--open]
        node teacher/cli.js done <id> [--undo]
        node teacher/cli.js letter "<markdown text>"
        node teacher/cli.js letters
-       node teacher/cli.js progress [--days N]`;
+       node teacher/cli.js progress [--days N]
+       node teacher/cli.js recordings [<songId>]
+       node teacher/cli.js review <takeId>`;
 
 export const ACTIONS_HELP = `Actions are buttons the student taps to apply (never run automatically). Types:
   {"type":"open_song","id":"fur-elise"}                 a library id (see context.player.songId / progress.recentSongs)
@@ -151,6 +158,17 @@ export function formatContext(context, {full = false} = {}) {
   }
   for (const a of context.assignments || [])
     out.push(`  assignment #${a.id}: ${a.task}${a.due ? ` (due ${a.due})` : ''}`);
+  const rec = context.recording;
+  if (rec && rec.takeId) {
+    out.push(
+      `  RECORDING take ${rec.takeId}: ${rec.title || rec.songId} [${rec.songId}]${rec.name ? ` “${rec.name}”` : ''} · ` +
+        `${rec.accuracy != null ? `${pct(rec.accuracy)} of notes (${rec.missed} missed, ${rec.wrong} wrong, ${rec.extra} extra)` : 'not compared yet'}` +
+        `${rec.meanBpm ? ` · ♩ ≈ ${rec.meanBpm} (recorded at ${rec.tempo ?? '?'})` : ''}${rec.timingSdMs != null ? ` · timing ±${rec.timingSdMs} ms` : ''}` +
+        `${rec.evenness != null ? ` · evenness ${rec.evenness}` : ''} — run: node teacher/cli.js review ${rec.takeId}`,
+    );
+    if (rec.weakBars?.length) out.push(`      weak bars: ${rec.weakBars.map(b => `${b.label} ${b.accuracy}%`).join(', ')}`);
+    for (const r of rec.remarks || []) out.push(`      remark: ${r}`);
+  }
   if (full)
     out.push(
       '  raw context:',
@@ -275,6 +293,21 @@ export function main(argv, dir = TEACHER_DIR, out = console.log, err = console.e
     if (command === 'letters') {
       const list = readLetters(dir).slice().reverse();
       out(list.length ? list.map(l => `#${l.id} · ${l.at.slice(0, 10)} · ${l.readAt ? 'read' : 'unread'}\n  ${l.text.split('\n')[0].slice(0, 120)}`).join('\n') : 'No letters yet.');
+      return 0;
+    }
+    if (command === 'recordings') {
+      const dir2 = opts.recordingsDir ?? RECORDINGS_DIR;
+      const songId = args[0];
+      const takes = listTakes(dir2, songId).map(takeMeta);
+      const exams = songId ? [] : listExams(dir2);
+      if (!takes.length && !exams.length) out(songId ? `No recordings of ${songId}.` : 'No recordings yet.');
+      else out([...takes.map(takeLine), ...(exams.length ? ['', 'Mock exams:', ...exams.map(examText)] : [])].join('\n'));
+      return 0;
+    }
+    if (command === 'review' && args.length === 1) {
+      const take = readTake(opts.recordingsDir ?? RECORDINGS_DIR, args[0]);
+      if (!take) throw new Error(`no take ${args[0]} (see node teacher/cli.js recordings)`);
+      out(reportText(take));
       return 0;
     }
     if (command === 'progress') {

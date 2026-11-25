@@ -159,7 +159,8 @@ export function mountToday(container, {library, open} = {}) {
     return {
       warm: evs.some(e => isExerciseId(e.songId)),
       piece: id => evs.some(e => e.songId === id && e.type !== 'trainer:result'),
-      reading: evs.some(e => e.type === 'trainer:result'),
+      // Only note-reading drills count here; rhythm / theory / ear rounds use prefixed levels.
+      reading: evs.some(e => e.type === 'trainer:result' && !/^(rhythm|theory|ear):/.test(String(e.level || ''))),
     };
   }
 

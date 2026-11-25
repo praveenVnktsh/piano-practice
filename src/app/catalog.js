@@ -37,6 +37,8 @@ export async function loadCatalogs() {
 export function resolveEntry(id) {
   // Unverified pieces from the Mutopia library, converted in the browser on demand.
   if (id.startsWith('mutopia:')) return import('../mutopia/convert.js').then(m => m.resolveMutopiaEntry(id));
+  // Generated sight-reading pieces (src/sightread/): "sr:<level>:<seed>".
+  if (id.startsWith('sr:')) return import('../sightread/index.js').then(m => m.resolveSightReading(id));
   if (!isExerciseId(id)) return null;
   const r = resolveExercise(id);
   return r && {entry: {...r.entry, kind: 'exercise', source: r.source}, source: r.source};
