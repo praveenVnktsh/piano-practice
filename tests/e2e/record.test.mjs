@@ -26,6 +26,10 @@ export const tests = [
       await page.click('#rec-list-btn');
       await page.waitFor(`document.querySelector('#rec-review:not([hidden]) .rec-note .rec-acc')`, {what: 'report'});
       assert.match(await page.eval(`document.querySelector('.rec-stats').textContent`), /Notes/);
+      // Listen and compare: the score's bar on the sampler, then the take's (audio is muted).
+      await page.waitFor(`document.querySelector('.rec-compare .rec-compare-bar')`, {what: 'listen and compare'});
+      await page.eval(`[...document.querySelectorAll('.rec-compare button')].find(b => b.textContent === 'A then B').click()`);
+      assert.match(await page.eval(`document.querySelector('.rec-compare-status').textContent`), /^The score, then your take, (bar \d+|the pickup)$/);
 
       await page.eval(`[...document.querySelectorAll('.rec-actions button')].find(b => b.textContent === 'Play take').click()`);
       await page.waitFor(`document.getElementById('player').classList.contains('playing-take')`, {what: 'playback'});

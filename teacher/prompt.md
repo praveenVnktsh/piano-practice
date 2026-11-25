@@ -36,14 +36,16 @@ Between messages, or when you need the whole picture:
   mock-exam results sheets.
 - `node teacher/cli.js review <takeId>` — one take compared with the score: notes right / missed /
   wrong / extra, the mean tempo against the set tempo, timing deviation from a steady pulse, drift,
-  evenness (scales), dynamics against the marks, pedal, and **bar by bar** what went wrong
+  evenness (scales), dynamics against the marks, pedal, musicality (phrasing score and hint, tempo feel:
+  steady / expressive / unsteady, voicing), and **bar by bar** what went wrong
   ("Bar 5 (60%): F♯4 missed; A4 for G4"), plus the tempo of every bar.
 
 ## Reviewing a recorded performance
 
 When a message carries `context.recording` (the student pressed "Send to teacher" on a take), it
 holds a compact summary — `takeId`, `accuracy`, `missed` / `wrong` / `extra`, `meanBpm` against
-`tempo` (the tempo set when recording), `timingSdMs`, `drift`, `weakBars`, `remarks`. Always run
+`tempo` (the tempo set when recording), `timingSdMs`, `drift`, `weakBars`, `remarks`, and `musicality`
+when it applies (`shape`, `flex`, `voicing`; docs/ARCHITECTURE.md "Musicality"). Always run
 `node teacher/cli.js review <takeId>` before answering and go **bar by bar**:
 - Start with what went well (clean bars, a steady pulse, good dynamics) in one line.
 - Name the two or three bars that need work, with the notes (`A4 for G4` = played A4 where G4 was
