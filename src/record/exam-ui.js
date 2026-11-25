@@ -11,6 +11,9 @@ import {el} from '../app/dom.js';
 import {newId} from './take.mjs';
 import {examResults, ITEM_MAX} from './exam.mjs';
 import * as store from './store.js';
+
+// 'Johann Sebastian Bach (Notebook for Anna Magdalena Bach)' → 'Bach'; 'Christian Petzold (attr.)' → 'Petzold'.
+const surnameOf = composer => String(composer).replace(/\(.*?\)/g, '').trim().split(/\s+/).at(-1);
 import {dropHashParam} from './hash.js';
 
 const ACTIVE = 'piano-practice.recordings.exam-active';
@@ -58,7 +61,7 @@ export async function openExamSetup() {
 
   const pieceSelect = (i, value) => el('select', {class: 'rec-select', name: 'piece' + i, 'aria-label': `Piece ${i + 1}`},
     i === 2 ? el('option', {value: '', text: '— none —'}) : null,
-    library.map(e => { const o = el('option', {value: e.id, text: `${e.title}${e.composer ? ' · ' + e.composer.split(' ').at(-1) : ''}`}); if (e.id === value) o.selected = true; return o; }));
+    library.map(e => { const o = el('option', {value: e.id, text: `${e.title}${e.composer ? ' · ' + surnameOf(e.composer) : ''}`}); if (e.id === value) o.selected = true; return o; }));
   const form = el('form', {class: 'rec-setup', onsubmit: e => { e.preventDefault(); begin(new FormData(form)); }},
     el('p', {class: 'rec-kicker', text: 'Mock exam'}),
     el('h2', {class: 'rec-piece', id: 'rec-setup-title', text: 'Your programme'}),

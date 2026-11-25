@@ -7,6 +7,7 @@
 import '../theory/theory.css';
 import './ear.css';
 import {createPiano} from '../piano.js';
+import {keyForControl} from '../app/dom.js';
 import {EAR_KINDS, EAR_LEVELS, earLevelById, makeRound, judgePlayed} from './levels.js';
 import {createKeys} from '../theory/keys.js';
 import {rng, newSeed, midiName} from '../theory/music.js';
@@ -186,7 +187,7 @@ export function mountEarTrainer(container) {
   window.addEventListener('piano:note', onPianoNote);
   const onKey = e => {
     if (!root.isConnected || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.target.closest?.('input,select,textarea,[contenteditable]')) return;
+    if (keyForControl(e)) return;
     const c = round?.current;
     if (!c || c.answered || !c.q.choices) return;
     const k = +e.key;

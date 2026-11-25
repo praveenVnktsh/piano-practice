@@ -74,10 +74,16 @@ async function migrate() {
 
 // ───── public ─────
 export async function listTakes(songId) {
+  const local = localIndex().filter(m => songId == null || m.songId === songId);
   if ((await where()) === 'disk') {
-    try { return (await api(songId != null ? '?songId=' + encodeURIComponent(songId) : '')).takes || []; } catch { /* fall through to the browser copy */ }
+    try {
+      // Takes kept here while the Mac was unreachable are listed too until they move to it.
+      const disk = (await api(songId != null ? '?songId=' + encodeURIComponent(songId) : '')).takes || [];
+      const ids = new Set(disk.map(m => m.id));
+      return [...disk, ...local.filter(m => !ids.has(m.id))].sort((a, b) => b.at - a.at);
+    } catch { /* fall through to the browser copy */ }
   }
-  return localIndex().filter(m => songId == null || m.songId === songId).sort((a, b) => b.at - a.at);
+  return local.sort((a, b) => b.at - a.at);
 }
 
 export async function getTake(id) {

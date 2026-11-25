@@ -195,8 +195,9 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   `#/exercises/rhythm`, `#/exercises/theory` (+ `#/exercises/theory/<lesson>`), `#/exercises/ear`.
   A view's `mount` may return `{title}` to retitle the page; the view host passes the route arg.
 - **`sr:<level>:<seed>` ids** are generated sight-reading pieces (`src/sightread/`), resolved by
-  `catalog.resolveEntry`; entries carry `mode: 'timed'` and `intent: 'practice'` hints that
-  `src/app/index.js` applies after loading (and undoes for the next un-hinted piece).
+  `catalog.resolveEntry`; entries carry `mode: 'timed'`, `intent: 'practice'` and `view: 'sheet'`
+  hints that the player applies for that piece only (falling notes become the score; the student's
+  own Notation / Pages choice is kept). The results card's primary action is "Another one ↻".
 - **`trainer:result` levels** are prefixed for the new drills: `rhythm:<id>`, `theory:<id>`,
   `ear:<id>`; the progress model totals them under `totals.skills[skill]` (note reading stays in
   `totals.trainer`). Today's "Reading" step counts only note-reading drills.
@@ -227,7 +228,7 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   createdAt, updatedAt}], updatedAt}`. Backups include it (validated on restore). Pieces remembers its filters
   in `piano-practice.pieces.filters` = `{grade, period, composer, status, fav}`.
 - **Player**: ⋯ → Favourite / Add to a collection…; ⋯ → View → Harmony (setting `harmony`); Bars ▾ → Performance
-  run; results card "Next in setlist →". Entry hints `mode` / `intent` apply to that piece only (never saved);
+  run; results card "Next in setlist →". Entry hints `mode` / `intent` / `view` apply to that piece only (never saved);
   `src/app/index.js` no longer applies them. `practice:result` may carry `performance: {score, accuracy, timing,
   evenness}`. Measures carry `key: {fifths, mode}` (score-core).
 - **Analysis** (`src/analysis/`): `harmony.mjs` (approximate Roman-numeral analysis, method documented in the

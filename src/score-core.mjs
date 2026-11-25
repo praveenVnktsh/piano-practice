@@ -389,3 +389,11 @@ export class MissLog {
   }
   list() { return [...this.entries.values()].map(e => ({...e, expected: [...e.expected], played: [...e.played]})); }
 }
+
+// The score's own spelling of a note event (B♭4 in G minor, not A♯4), with the written octave
+// (C♭5 sounds as B4). `noteNames` is Song.noteNames (notehead id → {name}); null when unknown.
+const ALTER = {'𝄫': -2, '♭': -1, '♯': 1, '𝄪': 2};
+export function spelledName(noteNames, e) {
+  const s = e && noteNames?.get?.(e.id)?.name;
+  return s ? s + (Math.floor((e.n - (ALTER[s.slice(1)] || 0)) / 12) - 1) : null;
+}

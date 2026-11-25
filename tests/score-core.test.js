@@ -1,7 +1,7 @@
 import {describe, expect, test} from 'vitest';
 
 import {
-  FollowNotes, MissLog, TimedGrader, beatInfo, beatsOf, classifyTiming, countIn, handGroups, measureBeats, passage, speedUpTempo, staffHand,
+  FollowNotes, MissLog, TimedGrader, beatInfo, beatsOf, classifyTiming, countIn, handGroups, measureBeats, passage, speedUpTempo, spelledName, staffHand,
 } from '../src/score-core.mjs';
 
 // A tiny fake score: three 4-quarter measures. Times are in quarter notes.
@@ -285,5 +285,22 @@ describe('MissLog', () => {
       {measure: '1', expected: ['C4'], played: ['D4', 'E4']},
       {measure: '1', expected: ['G4'], played: []},
     ]);
+  });
+});
+
+describe('spelledName', () => {
+  const names = new Map([['a', {name: 'B♭'}], ['b', {name: 'C♭'}], ['c', {name: 'B♯'}], ['d', {name: 'F♯'}], ['e', {name: 'E𝄫'}]]);
+  test('uses the score spelling, not the sharp-only key name (QA: A♯5 shown in G minor)', () => {
+    expect(spelledName(names, {id: 'a', n: 82})).toBe('B♭5');
+    expect(spelledName(names, {id: 'd', n: 66})).toBe('F♯4');
+  });
+  test('keeps the written octave across the B/C boundary', () => {
+    expect(spelledName(names, {id: 'b', n: 71})).toBe('C♭5');
+    expect(spelledName(names, {id: 'c', n: 72})).toBe('B♯4');
+    expect(spelledName(names, {id: 'e', n: 62})).toBe('E𝄫4');
+  });
+  test('null when the score has no spelling for the note', () => {
+    expect(spelledName(names, {id: 'zz', n: 60})).toBe(null);
+    expect(spelledName(undefined, {id: 'a', n: 82})).toBe(null);
   });
 });

@@ -46,12 +46,7 @@ export async function startApp() {
   const nav = createNav(shell);
   installHelp({shell}); // "?" help overlay (before any view mounts: its key guard runs first)
   const back = createBackButton(root);
-  // Sight-reading: "Another one" after a generated piece is played through (loaded when first needed).
-  let srWatch = null;
-  window.addEventListener('practice:result', e => {
-    if (srWatch || !String(e.detail?.songId || '').startsWith('sr:')) return;
-    srWatch = import('../sightread/another.js').then(m => m.watchSightReading({shell, navigate, first: e.detail}));
-  });
+  // Sight-reading: "Another one" is the results card's primary action (src/player.js).
 
   // ───── the library: catalogs + imports ─────
   const entries = {bundled: [], local: [], imports: [], importsWhere: 'browser', loaded: false};

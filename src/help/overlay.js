@@ -52,7 +52,7 @@ const SECTIONS = [
   {id: 'places', title: 'The four places', body: () => [
     p('There are only four places in the app. Everything else, the player, the teacher and the settings, opens from them and leads back.'),
     el('dl', {class: 'hp-terms'},
-      ...term('Today', 'Your home. Each day it lays out a warm-up (a scale in the key of the day), the piece you are learning and a short reading drill, with your daily goal, streak and any homework from your teacher. Most days you need nothing else.'),
+      ...term('Today', 'Your home. Each day it lays out a warm-up (the next technique step on your path), the piece you are learning and a short reading drill, with your daily goal, streak and any homework from your teacher. Most days you need nothing else.'),
       ...term('Pieces', 'The repertoire, grouped like a concert programme: bundled public-domain pieces with a grade, your own songs, imported scores (MusicXML, MXL, MEI) and an experimental browser for the Mutopia archive. Each piece shows how far along it is: learning, secure, polished.'),
       ...term('Exercises', 'Technique (scales, arpeggios, five-finger positions, chromatic scales and cadences in every key, with fingering), note reading, sight-reading, rhythm, theory and ear training.'),
       ...term('Progress', 'Your practice diary: minutes, streaks, the bars you have mastered, your path through the grades, goals with dates, the journal, recordings, letters from your teacher and the settings.'),
@@ -65,7 +65,7 @@ const SECTIONS = [
       ...term('Hands', 'L · Both · R in the section strip (or H): practise each hand alone, then put them together. While you practise one hand, the app plays the other.'),
       ...term('Bars and loops', 'Type the first and last bar, or tap Bars for presets: this phrase, the next phrase, “Practise my weak bars” (the bars where you make most mistakes), and chaining from the start or the end (one bar, then one more after each clean pass). Loop (L) repeats the section until it is clean.'),
       ...term('Tempo', 'Tap ♩ = 72 to change the speed, turn on the metronome, or let it speed up by 5 % after each clean pass up to the piece’s tempo.'),
-      ...term('Strategies', '⋯ → Practice strategy: the slow-practice ladder, dotted and reversed rhythms, blocked chords, and the memory check (the score hides while you play). One at a time.'),
+      ...term('Strategies', '⋯ → Strategy: the slow-practice ladder, dotted and reversed rhythms, blocked chords, and the memory check (the score hides while you play). One at a time.'),
       ...term('Results', 'After each pass a small card shows your accuracy, what went wrong and where, and with a real piano your evenness, dynamics and legato. “Again” goes straight back.'),
       ...term('Recordings', 'Rec (R) records a take from your piano. Play it back with the score following, compare it with the score bar by bar, print a report, export MIDI, or send it to your teacher. Several pieces in order make a mock exam.')),
     el('p', {}, el('em', {text: 'A good rhythm for a session: '}), 'listen once, practise a few bars hands separately in Wait, then together, then Play along slowly, and only then speed up.'),
