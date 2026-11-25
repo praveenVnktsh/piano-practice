@@ -1116,7 +1116,12 @@ export function createPlayer(root) {
       .filter(el => !el.disabled && !el.hidden && el.getClientRects().length);
     modal.addEventListener('keydown', e => {
       if (modal.hidden) return;
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+      if (e.key === 'Escape') {
+        e.preventDefault(); e.stopPropagation();
+        // Escape during latency calibration cancels just the calibration, not Settings.
+        if (calib || !q('#lat-panel')?.hidden) { cancelCalibration(); return; }
+        close(); return;
+      }
       if (e.key !== 'Tab') return;
       const list = focusables();
       if (!list.length) return;
@@ -1959,7 +1964,7 @@ export function createPlayer(root) {
   // ───────── Settings ─────────
   const settingsModal = q('#settings');
   function applySettings(st) {
-    const view = viewHinted ? 'sheet' : VIEWS.includes(st.view) ? st.view : 'falling';
+    const view = viewHinted ? 'sheet' : VIEWS.includes(st.view) ? st.view : 'sheet'; // score first (DESIGN.md)
     root.dataset.view = view;
     root.dataset.labels = ['none', 'c', 'all'].includes(st.labels) ? st.labels : 'c';
     root.classList.toggle('no-hands', st.hands === false);

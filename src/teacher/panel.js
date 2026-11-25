@@ -159,7 +159,11 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
     } catch (e) {
       pending.splice(pending.indexOf(local), 1);
       input.value ||= text;
-      errorBox.textContent = `Couldn’t send: ${e.message}. Is the dev server on your Mac running?`;
+      // Network failures read as browser jargon ("Failed to fetch"); say what it means instead.
+      const offline = e instanceof TypeError || /fetch|network|load failed/i.test(e.message || '');
+      errorBox.textContent = offline
+        ? 'Couldn’t reach your Mac. Is the app still running there (npm run dev:ipad)? Your message is kept below.'
+        : `Couldn’t send: ${e.message}`;
       errorBox.hidden = false;
       render();
     }
