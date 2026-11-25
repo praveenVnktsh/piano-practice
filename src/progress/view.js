@@ -14,6 +14,7 @@ import {DEFAULT_GOAL_MIN} from './model.js';
 import {openHelp} from '../help/index.js';
 import {openOnboarding} from '../onboarding/index.js';
 import {addDays, dayKey, keyStats, lastDays, minutesByDay, readingSummary, readingTrend, songStats, streaks, exerciseStats, skillSummary, STREAK_MIN_MINUTES} from './stats.js';
+import {LESSONS} from '../lessons/lessons.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
 
@@ -363,6 +364,7 @@ export function mountProgress(container) {
       s.rhythm && ['#/exercises/rhythm', 'Rhythm', pct(s.rhythm.lastAccuracy)],
       s.theory && ['#/exercises/theory', 'Theory', `${s.theory.levels} of 6 lessons`],
       s.ear && ['#/exercises/ear', 'Ear', pct(s.ear.lastAccuracy)],
+      s.lesson && ['#/exercises/lessons', 'First lessons', `${s.lesson.levels} of ${LESSONS.length}`],
     ].filter(Boolean);
     if (!items.length) return null;
     return el('p', {class: 'pg-skills', 'aria-label': 'Other exercises'}, items.map(([href, name, value]) =>

@@ -114,11 +114,11 @@ New capability arrives inside an existing place or behind progressive disclosure
 - [ ] P1 Hand-position preview: at the start of a section, ghost the starting keys on the keyboard
 - [ ] P2 Memorisation ladder: fade the score bar by bar as a phrase becomes secure
 
-## Phase 13: The absolute beginner ⏳
-- [ ] P0 First lessons (Beginner, before Grade 1): keyboard geography (find C, groups of two and three black keys), posture and finger numbers, middle-C position, first five-finger tunes. Each lesson is short, playable and checked
-- [ ] P0 10+ more beginner and Grade 0 pieces (public-domain folk tunes and easy classics, arranged for five-finger positions, both hands by the end)
-- [ ] P1 Beginner score aids: larger noteheads, optional letter names, coloured hands, which start on and fade out by level
-- [ ] P1 Curriculum: Beginner level gets lessons, pieces and a reading track sized for the first month
+## Phase 13: The absolute beginner ✅
+- [x] P0 First lessons (Beginner, before Grade 1): keyboard geography (find C, groups of two and three black keys), posture and finger numbers, middle-C position, first five-finger tunes. Each lesson is short, playable and checked
+- [x] P0 10+ more beginner and Grade 0 pieces (public-domain folk tunes and easy classics, arranged for five-finger positions, both hands by the end)
+- [x] P1 Beginner score aids: larger noteheads, optional letter names, coloured hands, which start on and fade out by level — letter names start on for Grade 0 pieces while the path is at Beginner and stop at Grade 1 (the student can turn them off); hand colours were already on by default. Larger noteheads not done (zoom covers it)
+- [x] P1 Curriculum: Beginner level gets lessons, pieces and a reading track sized for the first month
 
 ## Phase 14: Teacher, closer to the music ⏳
 - [ ] P0 Bar comments: the teacher can pin a comment to a bar range of a piece ("lift the wrist here"). It shows as a quiet marker in the player, and a tap reads it

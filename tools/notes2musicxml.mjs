@@ -18,12 +18,14 @@
 // `r` for a rest, or a chord `[c4 e4 g4]`, optionally followed by a duration
 // `/1 /2 /4 /8 /16 /32` with dots (`/4.`); the duration carries over to later
 // tokens until changed. A trailing `~` ties the note(s) to the next ones.
-// A measure may start with `clef=bass` or `clef=treble` to change that staff's clef.
+// A measure may start with `clef=bass` or `clef=treble` to change that staff's clef (in the
+// first measure it sets the staff's starting clef instead).
 // `#` at the start of a line or after a space starts a comment (`f#4` is a pitch).
 
 import {readFileSync, writeFileSync, readdirSync} from 'node:fs';
 import {join, basename, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {periodOf} from '../src/collections/model.js';
 
 const DIV = 8; // divisions per quarter note: a 32nd note is 1
 const VOICES = {RH: {voice: 1, staff: 1}, RH2: {voice: 2, staff: 1}, LH: {voice: 5, staff: 2}, LH2: {voice: 6, staff: 2}};
@@ -131,6 +133,10 @@ export function toMusicXML({meta, voices}, file = 'song') {
   for (const [k, ms] of Object.entries(parsed))
     if (ms.length !== count) throw Error(`${file}: ${k} has ${ms.length} measures but RH has ${count}`);
 
+  // A clef= in the first measure is the staff's starting clef, not a change.
+  const startClef = {1: 'G', 2: 'F'};
+  for (const [name, ms] of Object.entries(parsed)) if (ms[0]?.clef) { startClef[VOICES[name].staff] = ms[0].clef; ms[0].clef = null; }
+  const clefXml = (n, sign) => `<clef number="${n}"><sign>${sign}</sign><line>${sign === 'G' ? 2 : 4}</line></clef>`;
   const keyAlt = keyAlters(fifths);
   const lastPitch = {}; // voice -> pitches tied from the previous note
   const out = [];
@@ -151,7 +157,7 @@ export function toMusicXML({meta, voices}, file = 'song') {
     if (mi === 0) {
       xml += `   <attributes><divisions>${DIV}</divisions><key><fifths>${fifths}</fifths></key>` +
         `<time><beats>${beats}</beats><beat-type>${beatType}</beat-type></time><staves>2</staves>` +
-        `<clef number="1"><sign>G</sign><line>2</line></clef><clef number="2"><sign>F</sign><line>4</line></clef></attributes>\n`;
+        `${clefXml(1, startClef[1])}${clefXml(2, startClef[2])}</attributes>\n`;
       if (meta.tempo) xml += `   <direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>${esc(meta.tempo)}</per-minute></metronome></direction-type><staff>1</staff><sound tempo="${esc(meta.tempo)}"/></direction>\n`;
     }
     const shown = {1: {}, 2: {}}; // per staff: step+octave -> alter shown in this measure
@@ -217,7 +223,7 @@ export function arrangementEntry(a) {
     composer: a.composer,
     difficulty: 'beginner',
     grade: a.grade ?? 0,
-    ...(a.period ? {period: a.period} : {}),
+    ...((a.period ?? periodOf(a.composer)) ? {period: a.period ?? periodOf(a.composer)} : {}),
     file: `songs/${a.id}.musicxml`,
     license: a.license,
     source: `Piano Practice contributors – arrangement for beginners (songs/${a.id}.notes)`,

@@ -10,6 +10,7 @@
 //               `grade` that no level lists join their level automatically,
 //   technique:  [{id: 'ex:…', label}]   — a pass at ≥ 90 % (a wider or both-hands version counts),
 //   reading:    [trainer level ids]     — a drill at ≥ 90 % (src/trainer/levels.js),
+//   lessons:    [first-lesson ids]      — optional; each passed once (≥ 80 %, src/lessons/lessons.js),
 // }
 // Exercise ids follow src/exercises/index.js (keys: s = sharp, b = flat).
 
@@ -23,15 +24,19 @@ const ar = (key, quality, oct) => ({id: arp(key, quality, oct), label: `${keyNam
 export const LEVELS = [
   {
     id: 'beginner', name: 'Beginner', short: 'Beginner', grade: 0,
-    blurb: 'Find your way around the keys: five-finger positions, middle C, and your first tunes.',
-    repertoire: {ids: ['twinkle-twinkle', 'ode-to-joy'], need: 2},
+    blurb: 'Your first month: find your way around the keys, the finger numbers and middle C, then five-finger tunes — one hand, then the other, then both.',
+    // The first lessons come first; then pieces in learning order (right hand alone, left hand
+    // alone, hands taking turns, both hands) and a reading track from C position outwards.
+    lessons: ['keyboard', 'fingers', 'middle-c', 'first-tunes'],
+    repertoire: {ids: ['hot-cross-buns', 'mary-had-a-little-lamb', 'au-clair-de-la-lune', 'when-the-saints', 'old-macdonald', 'london-bridge',
+      'yankee-doodle', 'lightly-row', 'jingle-bells', 'twinkle-twinkle', 'ode-to-joy', 'brahms-lullaby'], need: 6},
     technique: [
       {id: 'ex:five-finger:C:major:both', label: 'C major five-finger position'},
       {id: 'ex:five-finger:G:major:both', label: 'G major five-finger position'},
       sc('C', 'major', 1, 'right'),
       sc('C', 'major', 1, 'left'),
     ],
-    reading: ['landmarks', 'treble'],
+    reading: ['c-position', 'landmarks', 'treble'],
   },
   {
     id: 'grade-1', name: 'Grade 1', short: 'Grade 1', grade: 1,

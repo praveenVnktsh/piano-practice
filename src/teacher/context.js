@@ -121,6 +121,7 @@ export async function learningSummary(doc, {library, now = Date.now(), player = 
         pieces: cur.repertoire.items.map(p => ({id: p.id, title: p.title, status: p.status || 'not started'})),
         techniqueLeft: cur.technique.items.filter(t => !t.done).slice(0, 6).map(t => t.id),
         readingLeft: cur.reading.items.filter(r => !r.done).map(r => r.id),
+        lessonsLeft: (cur.lessons?.items || []).filter(l => !l.done).map(l => l.id),
       },
       goals: (doc.goals || []).map(g => ({...g, ...goalProgress(g, doc, {now})})),
       journal: (doc.journal || []).slice(-5).map(e => ({at: iso(e.at), text: e.text, mood: e.mood, title: e.title, minutes: e.minutes})),

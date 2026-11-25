@@ -10,8 +10,9 @@
 //     days:    {'YYYY-MM-DD': {ms, listenMs, practiceMs, trainerMs, sessions, results}},
 //     songs:   {songId: {title, attempts, best, latest, lastAt, ms, bestTempo}},
 //     trainer: {'YYYY-MM-DD': {drills, right, wrong, msTotal, notes, bestLevel}},   note reading only
-//     skills:  {rhythm|theory|ear: {drills, right, wrong, lastAt, lastAccuracy, levels: {id: best}}},
-//                                   the other drills (trainer:result levels 'rhythm:…', 'theory:…', 'ear:…')
+//     skills:  {rhythm|theory|ear|lesson: {drills, right, wrong, lastAt, lastAccuracy, levels: {id: best}}},
+//                                   the other drills (trainer:result levels 'rhythm:…', 'theory:…', 'ear:…',
+//                                   and the beginner's first lessons 'lesson:…')
 //     pruned,                       number of raw events dropped so far
 //   },
 //   journal: [entry, ...]           practice-journal notes, oldest first (≤ MAX_JOURNAL)
@@ -26,9 +27,12 @@
 
 export const VERSION = 1;
 export const EVENT_TYPES = ['practice:result', 'practice:session', 'trainer:result'];
-// trainer:result levels that aren't note reading: '<skill>:<level id>' (rhythm, theory and ear training).
-export const SKILLS = ['rhythm', 'theory', 'ear'];
-const SKILL_RE = /^(rhythm|theory|ear):([a-z0-9-]{1,32})$/;
+// trainer:result levels that aren't note reading: '<skill>:<level id>' (rhythm, theory, ear training
+// and the first lessons, src/lessons/).
+export const SKILLS = ['rhythm', 'theory', 'ear', 'lesson'];
+const SKILL_RE = /^(rhythm|theory|ear|lesson):([a-z0-9-]{1,32})$/;
+/** Is a trainer:result level one of the other drills (not note reading)? */
+export const isSkillLevel = level => typeof level === 'string' && /^(rhythm|theory|ear|lesson):/.test(level);
 /** 'rhythm:quavers' → {skill: 'rhythm', id: 'quavers'}; null for note-reading levels. */
 export const skillOf = level => { const m = typeof level === 'string' ? SKILL_RE.exec(level) : null; return m ? {skill: m[1], id: m[2]} : null; };
 export const DEFAULT_GOAL_MIN = 15;

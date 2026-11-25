@@ -62,6 +62,8 @@ const TREBLE = ['C4', 'G5'], BASS = ['F2', 'C4'];
 const TREBLE_LEDGER = ['A3', 'C6'], BASS_LEDGER = ['E2', 'E4'];
 
 export const LEVELS = [
+  {id: 'c-position', name: 'C position', short: 'C position', staff: 'grand',
+    blurb: 'The ten notes under your fingers in C position: C to G in each hand.', ranges: {treble: ['C4', 'G4'], bass: ['C3', 'G3']}},
   {id: 'landmarks', name: 'Landmark notes', short: 'Landmarks', staff: 'grand',
     blurb: 'Middle C, treble G, bass F and their neighbours: anchors to read everything else from.',
     pool: [['treble', 'C4'], ['bass', 'C4'], ['treble', 'G4'], ['bass', 'F3'], ['treble', 'C5'], ['bass', 'C3'], ['treble', 'F5'], ['bass', 'G2']]},
@@ -81,7 +83,7 @@ export const LEVELS = [
   {id: 'intervals', name: 'Intervals (two notes)', short: 'Intervals', staff: 'grand',
     blurb: 'Two notes at once, a 2nd to an octave apart: play both.', ranges: {treble: TREBLE, bass: BASS}, dyads: true},
 ];
-export const levelById = id => LEVELS.find(l => l.id === id) ?? LEVELS[1];
+export const levelById = id => LEVELS.find(l => l.id === id) ?? LEVELS.find(l => l.id === 'treble');
 
 function naturalsIn([lo, hi]) {
   const out = [];

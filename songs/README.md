@@ -89,7 +89,10 @@ one with:
 npm run songs        # = node tools/notes2musicxml.mjs --all
 ```
 
-This writes `public/songs/<id>.musicxml`. The format:
+This writes `public/songs/<id>.musicxml`. The beginner (Grade 0) arrangements are also listed
+under `arrangements` in `songs/repertoire.json`; for those, `npm run songs` writes their catalog
+entries too (`tests/beginner-songs.test.js` checks each one's measures, five-finger positions and
+hands). The format:
 
 ```text
 # comment

@@ -147,7 +147,7 @@ export function formatContext(context, {full = false} = {}) {
       );
     if (g.path)
       out.push(
-        `      path: ${g.path.level} ${g.path.done}% · technique left ${(g.path.techniqueLeft || []).join(', ') || 'none'} · reading left ${(g.path.readingLeft || []).join(', ') || 'none'}`,
+        `      path: ${g.path.level} ${g.path.done}% · technique left ${(g.path.techniqueLeft || []).join(', ') || 'none'} · reading left ${(g.path.readingLeft || []).join(', ') || 'none'}${g.path.lessonsLeft?.length ? ` · first lessons left ${g.path.lessonsLeft.join(', ')}` : ''}`,
       );
     for (const goal of g.goals || [])
       out.push(

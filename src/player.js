@@ -1978,9 +1978,11 @@ export function createPlayer(root) {
     page = -1; manualPage = null;
     settingsModal.querySelector(`input[name="labels"][value="${root.dataset.labels}"]`).checked = true;
     q('#set-hands').checked = st.hands !== false;
-    root.classList.toggle('show-names', !!st.names);
-    q('#set-names').checked = !!st.names;
-    q('#names-btn').checked = !!st.names;
+    // Beginner aids: a Grade 0 piece for a Beginner shows note names unless the student turned them off.
+    const names = namesAided ? st.beginnerAids !== false || !!st.names : !!st.names;
+    root.classList.toggle('show-names', names);
+    q('#set-names').checked = names;
+    q('#names-btn').checked = names;
     root.dataset.playhead = st.playhead === 'left' ? 'left' : 'center';
     settingsModal.querySelector(`input[name="playhead"][value="${root.dataset.playhead}"]`).checked = true;
     root.dataset.pedal = st.pedal === false ? 'off' : 'on';
@@ -2007,7 +2009,9 @@ export function createPlayer(root) {
   });
   q('#set-hands').onchange = () => { save({hands: q('#set-hands').checked}); applySettings(load()); };
   q('#set-loop').onchange = () => setLoop(q('#set-loop').checked);
-  const setNames = v => { save({names: !!v}); applySettings(load()); };
+  // On a piece with beginner aids the toggle is the aid itself; turning it off there turns the aid off
+  // for good (Progress resets nothing; the toggle turns it back on).
+  const setNames = v => { save(namesAided ? (v ? {beginnerAids: true} : {beginnerAids: false, names: false}) : {names: !!v}); applySettings(load()); };
   q('#set-names').onchange = () => setNames(q('#set-names').checked);
   q('#names-btn').onchange = () => setNames(q('#names-btn').checked);
   root.querySelectorAll('input[name="menu-view"]').forEach(input => input.onchange = () => { viewHinted = false; save({view: input.value}); applySettings(load()); draw(); });
@@ -2199,8 +2203,11 @@ export function createPlayer(root) {
   // that choice as usual.
   // A `view: 'sheet'` hint (sight-reading) turns falling notes into the score for that piece only.
   let viewHinted = false;
+  let namesAided = false; // entry.aids.names: a Beginner's Grade 0 piece (src/curriculum/aids.js)
   function applyEntryHints(entry) {
     const st = load();
+    const aided = !!entry?.aids?.names;
+    if (aided !== namesAided) { namesAided = aided; applySettings(st); }
     const m = entry?.mode === 'timed' || entry?.mode === 'wait' ? entry.mode : st.mode === 'timed' ? 'timed' : 'wait';
     const i = entry?.intent === 'practice' || entry?.intent === 'listen' ? entry.intent : st.intent === 'practice' ? 'practice' : 'listen';
     setMode(m, {persist: false});

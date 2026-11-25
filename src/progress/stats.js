@@ -78,16 +78,16 @@ export function songStats(doc) {
 
 /**
  * Sight-reading, rhythm, theory and ear training at a glance →
- * {sightReading: {pieces, best, lastAt} | null, rhythm|theory|ear: {drills, accuracy, lastAccuracy, levels, lastAt} | null}
- * (theory.levels = lessons with a pass, i.e. ≥ 80 %).
+ * {sightReading: {pieces, best, lastAt} | null, rhythm|theory|ear|lesson: {drills, accuracy, lastAccuracy, levels, lastAt} | null}
+ * (theory.levels and lesson.levels = lessons with a pass, i.e. ≥ 80 %).
  */
 export function skillSummary(doc) {
   const sr = songRows(doc).filter(s => s.id.startsWith('sr:') && s.attempts);
   const out = {sightReading: sr.length ? {pieces: sr.length, best: Math.max(...sr.map(s => s.best ?? 0)), lastAt: Math.max(...sr.map(s => s.lastAt))} : null};
-  for (const k of ['rhythm', 'theory', 'ear']) {
+  for (const k of ['rhythm', 'theory', 'ear', 'lesson']) {
     const t = doc?.totals?.skills?.[k];
     out[k] = t?.drills ? {drills: t.drills, accuracy: t.right + t.wrong ? (100 * t.right) / (t.right + t.wrong) : null, lastAccuracy: t.lastAccuracy ?? null,
-      levels: Object.values(t.levels || {}).filter(v => k !== 'theory' || v >= 80).length, lastAt: t.lastAt || 0} : null;
+      levels: Object.values(t.levels || {}).filter(v => (k !== 'theory' && k !== 'lesson') || v >= 80).length, lastAt: t.lastAt || 0} : null;
   }
   return out;
 }
