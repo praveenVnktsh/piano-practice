@@ -6,6 +6,7 @@
 import './engrave.css';
 import './theory.css';
 import {createPiano} from '../piano.js';
+import {keyForControl} from '../app/dom.js';
 import {LESSONS, lessonById, lessonQuestions, playedMatches, CIRCLE, keySignatureText, tonicTriad} from './lessons.js';
 import {engrave} from './engrave.js';
 import {playExample, playNotes} from './play.js';
@@ -240,7 +241,7 @@ export function mountTheoryLesson(container, {lesson: id} = {}) {
   window.addEventListener('piano:note', onPianoNote);
   const onKey = e => {
     if (!root.isConnected || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.target.closest?.('input,select,textarea,[contenteditable]')) return;
+    if (keyForControl(e)) return;
     const c = quiz?.current;
     if (step < lesson.cards.length || !c || c.answered || !c.q.choices) return;
     const k = +e.key;

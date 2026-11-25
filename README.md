@@ -27,7 +27,8 @@ npm run dev      # then open http://localhost:5173
 
 1. Plug the piano in with USB.
 2. Open any piece, then **⋯ → Connect piano** and allow MIDI. The ⋯ menu shows the piano's name
-   once it is connected; with several inputs, pick one or keep "All inputs".
+   once it is connected; with several inputs, pick one or keep "All inputs". Once allowed, the
+   piano reconnects by itself whenever you open the app.
 3. The first time you open the app a short introduction shows you around and asks for your level
    and a daily goal. Skip it if you like; **Progress → Settings → Show the introduction again**
    brings it back.
@@ -69,7 +70,7 @@ them and leads back with **←**.
 
 | Place | What it is for |
 | --- | --- |
-| **Today** | Your home. Each day: a warm-up (the next technique step of your path, in the key of the day), your current piece, and a short reading drill, plus your daily goal ring, your streak, pieces due for review, homework from your teacher and their latest note. Most days you never need to leave it. |
+| **Today** | Your home. Each day: a warm-up (the next technique step of your path), your current piece, and a short reading drill, plus your daily goal ring, your streak, pieces due for review, homework from your teacher and their latest note. Most days you never need to leave it. |
 | **Pieces** | The repertoire: bundled public-domain pieces with a grade, grouped by composer like a concert programme, your own songs and imported scores, each with its status (learning, secure, polished, maintained). **Browse Mutopia** searches the whole Mutopia piano archive and converts a piece on the spot (marked *unverified*). **Import a score** takes MusicXML (`.musicxml`, `.xml`, `.mxl`) or MEI. |
 | **Exercises** | Technique (scales, arpeggios, five-finger positions, chromatic scales and cadences in every key, with fingering), note reading, sight-reading, rhythm, theory lessons and ear training. |
 | **Progress** | Your practice diary: today against your goal, streak, the week, bars mastered, your path through the grades (Beginner to Grade 5), goals with dates, the journal, recordings, letters from your teacher, and the settings (daily goal, where your path starts, appearance, backup, help). |
@@ -110,7 +111,7 @@ The player has one main choice at the top, **Listen | Practise**, and a play but
 - **Tempo**: tap `♩ = 72` to change it, turn on the metronome (**K**), or let it **speed up after
   clean passes** (+5 % after each pass at 95 % or better, up to the target tempo). The best clean
   tempo of every section is remembered.
-- **Strategies** (⋯ → Practice strategy), one at a time: the slow-practice ladder, dotted and
+- **Strategies** (⋯ → Strategy), one at a time: the slow-practice ladder, dotted and
   reversed-dotted rhythms, blocked chords from broken figures, and the memory check (the score
   hides while you play).
 - **View** (⋯): *Notation* (one long line that scrolls under the playhead), *Pages* (a page at

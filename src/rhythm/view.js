@@ -7,6 +7,7 @@
 import '../theory/engrave.css';
 import './rhythm.css';
 import {createPiano} from '../piano.js';
+import {keyForControl} from '../app/dom.js';
 import {RHYTHM_LEVELS, rhythmLevelById, generateRhythm, gradeTaps, clickTrack, countLabels, onsetEvents, barLength} from './patterns.js';
 import {engrave} from '../theory/engrave.js';
 import {newSeed} from '../theory/music.js';
@@ -311,7 +312,7 @@ export function mountRhythmTrainer(container) {
   window.addEventListener('piano:note', onNote);
   const onKey = e => {
     if (!root.isConnected || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-    if (e.target.closest?.('input,select,textarea,[contenteditable]')) return;
+    if (keyForControl(e)) return;
     if (e.code === 'Space' || e.key === ' ') {
       if (e.target.closest?.('button') && e.target !== pad && !(run && (run.phase === 'count' || run.phase === 'play'))) return;
       e.preventDefault(); e.stopPropagation();

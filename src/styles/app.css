@@ -86,7 +86,8 @@ svg[viewBox="0 0 24 24"] { width: 20px; height: 20px; fill: none; stroke: curren
   grid-row: 1;
   position: relative; z-index: 6;
   display: grid; align-items: center; column-gap: 16px;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* The title side gets a little more room than the tempo/⋯ side so long titles fit. */
+  grid-template-columns: minmax(0, 1.4fr) auto minmax(0, 1fr);
   grid-template-areas: "left centre right";
   min-height: 64px; padding: 6px var(--gutter);
 }

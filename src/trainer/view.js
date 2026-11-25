@@ -5,6 +5,7 @@
 
 import './trainer.css';
 import {createPiano} from '../piano.js';
+import {keyForControl} from '../app/dom.js';
 import {
   KEYS, LEVELS, candidates, keyById, levelById, levelSpan, loadStats, matches, midiLabel,
   pick, pitchLabel, recordAnswer, saveStats,
@@ -369,7 +370,7 @@ export function mountReadingTrainer(container) {
   // Shortcuts (only while mounted): Enter = next round, H = name hint, O = any octave.
   const onKey = e => {
     if (!root.isConnected || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.target.closest?.('input,select,textarea,[contenteditable]')) return;
+    if (keyForControl(e)) return;
     const k = e.key.toLowerCase();
     if (e.key === 'Enter' && round?.phase === 'done' && !e.target.closest?.('button')) newRound();
     else if (k === 'h') toggle('hint');

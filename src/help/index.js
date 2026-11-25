@@ -2,7 +2,7 @@
 // practising works, keyboard shortcuts, the iPad bridge, where data lives, backup).
 // Opened with Shift+/ (?) anywhere, the "?" in the navigation rail's footer, the player's
 // ⋯ → Help (#help-btn) and Progress → Settings. The content is loaded on first use.
-import {el} from '../app/dom.js';
+import {el, keyForControl} from '../app/dom.js';
 
 let open = null;   // the open overlay's {close}
 let loading = null;
@@ -18,7 +18,7 @@ export function installHelp({shell = document.querySelector('.shell')} = {}) {
 
   window.addEventListener('keydown', e => {
     if (e.key !== '?' || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
-    if (e.target?.closest?.('input,select,textarea,[contenteditable]')) return;
+    if (keyForControl(e)) return;
     if (document.querySelector('dialog[open]')) return;
     e.preventDefault();
     openHelp();

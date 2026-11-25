@@ -1,6 +1,7 @@
-import {passage, FollowNotes, handGroups, handFilter, TimedGrader, TIMING, beatsOf, countIn, measureBeats, beatInfo, speedUpTempo, MissLog} from './score-core.mjs';
+import {passage, spelledName, FollowNotes, handGroups, handFilter, TimedGrader, TIMING, beatsOf, countIn, measureBeats, beatInfo, speedUpTempo, MissLog} from './score-core.mjs';
 import {createHighway} from './highway.js';
 import {createPiano} from './piano.js';
+import {keyForControl} from './app/dom.js';
 import {mountSoundSettings} from './audio/sound-ui.js'; // [sound] instrument, room, metronome sound, microphone
 import {onRelayMidi, onRelayStatus, relayAvailable} from './midi-relay.js';
 import {setTheme as setAppTheme, getTheme, THEME_EVENT} from './app/theme.js';
@@ -23,6 +24,7 @@ const MASTERY = import.meta.glob('./progress/mastery.js');
 const BLACK = [1, 3, 6, 8, 10];
 const NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const name = n => NAMES[n % 12] + (Math.floor(n / 12) - 1);
+const spelled = (song, e) => spelledName(song?.noteNames, e) ?? name(e.n);
 const PRAISE = ['Clean.', 'Well played.', 'Good.', 'Yes.', 'Lovely.'];
 const EPS = 1e-6;
 const LOOKAHEAD_MS = 150, TICK_MS = 25; // audio scheduler
@@ -266,7 +268,8 @@ export function createPlayer(root) {
   function systemHeight() {
     const reserve = harmonyOn ? HARMONY_STRIP : 0;
     const avail = Math.max(80, sheetHost.clientHeight - reserve);
-    const portrait = innerHeight > innerWidth * 1.15 && sheetHost.clientWidth >= 560;
+    // (Not in Pages: a page of whole bars must hold a phrase, not two bars.)
+    const portrait = innerHeight > innerWidth * 1.15 && sheetHost.clientWidth >= 560 && root.dataset.view !== 'pages';
     return Math.round(Math.min(avail, portrait ? avail : 300) * zoom);
   }
   function layoutSheet() {
@@ -569,7 +572,7 @@ export function createPlayer(root) {
     renderBeats(pos, mi);
 
     q('#um-measure').textContent = measureName(m);
-    q('#um-detail').textContent = att.length ? att.map(e => name(e.n)).join(' + ') : '';
+    q('#um-detail').textContent = att.length ? att.map(e => spelled(song, e)).join(' + ') : '';
     q('#lesson-subtitle').textContent = sectionLabel();
     const span = range.end - range.start || 1;
     q('#um-progress').style.width = `${(finished ? 1 : (pos - range.start) / span) * 100}%`;
@@ -862,10 +865,11 @@ export function createPlayer(root) {
     const g = follow.current;
     if (!g.notes.length) { setPrompt('Listen…'); return; }
     const remaining = g.notes.filter(n => !follow.collected.has(n));
-    const hand = n => g.events.find(e => e.n === n)?.hand;
+    const ev = n => g.events.find(e => e.n === n) || {n};
+    const hand = n => ev(n).hand;
     // Memory check: no names, unless three slips in a row ask for a hint.
     if (strategy === 'memory' && memoryHints < 3) setPrompt(follow.collected.size ? 'From memory · <b>and the rest of the chord</b>' : 'From memory · <b>keep going</b>');
-    else setPrompt(`Play ${remaining.map(n => `<b class="${handClass(hand(n))}">${name(n)}</b>`).join(' + ')}`);
+    else setPrompt(`Play ${remaining.map(n => `<b class="${handClass(hand(n))}">${spelled(song, ev(n))}</b>`).join(' + ')}`);
     setStatus(`${measureName(song.measures[measureIndexAt(g.t)])} · ${follow.index + 1} / ${follow.groups.length}${hands !== 'both' ? ` · ${hands} hand` : ''}`);
   }
   function startPractice() {
@@ -928,7 +932,7 @@ export function createPlayer(root) {
     if (result === 'wrong') {
       wrongCount++; flashKey(n, 'wrong'); flash('Not quite.', 'bad');
       if (strategy === 'memory') { memoryHints++; practicePrompt(); }
-      misses.add(group.t, measureLabelAt(group.t), {expected: group.notes.filter(x => !follow.collected.has(x)).map(name), played: [name(n)]});
+      misses.add(group.t, measureLabelAt(group.t), {expected: group.notes.filter(x => !follow.collected.has(x)).map(x => spelled(song, group.events.find(e => e.n === x) || {n: x})), played: [name(n)]});
       return;
     }
     rightCount++; flashKey(n, 'hit');
@@ -996,7 +1000,7 @@ export function createPlayer(root) {
     if (grade !== 'miss') matched.add(note.id);
     barTally.add(measureIndexAt(note.t), grade !== 'miss');
     highway.popup(note.n, GRADE_TEXT[grade], grade);
-    if (grade === 'miss') misses.add(note.t, measureLabelAt(note.t), {expected: [name(note.n)]});
+    if (grade === 'miss') misses.add(note.t, measureLabelAt(note.t), {expected: [spelled(song, note)]});
   }
   function timedAttack(n, time, rec) {
     if (!clock || clock.kind !== 'timed' || !grader) return;
@@ -1068,18 +1072,21 @@ export function createPlayer(root) {
     }
     showTouch(r.touch);
     const last = range.last >= song.measures.length - 1;
-    q('#um-complete-next').disabled = last;
-    q('#um-complete-next').hidden = !!perfR;
+    // No dead buttons: at the end of the piece there is no next section to offer.
+    q('#um-complete-next').hidden = last || !!perfR;
     // Playing a setlist: the next piece is the one primary action.
     const next = sl?.next || null, nextBtn = q('#um-complete-setlist'), again = q('#um-again');
     nextBtn.hidden = !next;
     if (next) { nextBtn.setAttribute('aria-label', `Next in setlist: ${next.title}`); nextBtn.title = next.title; }
-    again.className = next ? 'quiet-btn' : 'primary-btn';
+    // Sight-reading: a fresh piece at the same level is the one primary action.
+    const another = q('#um-complete-another');
+    another.hidden = !!next || !sightReadingLevel();
+    again.className = next || !another.hidden ? 'quiet-btn' : 'primary-btn';
     again.textContent = perfR ? 'Perform again' : 'Again';
     if (sl && !next && (last || perfR)) q('#um-complete-text').textContent += ` The end of “${sl.name}”.`;
     if (q('#um-complete').hidden) resultsModal.open();
     q('#um-complete').hidden = false;
-    (next ? nextBtn : again).focus({preventScroll: true});
+    (next ? nextBtn : !another.hidden ? another : again).focus({preventScroll: true});
   }
   // Evenness graph (fine lines: timing in ink, loudness in brass) and up to two remarks.
   function showTouch(touch) {
@@ -1139,6 +1146,14 @@ export function createPlayer(root) {
     location.hash = playHref(next.id);
   }
   q('#um-complete-setlist').onclick = goSetlistNext;
+  // "sr:<level>:<seed>" (src/sightread/index.js): another piece is the same level with a new seed.
+  const sightReadingLevel = () => /^sr:([a-z0-9-]+):\d+$/.exec(current?.id || '')?.[1] || null;
+  q('#um-complete-another').onclick = () => {
+    const level = sightReadingLevel();
+    if (!level) return;
+    hideResults();
+    location.hash = playHref(`sr:${level}:${1 + Math.floor(Math.random() * (2 ** 31 - 2))}`);
+  };
   q('#um-practice-status').addEventListener('click', e => { if (e.target.closest?.('[data-setlist-next]')) goSetlistNext(); });
   q('#um-complete-close').onclick = hideResults;
   q('#um-complete-next').onclick = () => {
@@ -1478,7 +1493,7 @@ export function createPlayer(root) {
       e.preventDefault(); calibTap(performance.now()); return;
     }
     if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.target.closest?.('input,select,textarea,[contenteditable]')) return;
+    if (keyForControl(e)) return; // typing, or Space/arrows on a focused toggle (hands, mode, loop)
     if (!root.isConnected || !root.getClientRects().length) return; // player not on screen
     // Pages view: arrows and PageUp/PageDown (Bluetooth page turners) turn the page.
     const paged = root.dataset.view === 'pages' && song && !e.shiftKey;
@@ -1577,7 +1592,7 @@ export function createPlayer(root) {
   q('#um-midi-clear').onclick = () => { midiHeld.clear(); renderMidi(); };
   q('#um-midi-device').onchange = () => { midiHeld.clear(); renderMidi(); };
   window.addEventListener('blur', () => { midiHeld.clear(); renderMidi(); });
-  q('#um-midi').onclick = async () => {
+  const connectMidi = async () => {
     const noWebMidi = !window.isSecureContext || !navigator.requestMIDIAccess;
     if (noWebMidi && relay.bridge) { refreshChip(); return; }
     if (noWebMidi && relayAvailable) { setMidiChip('Use the Mac bridge (see README)', 'warn'); return; }
@@ -1589,6 +1604,10 @@ export function createPlayer(root) {
       midiAccess.onstatechange = wireMidi; wireMidi();
     } catch { setMidiChip('MIDI blocked', 'warn'); }
   };
+  q('#um-midi').onclick = connectMidi;
+  // Allowed once, the piano reconnects by itself on the next visit (no prompt is shown when the
+  // permission is already granted), so Today → note reading works without opening a piece first.
+  navigator.permissions?.query({name: 'midi'}).then(p => { if (p.state === 'granted' && !midiAccess) connectMidi(); }, () => {});
 
   // Current musical position, moving smoothly between notes while playing.
   function livePos() {
@@ -1940,7 +1959,7 @@ export function createPlayer(root) {
   // ───────── Settings ─────────
   const settingsModal = q('#settings');
   function applySettings(st) {
-    const view = VIEWS.includes(st.view) ? st.view : 'falling';
+    const view = viewHinted ? 'sheet' : VIEWS.includes(st.view) ? st.view : 'falling';
     root.dataset.view = view;
     root.dataset.labels = ['none', 'c', 'all'].includes(st.labels) ? st.labels : 'c';
     root.classList.toggle('no-hands', st.hands === false);
@@ -1978,6 +1997,7 @@ export function createPlayer(root) {
   q('#settings-close').onclick = closeSettings;
   settingsModal.addEventListener('click', e => { if (e.target === settingsModal) closeSettings(); });
   settingsModal.querySelectorAll('input[name="view"],input[name="labels"],input[name="playhead"]').forEach(input => input.onchange = () => {
+    if (input.name === 'view') viewHinted = false; // the student's own choice beats a piece's hint
     save({[input.name]: input.value}); applySettings(load()); if (input.name === 'view') draw();
   });
   q('#set-hands').onchange = () => { save({hands: q('#set-hands').checked}); applySettings(load()); };
@@ -1985,7 +2005,7 @@ export function createPlayer(root) {
   const setNames = v => { save({names: !!v}); applySettings(load()); };
   q('#set-names').onchange = () => setNames(q('#set-names').checked);
   q('#names-btn').onchange = () => setNames(q('#names-btn').checked);
-  root.querySelectorAll('input[name="menu-view"]').forEach(input => input.onchange = () => { save({view: input.value}); applySettings(load()); draw(); });
+  root.querySelectorAll('input[name="menu-view"]').forEach(input => input.onchange = () => { viewHinted = false; save({view: input.value}); applySettings(load()); draw(); });
   q('#set-pedal').onchange = () => { save({pedal: q('#set-pedal').checked}); applySettings(load()); };
 
   // ───────── Latency calibration (Settings) ─────────
@@ -2172,12 +2192,16 @@ export function createPlayer(root) {
   // along, Practise). The hint holds for that piece only and is never saved; the next piece without
   // hints gets the student's own saved choice back. Choosing differently while on the piece saves
   // that choice as usual.
+  // A `view: 'sheet'` hint (sight-reading) turns falling notes into the score for that piece only.
+  let viewHinted = false;
   function applyEntryHints(entry) {
     const st = load();
     const m = entry?.mode === 'timed' || entry?.mode === 'wait' ? entry.mode : st.mode === 'timed' ? 'timed' : 'wait';
     const i = entry?.intent === 'practice' || entry?.intent === 'listen' ? entry.intent : st.intent === 'practice' ? 'practice' : 'listen';
     setMode(m, {persist: false});
     setIntent(i, {persist: false});
+    const want = entry?.view === 'sheet' && (!VIEWS.includes(st.view) || st.view === 'falling');
+    if (want !== viewHinted) { viewHinted = want; applySettings(st); }
   }
 
   // Swap to another song. Only the most recent call wins.
@@ -2185,6 +2209,9 @@ export function createPlayer(root) {
     const token = ++loadToken;
     recording.leaving();
     stopAll(); hideResults();
+    // A practice strategy belongs to the passage it was chosen for: a new piece starts plain
+    // (a memory check carried over would open an unseen piece with its score hidden).
+    if (current?.id !== entry?.id) setStrategy('off');
     current = entry;
     piano.load();
     showFavourite();

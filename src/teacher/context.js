@@ -170,14 +170,14 @@ export async function collectContext({recording} = {}) {
   return context;
 }
 
-/** "Für Elise · bars 1–8 · 72 BPM · last attempt 86%" — what the student sees being shared. */
+/** "Für Elise · bars 1–8 · ♩ = 72 · last attempt 86%" — what the student sees being shared. */
 export function sharingLine(state = playerState(), last = recentResults()[0]) {
   const parts = [];
   if (state?.songId) {
     parts.push(state.title || state.songId);
     if (state.sectionLabel) parts.push(state.sectionLabel);
     else if (Array.isArray(state.section)) parts.push(`bars ${state.section[0] + 1}–${state.section[1] + 1}`);
-    if (state.tempo) parts.push(`${Math.round(state.tempo)} BPM`);
+    if (state.tempo) parts.push(`♩ = ${Math.round(state.tempo)}`);
   } else
     parts.push(
       location.hash.startsWith('#/train')

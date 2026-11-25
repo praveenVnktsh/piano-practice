@@ -56,3 +56,18 @@ export function pieceStatus(stat) {
   if (stat.best >= 85) return 'Secure';
   return 'Learning';
 }
+
+/**
+ * True when a key press belongs to the focused control rather than to a view's shortcuts:
+ * every key in a typing field (text input, select, textarea, contenteditable), and Space,
+ * Enter and the arrows on a focused toggle (checkbox, radio, slider). Letters still reach the
+ * shortcuts after tapping a toggle such as "Any octave" or the hands switch.
+ */
+export function keyForControl(e) {
+  const t = e.target;
+  if (!t?.closest) return false;
+  if (t.closest('select,textarea,[contenteditable]:not([contenteditable="false"])')) return true;
+  if (t.tagName !== 'INPUT') return false;
+  if (!['checkbox', 'radio', 'range'].includes(t.type)) return true;
+  return e.code === 'Space' || e.key === ' ' || e.key === 'Enter' || e.key.startsWith('Arrow');
+}

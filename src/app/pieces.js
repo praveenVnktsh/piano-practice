@@ -139,7 +139,9 @@ export function mountPieces(container, {library, head}) {
   // ───── filter row: Grade · Period · Composer · Status · ☆ ─────
   const setFilters = next => { filters = normalizeFilters(next); lsSet(FILTERS_KEY, filters); menu = null; render(); };
   function options(kind) {
-    const entries = allEntries();
+    // Counts respect the other filters, so a choice never leads to an empty list unannounced.
+    const others = filterPredicate({...filters, [kind]: null}, {statusOf, favourite});
+    const entries = allEntries().filter(others);
     const count = pred => entries.filter(pred).length;
     if (kind === 'grade') {
       const grades = [...new Set(entries.map(e => e.grade).filter(Number.isInteger))].sort((a, b) => a - b);
@@ -157,7 +159,7 @@ export function mountPieces(container, {library, head}) {
     }
     if (kind === 'status') {
       const counts = Object.fromEntries(STATUSES.map(s => [s, 0]));
-      for (const m of mastery.values()) if (m.status in counts) counts[m.status]++;
+      for (const e of entries) { const st = statusOf(e.id); if (st in counts) counts[st]++; }
       return STATUSES.map(s => ({value: s, label: STATUS_LABEL[s], n: counts[s]}));
     }
     return [];
@@ -358,10 +360,11 @@ export function mountPieces(container, {library, head}) {
     summary.hidden = !filtered || !loaded;
     if (!summary.hidden) {
       const name = describeFilters(filters);
-      summary.replaceChildren(
+      // (replaceChildren turns a null into the text "null": leave the setlist button out instead.)
+      summary.replaceChildren(...[
         el('span', {class: 'pc-summary-n', text: `${shown.length} piece${shown.length === 1 ? '' : 's'}`}),
         shown.length > 1 ? el('button', {type: 'button', class: 'text-btn', onclick: () => playList(name, shown.map(e => e.id))}, 'Play as a setlist →') : null,
-        el('button', {type: 'button', class: 'text-btn quiet', onclick: () => setFilters({})}, 'Clear filters'));
+        el('button', {type: 'button', class: 'text-btn quiet', onclick: () => setFilters({})}, 'Clear filters')].filter(Boolean));
     }
     const nodes = [];
     const hasCollections = collections().collections.length || collections().favourites.some(id => entryById(id));

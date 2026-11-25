@@ -87,28 +87,33 @@ html[data-route='place'] .tch-fab {
     right: calc(14px + var(--t-off) + env(safe-area-inset-right));
   }
 }
-/* The note-reading drill has its own keyboard at the bottom: keep clear of it. */
-html[data-view='train-reading'] .tch-fab {
+/* The drills with their own keyboard or tap pad near the bottom: keep clear of it. */
+html:is([data-view='train-reading'], [data-view='ear'], [data-view='rhythm'], [data-view='theory-lesson']) .tch-fab {
   top: calc(14px + env(safe-area-inset-top));
   bottom: auto;
 }
+/* A phone: the button is just the quill, in the places and over the player's keyboard alike. */
 @media (max-width: 600px) {
-  html[data-route='place'] .tch-fab {
+  html .tch-fab {
     width: 48px;
     padding: 0;
     justify-content: center;
   }
-  html[data-route='place'] .tch-fab span {
+  html .tch-fab span {
     position: absolute;
     width: 1px;
     height: 1px;
     overflow: hidden;
     clip: rect(0 0 0 0);
   }
-  html[data-route='place'] .tch-fab .tch-badge {
+  html .tch-fab .tch-badge {
     position: absolute;
     top: -6px;
     right: -6px;
+  }
+  /* In the player, sit above the cue line ("Play E5…") rather than on it. */
+  html[data-route='play'] .tch-fab {
+    bottom: calc(var(--kb-h, 160px) + 48px + env(safe-area-inset-bottom));
   }
 }
 

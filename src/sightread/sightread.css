@@ -54,23 +54,3 @@
   .sr-start { width: 100%; }
 }
 
-/* "Another one" after a sight-reading piece (src/sightread/another.js) */
-.sr-another {
-  position: fixed; z-index: 69; left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--tabbar-h, 0px) + 18px + env(safe-area-inset-bottom));
-  display: flex; align-items: center; gap: 14px; max-width: calc(100vw - 32px);
-  padding: 8px 8px 8px 18px; border-radius: 999px;
-  background: var(--paper-raised); color: var(--ink); border: 1px solid var(--rule-strong); box-shadow: var(--shadow-paper);
-  font: 16px var(--font-text);
-}
-.sr-another[hidden] { display: none; }
-.sr-another-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sr-another-text b { font: 600 20px var(--font-display); margin-right: 4px; }
-.sr-another-go {
-  flex: none; min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--ink); color: var(--paper);
-  font: 500 15px var(--font-ui); cursor: pointer;
-}
-.sr-another-go::after { content: " ↻"; color: var(--brass); }
-.sr-another-close { flex: none; width: 36px; height: 36px; border: 0; background: none; color: var(--ink-soft); font: 20px var(--font-ui); cursor: pointer; border-radius: 50%; }
-.sr-another-go:focus-visible, .sr-another-close:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
-@media (max-width: 480px) { .sr-another-text { font-size: 14px; } .sr-another { gap: 8px; padding-left: 14px; } }

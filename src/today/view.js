@@ -158,6 +158,7 @@ export function mountToday(container, {library, open} = {}) {
     const evs = (doc?.events || []).filter(e => dayKey(e.at, e.tz) === today);
     return {
       warm: evs.some(e => isExerciseId(e.songId)),
+      exercise: id => evs.some(e => e.songId === id),
       piece: id => evs.some(e => e.songId === id && e.type !== 'trainer:result'),
       // Only note-reading drills count here; rhythm / theory / ear rounds use prefixed levels.
       reading: evs.some(e => e.type === 'trainer:result' && !/^(rhythm|theory|ear):/.test(String(e.level || ''))),
@@ -198,7 +199,9 @@ export function mountToday(container, {library, open} = {}) {
         kind: `Warm-up · ${path.current.level.short}`, title: step.label.replace(/,.*$/, ''), music: true,
         desc: `${step.label.includes(',') ? step.label.slice(step.label.indexOf(',') + 2).replace(/^./, c => c.toUpperCase()) + '. ' : ''}Next on your path: one clean pass (90 %) ticks it off.`,
         meta: step.best != null ? `Best so far ${Math.round(step.best)}%` : 'About three minutes',
-        action: done.warm ? 'Once more' : 'Begin the warm-up', onAction: () => go(step.id), done: done.warm, next: nextIdx === 0,
+        // A clean pass moves the path on: the card then offers the next step, not "once more".
+        action: !done.warm ? 'Begin the warm-up' : done.exercise(step.id) ? 'Once more' : 'Next step',
+        onAction: () => go(step.id), done: done.warm, next: nextIdx === 0,
       });
     }
     const warm = dailyWarmup(new Date(now));

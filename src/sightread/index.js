@@ -4,7 +4,8 @@
 //                         seed  = a positive integer; the same id always gives the same piece.
 //
 // resolveSightReading(id) → {entry, source: {data}} for src/app/catalog.js resolveEntry. The entry
-// carries `mode: 'timed'` and `intent: 'practice'`: sight-reading opens in Play along with a bar of count-in.
+// carries `mode: 'timed'` and `intent: 'practice'`: sight-reading opens in Play along with a bar of count-in,
+// and `view: 'sheet'`: it is read from the score, never from falling notes.
 import {generateSightReading} from './generate.js';
 import {SR_LEVELS, srLevelById} from './levels.js';
 import {newSeed} from '../theory/music.js';
@@ -29,7 +30,7 @@ export function resolveSightReading(id) {
   const level = srLevelById(p.level);
   return {
     entry: {id, title: g.title, composer: `Sight-reading · ${level.name}`, difficulty: DIFFICULTY[p.level], grade: level.grade,
-      tempo: g.tempo, section: [0, g.bars - 1], mode: 'timed', intent: 'practice', kind: 'exercise'},
+      tempo: g.tempo, section: [0, g.bars - 1], mode: 'timed', intent: 'practice', view: 'sheet', kind: 'exercise'},
     source: {data: g.musicxml},
   };
 }
