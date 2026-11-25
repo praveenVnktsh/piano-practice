@@ -54,14 +54,28 @@ The piano's USB cable goes to the Mac; the iPad shows the app. iPad Safari has n
 the Mac relays your keyboard over Wi-Fi (the "bridge").
 
 1. On the Mac: `npm run dev:ipad` (the dev server, reachable on your local network).
-2. On the Mac, in Chrome: open `http://localhost:5173/bridge.html`, press **Connect piano** and
-   allow MIDI. Keep this tab open. It shows the address for the iPad and the relay's delay to
-   every open page (round trip; under 30 ms feels instant).
-3. On the iPad, in Safari: open the address it shows, for example `http://192.168.1.20:5173/`.
-   The Mac also shows it at the foot of **Today** and in **Settings → This device**, with a QR
-   code to scan with the iPad's camera.
+2. On the Mac, in Chrome: open `http://localhost:5173/`. At the foot of **Today**, the
+   **Piano & iPad** card: press **Connect piano** and allow MIDI. It then reads *Relaying FP-30 ·
+   42 notes*, lists every connected iPad with its delay (round trip; a sage dot under 30 ms feels
+   instant, brass is fine, oxblood means the Wi-Fi is struggling), and shows the address for the
+   iPad with a QR code to scan with its camera. The relay runs in the whole app, so it keeps
+   going while you use the player on the Mac; once MIDI was allowed it reconnects by itself
+   when the app is opened again. **Settings → This device** shows the same, compact.
+3. On the iPad, in Safari: open that address, for example `http://192.168.1.20:5173/`.
 4. To keep it as an app: **Share → Add to Home Screen → Add**. It opens full screen, on the paper
    background, without Safari's bars.
+
+The stand-alone relay page `http://localhost:5173/bridge.html` still works, for a computer that
+only relays. Only one relay sends at a time, so the iPad never hears a note twice: if the app
+or `bridge.html` is already relaying, the other one says *Another tab is relaying · this one
+stands by* and takes over by itself when that tab closes. The Mac's own player reads the piano
+directly and ignores the relay when it carries the same keyboard.
+
+*Untested alternative:* a Web MIDI browser app for iPad (for example "Web MIDI Browser" from the
+App Store) can connect the piano straight to the iPad (USB through a camera adapter, or
+Bluetooth MIDI) and should then work like Chrome on the Mac, without the relay. We haven't
+tried it. On an iPad with neither, the player's ⋯ menu and Settings → This device show one
+quiet *No piano?* line, until you press *Got it*.
 
 <p align="center">
   <img src="docs/screenshots/ipad-portrait.png" width="300" alt="The player on an iPad in portrait">
@@ -333,12 +347,13 @@ shows what a file contains and asks before replacing anything; the previous stat
 **The iPad doesn't get the piano.**
 - Was the dev server started with `npm run dev:ipad` (not `npm run dev`)? Only that one is
   reachable from the network.
-- Keep `bridge.html` open in Chrome on the Mac, with the piano connected there. The player's ⋯
-  menu on the iPad shows the relay's state: *connected*, *no keyboard connected on the Mac*,
-  *open bridge.html on the Mac*, *no signal from the Mac* or *reconnecting…*.
+- Keep the app open in Chrome on the Mac (or `bridge.html`), with the piano connected in
+  **Today → Piano & iPad**. The player's ⋯ menu on the iPad shows the relay's state:
+  *connected*, *no keyboard connected on the Mac*, *connect the piano on the Mac*, *no signal
+  from the Mac* or *reconnecting…*.
 - Mac and iPad must be on the same Wi-Fi. If the address changed (a new network), open the one
-  `bridge.html` shows now.
-- A long delay: check the latency shown on `bridge.html`, and calibrate (below).
+  the Piano & iPad card shows now.
+- A long delay: check the delay the card lists for the iPad, and calibrate (below).
 
 **Something else is wrong.** In a piece, **⋯ → Settings…** holds the view, note names,
 fingering, sound and input latency; **Diagnostics** in it lists the app version, MIDI inputs,

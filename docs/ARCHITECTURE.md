@@ -171,6 +171,35 @@ mounted) and the public site shows one quiet line in Progress instead. sessionSt
 - MIDI relay status (`src/midi-relay.js`): `onRelayStatus(fn)` gets
   `{bridge, devices, state: 'connected'|'no-piano'|'waiting'|'stale'|'reconnecting', label, latencyMs, at}`
   on real changes; window `relay:status` events also carry label-only updates (latency).
+- **The bridge, reusable** (`src/relay/`): `bridge-state.js` (pure: `reduceBridge`, `arbitrate`,
+  `pianoStatus`, `latencyQuality`/`formatMs`, `pageList`, `preferLocal`, `needsPianoHint`),
+  `bridge-core.js` (`createBridge({announceIdle})` → `start / connect / autoConnect / subscribe /
+  getState / stop`; state `{server, midi: 'off'|'blocked'|'unsupported'|'none'|'on', devices,
+  notesSent, lastNote, pages: [{id, label, ms, quality}], role: 'idle'|'relaying'|'standby', other}`),
+  `app-relay.js` (`startAppRelay()` from the app shell, `appRelay()`; only on the Mac itself:
+  localhost + dev server). bridge.html (`src/bridge.js`) is a thin page over the same core.
+  Inputs are heard with `addEventListener('midimessage')`, so the player's own `onmidimessage`
+  on the same keyboard is untouched. After a grant the core fires window `piano:midi-granted`
+  and the player connects too.
+- **One relaying source.** Heartbeats carry `source` (the bridge's page id; `sanitizeStatus`
+  keeps it) and bridges hear each other through `onRelayServerStatus`. A bridge relays only when
+  no other source is relaying with a fresh heartbeat; otherwise it stands by (silent: no MIDI,
+  no heartbeat) and takes over when the other's status says `bridge: false`/`bridge-closed` or
+  goes stale (≈ 9.5 s). Two starting together: the lower id keeps relaying. The app's relay
+  heartbeats only once MIDI was granted (`announceIdle: 'connected'`); bridge.html always
+  (`'always'`), as before. Pongs go to the last status sender only, so only the relaying bridge
+  lists pages; one standing by says so.
+- **No doubled notes on the Mac.** `onRelayMidi` drops the page's own messages; in the player,
+  `preferLocal({localNames, relayDevices})` ignores relayed MIDI (and the "+ Mac" in the chip)
+  whenever a local Web MIDI input has the same name as a relayed device (or the relay's devices
+  are unknown), so bridge.html in another tab never echoes into the Mac's player.
+- **Piano & iPad card** (`src/app/ipad-link.js`, `mountIpadLink(container, {compact, bridge})`):
+  Today's foot (piano status + one button, pages with good/fair/poor dots, address + QR) and
+  Settings → This device (compact: one line for the pages, no QR).
+- **No-piano hint** (`src/relay/piano-hint.js`, `mountPianoHint(container)`): on iPad/iPhone
+  without Web MIDI and no connected relay, one line in the player's ⋯ menu (MIDI group) and
+  Settings → This device; "Got it" stores `piano-practice.no-piano-hint` in localStorage. It
+  mentions a Web MIDI browser app for iPad as an alternative (untested).
 - Backup (`backup/plugin.js`, `/__backup`, dev only) + `mountBackupControls(container)` from
   `src/pwa/backup.js` (export / validated import with confirmation).
 - E2E: `npm run e2e` (tests/e2e/run.mjs + cdp.mjs, no dependencies) against `vite preview`.

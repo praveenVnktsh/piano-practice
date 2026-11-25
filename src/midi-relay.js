@@ -15,7 +15,9 @@
 //   the same object on those changes and on label-only updates (e.g. a new latency figure).
 //   relayState() → the current status object.
 //
-// The bridge page (src/bridge.js): sendRelayMidi(bytes), sendRelayStatus(status), and
+// Bridges (src/relay/bridge-core.js: bridge.html and the Mac app's own relay): sendRelayMidi(bytes),
+// sendRelayStatus(status) (stamped with this page's id as `source`), onRelayServerStatus(fn) (every
+// raw status from the server, so a bridge can see another one relaying), and
 // startLatencyProbe(onSample) which pings every page and reports round trips.
 //
 // Any page: measureRelayRtt({timeoutMs}) → Promise<ms | null>, one echo through the dev server
@@ -43,6 +45,7 @@ let lastSeen = 0;        // performance.now() of the last status from the server
 let connected = true;    // the dev-server socket
 let current = null;
 const handlers = new Set();
+const rawHandlers = new Set();
 let staleTimer = null;
 
 function deviceName(devices) {
@@ -54,7 +57,7 @@ export function describe({server: s, connected: up, fresh}) {
   const ms = latencyMs == null ? '' : ` · ${Math.round(latencyMs)} ms`;
   let state, label;
   if (!up) { state = 'reconnecting'; label = 'Mac relay: reconnecting…'; }
-  else if (!s.at) { state = 'waiting'; label = 'Mac relay: open bridge.html on the Mac'; }
+  else if (!s.at) { state = 'waiting'; label = 'Mac relay: connect the piano on the Mac'; }
   else if (s.reason === 'bridge-closed') { state = 'waiting'; label = 'Mac relay: the bridge page was closed'; }
   else if (!fresh) { state = 'stale'; label = 'Mac relay: no signal from the Mac'; }
   else if (s.bridge && s.devices.length) { state = 'connected'; label = `Mac relay: connected · ${deviceName(s.devices)}${ms}`; }
@@ -86,6 +89,7 @@ if (hot) {
     server = {bridge: !!data?.bridge, devices: Array.isArray(data?.devices) ? data.devices : [], latency: data?.latency || {}, heartbeatMs: data?.heartbeatMs || 3000, at: data?.at || Date.now(), reason: data?.reason};
     lastSeen = performance.now();
     connected = true;
+    for (const fn of rawHandlers) { try { fn({...data}); } catch (e) { console.error(e); } }
     recompute();
     watchdog();
   });
@@ -146,7 +150,13 @@ export function sendRelayMidi(bytes) {
   hot?.send(EVENT_MIDI, {bytes: [...bytes], source: bridgeId});
 }
 export function sendRelayStatus(status) {
-  hot?.send(EVENT_STATUS, status);
+  hot?.send(EVENT_STATUS, {...status, source: bridgeId});
+}
+/** Every status the server broadcasts, as sent (with `source`, the sending bridge's id). */
+export function onRelayServerStatus(fn) {
+  if (!hot) return () => {};
+  rawHandlers.add(fn);
+  return () => rawHandlers.delete(fn);
 }
 /** Bridge connection events: fn('connect' | 'disconnect'). */
 export function onServerConnection(fn) {

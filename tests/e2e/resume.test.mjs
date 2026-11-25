@@ -21,10 +21,10 @@ export const tests = [
         const heard = (await state(page)).position;
         await page.click('#um-practice'); // switching while listening starts practising
         await page.waitFor(`window.pianoPlayer.getState().practicing`, {what: 'practising'});
-        await sleep(300);
+        // Wait: at the chord that was sounding (or the next one). Play along: a bar's count-in before the playhead's bar.
+        const floor = mode === 'wait' ? heard - 2 : Math.floor(heard / 4) * 4 - 4 - .01;
+        await page.waitFor(`window.pianoPlayer.getState().position >= ${floor}`, {what: `${mode}: practice near ${heard}, not at the start`, timeout: 5000}).catch(() => {});
         const at = (await state(page)).position;
-        // Wait: at the next chord from the playhead. Play along: a bar's count-in before the playhead's bar.
-        const floor = mode === 'wait' ? heard - 1 : Math.floor(heard / 4) * 4 - 4 - .01;
         assert.ok(at >= floor, `${mode}: practice starts near where it was (${at} after listening to ${heard}), not at the start`);
         await page.click('#um-play'); // stop
         await page.waitFor(`!window.pianoPlayer.getState().practicing`, {what: 'stopped'});

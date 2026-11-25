@@ -7,6 +7,7 @@ import {collectInfo} from './collect.js';
 import {buildReport, formatReport} from './report.js';
 import './diagnostics.css';
 import {mountIpadLink} from '../app/ipad-link.js';
+import {mountPianoHint} from '../relay/piano-hint.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 
@@ -20,7 +21,9 @@ export function mountDiagnostics(root, {piano, midiAccess, latencyMs, openSettin
   group.innerHTML = `<h3 class="set-heading">This device</h3>
     <div class="set-row"><span>Diagnostics <small>MIDI, audio, memory</small></span><button class="link-btn" id="diag-open" type="button">Open…</button></div>`;
   if (anchor) anchor.before(group); else settings.querySelector('.settings-card')?.append(group);
+  // On the Mac: the piano relay and the iPad address. On an iPad without a piano: one quiet hint.
   mountIpadLink(group, {compact: true});
+  mountPianoHint(group);
 
   const modal = document.createElement('div');
   modal.className = 'modal';

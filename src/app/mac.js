@@ -7,6 +7,7 @@
 //
 //   detectWhere({dev, loc, override}) → 'mac' | 'static'   (pure; tested)
 //   onMac() → boolean      cached for the session
+//   isThisMac(location)    → the page is opened on the Mac itself (localhost)
 //   MAC_ONLY                the one quiet line shown where a Mac-only feature would be (Progress, a take's Send)
 //
 // sessionStorage 'piano-practice.where' = 'mac' | 'static' overrides it for this tab (tests).
@@ -29,6 +30,9 @@ export function detectWhere({dev = false, loc = globalThis.location, override = 
   if (isStaticOrigin(loc)) return 'static';
   return dev ? 'mac' : 'static'; // the endpoints exist only on the dev server
 }
+
+/** The page is open on the Mac itself (localhost), not on the iPad over the network. */
+export const isThisMac = (loc = globalThis.location) => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(loc?.hostname || '');
 
 let cached = null;
 const readOverride = () => { try { return globalThis.sessionStorage?.getItem(OVERRIDE_KEY) ?? null; } catch { return null; } };
