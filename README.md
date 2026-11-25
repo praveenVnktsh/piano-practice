@@ -46,6 +46,8 @@ the Mac relays your keyboard over Wi-Fi (the "bridge").
    allow MIDI. Keep this tab open. It shows the address for the iPad and the relay's delay to
    every open page (round trip; under 30 ms feels instant).
 3. On the iPad, in Safari: open the address it shows, for example `http://192.168.1.20:5173/`.
+   The Mac also shows it at the foot of **Today** and in **Settings → This device**, with a QR
+   code to scan with the iPad's camera.
 4. To keep it as an app: **Share → Add to Home Screen → Add**. It opens full screen, on the paper
    background, without Safari's bars.
 
@@ -55,6 +57,14 @@ pages reload once the Mac is reachable again and the piano reconnects by itself.
 
 The screen stays awake while you listen or practise (and for 3 minutes after the last note) and
 during the note-reading drill.
+
+### Anywhere else: the public site
+
+`npm run publish:site` publishes the built app (only the build: no source, no private songs) to
+GitHub Pages at `https://<you>.github.io/piano-practice/`. It works on any device, offline after the
+first visit, with on-screen keys, the microphone, or a USB piano in desktop Chrome. Progress is kept
+in that browser (export it from Progress → Backup). The teacher, the iPad relay and your Mac's
+imports need the Mac's dev server, so they are not on the public site.
 
 ### No piano nearby?
 
@@ -235,6 +245,7 @@ Requires Node.js 20 or newer (CI uses Node 22).
 | `npm run dev:ipad` | The same, reachable from the network, with the annotate overlay |
 | `npm run build` | Production build into `dist/` (static files, host anywhere; offline cache included) |
 | `npm run preview` | Serve the built `dist/` locally |
+| `npm run publish:site` | Build for a sub-path and publish it to the public GitHub Pages repo (`--dry-run` to check) |
 | `npm test` | Unit tests (Vitest) |
 | `npm run e2e` | Build, serve with `vite preview`, run `tests/e2e` in headless, muted Chrome |
 | `npm run lint` | ESLint |

@@ -141,6 +141,22 @@ describe('CLI: assign, assignments, done, letter, letters, progress', () => {
     expect(text).toMatch(/journal 2026-11-20 \(good\): Left hand better/);
     expect(text).toMatch(/assignment #3: C major scale, hands together \(due 2026-11-30\)/);
   });
+  test('formatContext prints the musicality of a result and a recording', () => {
+    const musicality = {
+      shape: {score: 72, hint: 'Taper the cadence in bar 8.', phrases: [{bars: 'bars 1–4', score: 85}, {bars: 'bars 5–8', score: 60}]},
+      flex: {label: 'expressive', meanBpm: 72, driftPct: -2, flexPct: 4.5, jitterPct: 3.1, remark: 'The tempo breathes with the phrases.'},
+      voicing: {score: 80, melody: 'through', meanDiff: 3, covered: [], remark: 'The melody comes through.'},
+    };
+    const text = formatContext({
+      player: null,
+      recentResults: [{title: 'Minuet', songId: 'm', section: [0, 7], hands: 'both', mode: 'timed', tempo: 72, accuracy: 96, right: 50, wrong: 2, musicality}],
+      recording: {takeId: 'abcdefgh12', songId: 'm', title: 'Minuet', accuracy: 95, missed: 1, wrong: 0, extra: 0, musicality},
+    });
+    expect(text).toMatch(/ {6}Phrasing: 72\/100 \(bars 1–4 85, bars 5–8 60\) · Taper the cadence in bar 8\./);
+    expect(text).toMatch(/ {6}Tempo feel: expressive · ♩ ≈ 72 · flex ±4.5% · beat-to-beat ±3.1% · drift -2%/);
+    expect(text).toMatch(/ {6}Voicing: 80\/100 · The melody comes through\./);
+    expect(text.match(/Phrasing:/g)).toHaveLength(2);
+  });
 });
 
 describe('endpoints: tick homework, read letters', () => {

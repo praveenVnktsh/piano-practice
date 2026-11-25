@@ -2,6 +2,7 @@
 // (`node teacher/cli.js recordings | review`) and the compact summary sent to the teacher.
 // Pure; tested in tests/record-report.test.js.
 import {barLines} from './report.mjs';
+import {compactMusicality, musicalityLines} from '../analysis/musicality.mjs';
 
 const pct = v => (v == null ? '–' : `${Math.round(v)}%`);
 const day = at => new Date(at).toISOString().slice(0, 16).replace('T', ' ');
@@ -42,6 +43,7 @@ export function reportText(take, {bars = 60} = {}) {
   if (r.dynamics?.balance) out.push(`Balance: left minus right ${r.dynamics.balance.lhMinusRh} velocity${r.dynamics.balance.heavy ? ` (left heavy in ${r.dynamics.balance.heavy})` : ''}`);
   if (r.articulation) out.push(`Articulation: ${r.articulation.legatoPairs} legato pairs, ${r.articulation.detachedPairs} detached; staccato ${r.articulation.staccato.count} (${r.articulation.staccato.held} held long)`);
   if (r.pedal) out.push(`Pedal: ${r.pedal.presses} presses; caught ${r.pedal.caught} of ${r.pedal.marks} marked changes`);
+  out.push(...musicalityLines(compactMusicality(r.musicality)));
   if (r.remarks?.length) out.push('', 'Remarks:', ...r.remarks.map(x => `  - ${x}`));
   const lines = barLines(r, {limit: bars});
   out.push('', lines.length ? 'Bar by bar (bars with problems):' : 'Bar by bar: no slips.');
@@ -63,6 +65,8 @@ export function compactSummary(take) {
     out.evenness = r.evenness?.score; out.score = r.score; out.verdict = r.verdict;
     out.weakBars = r.bars.filter(b => b.notes >= 2 && b.accuracy < 85).sort((a, b) => a.accuracy - b.accuracy).slice(0, 6).map(b => ({label: b.label, accuracy: b.accuracy}));
     out.remarks = r.remarks;
+    const music = compactMusicality(r.musicality);
+    if (music) out.musicality = music;
   }
   return out;
 }

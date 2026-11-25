@@ -48,7 +48,7 @@ export const tests = [
       // Step 1 (listen) is set up: the button now starts it.
       let s = await state(page);
       assert.equal(s.hands, 'both');
-      assert.match(await page.eval(`document.getElementById('learn-next').textContent`), /(Phrase 1 of \d+|Step 1 of \d+).*Listen/);
+      assert.match(await page.eval(`document.getElementById('learn-next').textContent`), /Step 1 of \d+.*Listen/);
       // Finish the listen step quickly: tick it off by listening to the section's end.
       const sec = s.section;
       await page.eval(`window.pianoPlayer.setTempo(400); 1`);
@@ -64,10 +64,28 @@ export const tests = [
       await page.eval(`dispatchEvent(new CustomEvent('practice:result', {detail: {songId: ${JSON.stringify(song.id)}, title: 'x', section: ${JSON.stringify(sec)}, mode: 'wait', hands: 'right', tempo: 60, right: 20, wrong: 0, accuracy: 100, timing: null, durationMs: 4000, at: Date.now()}})); 1`);
       await page.waitFor(`/Left hand/.test(document.getElementById('learn-next').textContent)`, {what: 'the left-hand step next'});
       assert.deepEqual(await page.eval(`JSON.parse(localStorage.getItem('piano-practice:song:' + ${JSON.stringify(song.id)})).learnDone.length`), 2);
+      // The left-hand step, played for real with Loop on: the pass that completes it ends, then
+      // the player stops quietly (no results card) on the next step.
+      await page.click('#learn-next');
+      s = await state(page);
+      assert.equal(s.hands, 'left');
+      await page.eval(`window.pianoPlayer.setLoop(true); window.pianoPlayer.practice(); 1`);
+      for (let i = 0; i < 200 && await page.eval(`window.pianoPlayer.getState().practicing`); i++) {
+        const notes = await page.eval(`[...document.querySelectorAll('#player .pkey.attack')].map(k => k.dataset.note)`);
+        for (const n of notes) await page.tap(`#player .pkey[data-note="${n}"]`, {hold: 40});
+        await new Promise(r => setTimeout(r, 60));
+      }
+      s = await state(page);
+      assert.equal(s.practicing, false, 'stopped after the pass that completed the step');
+      assert.equal(s.loop, true, 'loop left as the student set it');
+      assert.equal(await page.eval(`document.getElementById('um-complete').hidden`), true, 'no results card');
+      assert.match(await page.eval(`document.getElementById('learn-next').textContent`), /Next step.*Hands together/);
+      assert.match(await page.eval(`document.getElementById('um-practice-status').textContent`), /Step done/);
+      await page.eval(`window.pianoPlayer.setLoop(false); 1`);
       // Today shows the current step for this piece.
       await page.goto(base + '#/today');
       await waitForRoute(page, '#/today');
-      await page.waitFor(`[...document.querySelectorAll('.td-card')].some(c => /step by step/i.test(c.textContent) && /Left hand alone/.test(c.textContent))`, {what: 'Today shows the plan step'});
+      await page.waitFor(`[...document.querySelectorAll('.td-card')].some(c => /step by step/i.test(c.textContent) && /Hands together/.test(c.textContent))`, {what: 'Today shows the plan step'});
       const btn = await page.eval(`[...document.querySelectorAll('.td-card')].find(c => /step by step/i.test(c.textContent)).querySelector('.td-action').textContent`);
       assert.equal(btn, 'Next step');
       assert.deepEqual(await overflow(page), []);

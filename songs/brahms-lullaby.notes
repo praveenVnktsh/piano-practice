@@ -1,0 +1,24 @@
+# Lullaby (Wiegenlied), Op. 49 No. 4 — Johannes Brahms, 1868 (public domain), tune simplified.
+# Arranged by the Piano Practice contributors (MIT): the hands share the tune. Left hand in
+# C position on middle C (C = 5 … G = 1), right hand from the G above (G = 1 … C = 4);
+# both are written in the treble clef.
+title: Lullaby (simplified)
+composer: Johannes Brahms
+arranger: Piano Practice contributors
+time: 3/4
+key: 0
+tempo: 84
+pickup: yes
+license: Public domain (Brahms, 1868), arrangement MIT
+---
+RH: r/4                 | g4/4. r/8 r/4  | g4/2 r/8 g4/8 | c5/4 b4/4. a4/8 | a4/4 g4 r/4 |
+LH: clef=treble e4/8 e4 | r/4. e4/8 e4/4 | r/2 e4/8 r/8  | r/2.            | r/2 d4/8 e4 |
+
+RH: r/2.            | r/2.         | b4/8 a4 g4/4 b4 | c5/2 r/4    |
+LH: f4/4 d4 d4/8 e4 | f4/2 d4/8 f4 | r/2.            | r/2 c4/8 c4 |
+
+RH: c5/2 a4/8 r/8 | g4/2 r/4     | r/4 g4 a4 | g4/2 r/4    |
+LH: r/2 r/8 f4/8  | r/2 e4/8 c4  | f4/4 r/2  | r/2 c4/8 c4 |
+
+RH: c5/2 a4/8 r/8 | g4/2 r/4    | r/2.       | r/2.  |
+LH: r/2 r/8 f4/8  | r/2 e4/8 c4 | f4/4 e4 d4 | c4/2. |

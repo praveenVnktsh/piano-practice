@@ -15,7 +15,7 @@
 // recorded by the progress store (totals.learn) so Today and other devices see the plan.
 // Today asks the player to set up the current step with sessionStorage `piano-practice.learn.apply`.
 import './learn.css';
-import {buildPlan, currentStep, planProgress, resultMeets, listenMeets, isSetUp, listenSpan} from './plan.mjs';
+import {barsLabel, buildPlan, stepTitle, currentStep, planProgress, resultMeets, listenMeets, isSetUp, listenSpan} from './plan.mjs';
 import {firstLook} from './first-look.mjs';
 import {getProgress} from '../progress/store.js';
 
@@ -54,7 +54,10 @@ export function attachLearn(api) {
   const id = () => entry?.id;
   const save = v => { if (id() != null) write(SONG_STORE(id()), v); };
   const target = () => player()?.getState?.().targetTempo || 100;
-  const nextInfo = () => { const s = currentStep(steps, done); return s ? {key: s.key, label: `${s.label} · ${s.detail}`} : null; };
+  const nextInfo = () => {
+    const s = currentStep(steps, done);
+    return s ? {key: s.key, label: `${stepTitle(s)} · ${barsLabel(song?.measures, ...s.section)}`} : null;
+  };
   const record = (action, key) => emit('learn:step', {
     songId: id(), title: entry?.title || '', action, ...(key ? {key} : {}), total: steps.length, next: nextInfo(), at: Date.now(),
   });
@@ -79,10 +82,8 @@ export function attachLearn(api) {
     const p = planProgress(steps, done);
     btn.classList.toggle('is-ready', ready);
     btn.disabled = !!(st?.playing || st?.practicing) && ready;
-    // The phrase, not the whole count: "162 steps" would daunt anyone.
-    const where = cur.kind === 'whole' ? 'Last step' : cur.phrases > 1 ? `Phrase ${cur.phrase + 1} of ${cur.phrases}` : `Step ${p.index + 1} of ${p.total}`;
-    btn.querySelector('.learn-step').textContent = ready ? where : 'Next step';
-    btn.querySelector('.learn-what').textContent = cur.label;
+    btn.querySelector('.learn-step').textContent = ready ? `Step ${p.index + 1} of ${p.total}` : 'Next step';
+    btn.querySelector('.learn-what').textContent = stepTitle(cur);
     btn.title = `${cur.label} · ${cur.detail}`;
     btn.setAttribute('aria-label', ready ? `Start step ${p.index + 1} of ${p.total}: ${cur.label}, ${cur.detail}` : `Next step: ${cur.label}, ${cur.detail}`);
   }
@@ -99,7 +100,8 @@ export function attachLearn(api) {
     if (step.intent === 'listen') api.setLoop(false);
     api.setIntent(step.intent);
     api.setPrompt(`${escapeHtml(step.hint || step.label)} · press <b class="glyph">▶</b>`);
-    api.setStatus(step.detail);
+    const p = planProgress(steps, done);
+    api.setStatus(`Step ${p.index + 1} of ${p.total} · ${step.detail}`);
     refresh();
   }
   function start(step) {
@@ -140,9 +142,12 @@ export function attachLearn(api) {
     save({learnDone: [...done]});
     record('done', step.key);
     const next = currentStep(steps, done);
+    // Looping: let this pass end (never mid-bar), then stop quietly on the next step.
+    const st = player()?.getState?.();
+    if (st?.practicing && st.loop) api.stopAtPassEnd();
     if (next) {
       api.flash('Step done.');
-      api.setPrompt(`Step done · next: <b>${escapeHtml(next.label)}</b> · <i>${escapeHtml(next.detail)}</i>`);
+      api.setPrompt(`Step done · next: <b>${escapeHtml(stepTitle(next))}</b> · <i>${escapeHtml(barsLabel(song?.measures, ...next.section))}</i>`);
     } else {
       api.flash('Learnt, step by step.');
       api.setPrompt('Every step done: the piece is learnt. Now keep it polished.');

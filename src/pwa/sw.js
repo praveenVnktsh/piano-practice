@@ -38,11 +38,15 @@ self.addEventListener('message', event => {
   if (event.data === 'clear') event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('piano-practice-')).map(k => caches.delete(k)))));
 });
 
+// The app may live under a sub-path (GitHub Pages): match paths relative to the worker's scope.
+const SCOPE_PATH = new URL(self.registration?.scope || '/', self.location.href).pathname;
+const rel = path => (path.startsWith(SCOPE_PATH) ? '/' + path.slice(SCOPE_PATH.length) : path);
+
 function skip(request, url) {
   if (request.method !== 'GET' || request.headers.has('range')) return true;
   if (FONT_ORIGINS.includes(url.origin)) return false;
   if (url.origin !== self.location.origin) return true;
-  const p = url.pathname;
+  const p = rel(url.pathname);
   if (p.startsWith('/__') || p.startsWith('/@') || p.startsWith('/node_modules/.vite/') || p === '/sw.js') return true;
   if (/[?&](import|t|html-proxy|worker|url|raw)(=|&|$)/.test(url.search)) return true;
   return false;
@@ -84,7 +88,7 @@ self.addEventListener('fetch', event => {
   if (skip(request, url)) return;
   if (P.dev) { event.respondWith(networkFirst(request, {fallback: request.mode === 'navigate' ? './' : null})); return; }
   if (request.mode === 'navigate') { event.respondWith(networkFirst(request, {timeout: 3000, fallback: './'})); return; }
-  const p = url.pathname;
+  const p = rel(url.pathname);
   if (FONT_ORIGINS.includes(url.origin) || p.startsWith('/assets/') || p.startsWith('/samples/') || p.startsWith('/icons/')) {
     event.respondWith(cacheFirst(request));
     return;
