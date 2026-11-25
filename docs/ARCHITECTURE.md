@@ -384,3 +384,29 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   `exercises`, `unexercise <id>`. Endpoints `GET /__teacher/exercises` → `{exercises}`, `GET
   /__teacher/exercises/<id>.musicxml`. App ids `tex:<id>` resolve through `catalog.resolveEntry` →
   `src/teacher/exercises.js`; Exercises lists them under "From your teacher"; mastery leaves `tex:` out of repertoire.
+
+## Musicality (Phase 15)
+- **`src/analysis/musicality.mjs`** (pure; method and thresholds documented at the top of the file):
+  `phraseShape(notes, {phrases, measures, marks})` compares each phrase's melody (top voice of the
+  right hand) with a model that rises to the peak and tapers at the cadence, following written
+  dynamics and hairpins where present; `tempoFlex(onsets, {measures, first, last})` splits local tempo
+  per beat into a smoothed (shaped) curve, a straight drift line and beat-to-beat jitter;
+  `voicingReport(notes, {measures, hand})` weighs the top voice against inner voices struck with it
+  in one hand. `playerMusicality(...)` runs them for a pass, `compactMusicality(m)` drops the curves,
+  `musicalityLines(m)` prints them for the teacher CLI. `src/analysis/musicality-view.js` draws the
+  fine-line figure (`#um-music` on the results card; `.rec-music` in a recording's review).
+- **`practice:result` may carry `musicality`** (present only when something applies; each part optional):
+  `{shape?: {score (0–100), hint: string | null, phrases: [{bars: 'bars 1–4', score}]},
+  flex?: {label: 'steady'|'expressive'|'unsteady', meanBpm, driftPct, flexPct, jitterPct, remark},
+  voicing?: {score (0–100), melody: 'through'|'level'|'covered', meanDiff (velocity), covered: ['bars 5–6'], remark}}`.
+  `shape` and `voicing` need a real keyboard's velocities and a piece (not a technique exercise);
+  `flex` comes only with a Performance run (its scoring, `performance.mjs`, is unchanged).
+- **Recording reports** (`src/record/report.mjs`, `REPORT_VERSION` 3; older stored reports are recomputed
+  when opened) add `musicality: {shape, flex, voicing}` with their curves (`shape.phrases[].points:
+  [{t, v, m}]`, `flex.curve: [[t, bpm|null, shapedBpm|null]]`); `flex` for any take with enough
+  matched beats. `compactSummary` (the teacher's `context.recording`) carries the compact form, and
+  `node teacher/cli.js show | review` print it.
+- **Listen and compare** (`src/record/compare.mjs`, pure): `prepareCompare(song, take)` →
+  `{bars, clip(i)}`; a clip is the bar as written (played evenly at the take's own tempo in that bar,
+  velocity from the marks) and the take's notes in the same bar, as `{n, delay, dur, velocity}` lists for
+  `piano.tone`. The review's "Listen and compare" row plays A (the score), B (the take) or A then B.

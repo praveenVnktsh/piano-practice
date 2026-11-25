@@ -13,13 +13,16 @@
 //   timing: {meanBpm, writtenBpm, sdMs, score, curve: [[t, bpm|null, devMs|null], …] (one per beat), drift, rushed, slowed},
 //   evenness: {score, timingSdMs, velocitySd, velocityMean} | null   (exercises only),
 //   dynamics, articulation, pedal (practice-core shapes) | null,
+//   musicality: {shape, flex, voicing} (src/analysis/musicality.mjs shapes, with their curves; each null when
+//     it doesn't apply: shape and voicing need a real keyboard and a piece, flex enough matched beats),
 //   remarks: [..], verdict, score (0–100 overall)}
 
 import {passage, beatInfo, beatsOf, handFilter} from '../score-core.mjs';
-import {evenness, evennessRemark, dynamicsReport, articulationReport, pedalReport, barsText, fitLine} from '../practice-core.mjs';
+import {evenness, evennessRemark, dynamicsReport, articulationReport, pedalReport, barsText, fitLine, detectPhrases} from '../practice-core.mjs';
+import {phraseShape, tempoFlex, voicingReport, clipPhrases} from '../analysis/musicality.mjs';
 import {alignTake, warpFns} from './align.mjs';
 
-export const REPORT_VERSION = 2;
+export const REPORT_VERSION = 3;
 const NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 export const noteName = n => NAMES[n % 12] + (Math.floor(n / 12) - 1);
 const round = (v, k = 0) => Math.round(v * 10 ** k) / 10 ** k;
@@ -173,6 +176,15 @@ export function buildReport({song, take, now = Date.now()}) {
     if (presses.length || inSection.length) pedal = pedalReport(presses, inSection);
   }
 
+  // ── Musicality: phrase shape, tempo flex, voicing ──
+  const musicality = {shape: null, flex: null, voicing: null};
+  if (realKeys && !exercise) {
+    const phrases = clipPhrases(detectPhrases({measures, events: song.events ?? [], slurs: marks.slurs ?? []}), first, last);
+    musicality.shape = phraseShape(matched, {phrases, measures, marks});
+    musicality.voicing = voicingReport(matched, {measures});
+  }
+  musicality.flex = tempoFlex(onsets.map(o => ({t: o.x, at: o.y})), {measures, first, last});
+
   // ── Remarks: the few sentences worth reading ──
   const remarks = [];
   const worst = [...bars.values()].filter(b => b.notes >= 2 && b.accuracy < 80).sort((a, b) => a.accuracy - b.accuracy || a.i - b.i);
@@ -189,6 +201,8 @@ export function buildReport({song, take, now = Date.now()}) {
   if (exercise && ev) { const r = evennessRemark(ev, measures); if (r) remarks.push(r); }
   remarks.push(...(dynamics?.remarks ?? []).slice(0, 1), ...(articulation?.remarks ?? []).slice(0, 1));
   if (pedal?.remark) remarks.push(pedal.remark);
+  if (musicality.shape?.hint && musicality.shape.score < 75) remarks.push(musicality.shape.hint);
+  if (musicality.voicing?.melody === 'covered') remarks.push(musicality.voicing.remark);
 
   const evenScore = evenOut?.score ?? timing.score ?? summary.accuracy;
   const score = Math.round(.6 * summary.accuracy + .25 * (timing.score ?? summary.accuracy) + .15 * evenScore);
@@ -196,7 +210,7 @@ export function buildReport({song, take, now = Date.now()}) {
   return {
     v: REPORT_VERSION, songId: take.songId, section: [first, last], hands: take.hands || 'both', computedAt: now,
     summary, bars: [...bars.values()], timing,
-    evenness: evenOut, dynamics: strip(dynamics), articulation, pedal,
+    evenness: evenOut, dynamics: strip(dynamics), articulation, pedal, musicality,
     remarks: [...new Set(remarks)].slice(0, 4), verdict: verdictFor(summary.accuracy), score,
   };
 }

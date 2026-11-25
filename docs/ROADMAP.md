@@ -126,11 +126,11 @@ New capability arrives inside an existing place or behind progressive disclosure
 - [x] P1 "Ask about this bar": from the player, send a message to the teacher with the piece, bars and last attempt attached
 - [x] P2 The teacher composes a short custom exercise (MusicXML via notes2musicxml) for a weak spot, and it lands in Exercises
 
-## Phase 15: Musicality ⏳
-- [ ] P1 Phrase shaping: velocity contour per phrase against a simple model (rise to the peak, taper at the cadence), with a gentle hint
-- [ ] P1 Rubato and timing feel: in Performance runs, show tempo flex as a curve so steady and expressive are visible separately
-- [ ] P1 Voicing: melody-over-accompaniment check within one hand (top voice louder)
-- [ ] P2 Listen and compare: play the reference, then your recording, aligned bar by bar
+## Phase 15: Musicality ✅
+- [x] P1 Phrase shaping: velocity contour per phrase against a simple model (rise to the peak, taper at the cadence), with a gentle hint
+- [x] P1 Rubato and timing feel: in Performance runs, show tempo flex as a curve so steady and expressive are visible separately
+- [x] P1 Voicing: melody-over-accompaniment check within one hand (top voice louder)
+- [x] P2 Listen and compare: play the reference, then your recording, aligned bar by bar
 
 ## Phase 16: Real hardware confidence ✅
 - [x] P0 Diagnostics sheet (Settings → This device → Diagnostics): Web MIDI and inputs, Mac relay state + measured round trip, AudioContext state / sample rate / latencies, grand layers loaded, decoded sample memory, storage estimate, version + commit, user agent; "Copy report" (clipboard, or a text box to copy by hand)
