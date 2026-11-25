@@ -8,7 +8,8 @@ export const VIEWPORTS = {
 
 /** The four places and their sub-pages (docs/ARCHITECTURE.md "Views and routes"). */
 export const PLACES = ['#/today', '#/pieces', '#/exercises', '#/progress', '#/technique', '#/train/reading',
-  '#/exercises/sight-reading', '#/exercises/rhythm', '#/exercises/theory', '#/exercises/theory/key-signatures', '#/exercises/ear'];
+  '#/exercises/sight-reading', '#/exercises/rhythm', '#/exercises/theory', '#/exercises/theory/key-signatures', '#/exercises/ear',
+  '#/exercises/lessons', '#/exercises/lessons/keyboard'];
 
 /** Waits until the shell has rendered the route (nav present, view or player visible). */
 export async function waitForRoute(page, hash) {

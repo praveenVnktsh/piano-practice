@@ -6,10 +6,16 @@
 //   POST /__teacher/status    {thinking: <message id> | null} → 200 status
 //   POST /__teacher/assignments/<id>/done   {done?: true|false} → 200 the assignment (the student ticks homework)
 //   POST /__teacher/letters/<id>/read       → 200 the letter (the student opened it)
-// Assignments and letters are written by the teacher with the CLI (assign, letter); the thread
-// (GET / and the stream) carries them as `assignments` and `letters`.
+//   GET  /__teacher/comments[?songId=]      → {comments} bar comments (dismissed ones included, marked)
+//   POST /__teacher/comments/<id>/read      → 200 the comment (the student opened it)
+//   POST /__teacher/comments/<id>/dismiss   → 200 the comment (the student put it away)
+//   GET  /__teacher/exercises               → {exercises} the teacher's composed exercises (teacher/exercises.js)
+//   GET  /__teacher/exercises/<id>.musicxml → the exercise's score
+// Assignments, letters and bar comments are written by the teacher with the CLI (assign, letter, comment); the thread
+// (GET / and the stream) carries them as `assignments`, `letters` and `comments`.
 import {mkdirSync, watch} from 'node:fs';
-import {addMessage, markLetterRead, readThread, setAssignmentDone, setThinking, TEACHER_DIR} from './store.js';
+import {readExerciseScore, readExercises} from './exercises.js';
+import {addMessage, dismissComment, markCommentRead, markLetterRead, readComments, readThread, setAssignmentDone, setThinking, TEACHER_DIR} from './store.js';
 
 const MAX_BODY = 256 * 1024;
 
@@ -101,7 +107,8 @@ function createHub(dir, {pollMs = 1500} = {}) {
 export function teacherHandler(dir = TEACHER_DIR, options) {
   const hub = createHub(dir, options);
   const handler = async (req, res, next) => {
-    const path = (req.url || '/').split('?')[0].replace(/\/+$/, '') || '/';
+    const [rawPath, query = ''] = (req.url || '/').split('?');
+    const path = rawPath.replace(/\/+$/, '') || '/';
     try {
       if (path === '/' && req.method === 'GET') return send(res, 200, readThread(dir));
       if (path === '/stream' && req.method === 'GET') {
@@ -137,6 +144,26 @@ export function teacherHandler(dir = TEACHER_DIR, options) {
         hub.changed();
         return send(res, 200, a);
       }
+      if (path === '/comments' && req.method === 'GET') {
+        const songId = new URLSearchParams(query).get('songId');
+        return send(res, 200, {comments: readComments(dir).filter(c => !songId || c.songId === songId)});
+      }
+      if (path === '/exercises' && req.method === 'GET') return send(res, 200, {exercises: readExercises(dir)});
+      m = path.match(/^\/exercises\/(\d{1,9})\.musicxml$/);
+      if (m && req.method === 'GET') {
+        const xml = readExerciseScore(dir, m[1]);
+        if (xml == null) return send(res, 404, {error: `no exercise ${m[1]}`});
+        res.statusCode = 200;
+        res.setHeader('content-type', 'application/vnd.recordare.musicxml+xml; charset=utf-8');
+        res.setHeader('cache-control', 'no-store');
+        return res.end(xml);
+      }
+      m = path.match(/^\/comments\/(\d{1,9})\/(read|dismiss)$/);
+      if (m && req.method === 'POST') {
+        const c = m[2] === 'read' ? markCommentRead(dir, m[1]) : dismissComment(dir, m[1]);
+        hub.changed();
+        return send(res, 200, c);
+      }
       m = path.match(/^\/letters\/(\d{1,9})\/read$/);
       if (m && req.method === 'POST') {
         const l = markLetterRead(dir, m[1]);
@@ -144,7 +171,7 @@ export function teacherHandler(dir = TEACHER_DIR, options) {
         return send(res, 200, l);
       }
     } catch (e) {
-      return send(res, e.status || (/^no (assignment|letter)/.test(e.message) ? 404 : 400), {error: e.message});
+      return send(res, e.status || (/^no (assignment|letter|comment)/.test(e.message) ? 404 : 400), {error: e.message});
     }
     next();
   };

@@ -11,9 +11,10 @@ import {createImportDialog} from './import-dialog.js';
 import {mountPieces} from './pieces.js';
 import {initTheme} from './theme.js';
 import {el, icon} from './dom.js';
-import {startProgressTracking} from '../progress/store.js';
+import {startProgressTracking, getProgress, CHANGE_EVENT} from '../progress/store.js';
 import {isExerciseId} from '../exercises/index.js';
 import {installHelp} from '../help/index.js';
+import {aidsFor, isBeginnerPiece, studentIsBeginner} from '../curriculum/aids.js';
 import {startOnboarding} from '../onboarding/index.js';
 
 const {loadCatalogs, songSource} = catalog;
@@ -21,7 +22,7 @@ const {loadCatalogs, songSource} = catalog;
 // Views shown in the main area instead of the player (docs/ARCHITECTURE.md, "Views and routes").
 // import.meta.glob = lazy import() that also works while a module doesn't exist yet (→ "coming soon").
 const VIEW_MODULES = import.meta.glob(['../today/view.js', '../exercises/view.js', '../progress/view.js', '../trainer/view.js', '../mutopia/view.js',
-  '../sightread/view.js', '../rhythm/view.js', '../theory/view.js', '../ear/view.js']);
+  '../sightread/view.js', '../rhythm/view.js', '../theory/view.js', '../ear/view.js', '../lessons/view.js']);
 
 const LAST_KEY = 'piano-practice.last-song';
 const RETURN_KEY = 'piano-practice.return-to';
@@ -135,6 +136,15 @@ export async function startApp() {
     toast,
   };
 
+  // Beginner score aids (src/curriculum/aids.js): while the student is on the Beginner level, Grade 0
+  // pieces open with note names. Worked out from the progress document in the background; opening a
+  // beginner piece waits for it briefly (never more than a second).
+  let beginner = true;
+  const refreshLevel = () => Promise.all([getProgress(), import('../curriculum/levels.js')])
+    .then(([doc, m]) => { beginner = studentIsBeginner(doc, all(), m.curriculum); }).catch(() => {});
+  const levelKnown = ready.then(refreshLevel);
+  window.addEventListener(CHANGE_EVENT, refreshLevel);
+
   function open(entry, source) {
     document.title = `${entry.title} · ${APP_NAME}`;
     if (currentId === entry.id) return;
@@ -148,7 +158,8 @@ export async function startApp() {
       if (currentId === entry.id) toast(`Couldn’t open “${entry.title}”: ${e?.message || e}`);
     });
     // The player applies the entry's own hints (sight-reading: `mode`, `intent`) for that piece only.
-    Promise.resolve(player.load(entry, songPromise)).catch(() => {});
+    const hint = aidsFor(entry, {beginner});
+    Promise.resolve(player.load(hint ? {...entry, aids: hint} : entry, songPromise)).catch(() => {});
   }
 
   // Ids that aren't in a catalog ("ex:…" exercises are generated on demand): catalog.resolveEntry.
@@ -177,6 +188,8 @@ export async function startApp() {
     rhythm: {title: 'Rhythm', place: 'exercises', parent: ['#/exercises', 'Exercises'], file: '../rhythm/view.js', mount: (m, node) => m.mountRhythmTrainer(node)},
     theory: {title: 'Theory', place: 'exercises', parent: ['#/exercises', 'Exercises'], file: '../theory/view.js', mount: (m, node) => m.mountTheory(node)},
     'theory-lesson': {title: 'Theory', place: 'exercises', parent: ['#/exercises/theory', 'Theory'], file: '../theory/view.js', mount: (m, node, head, route) => m.mountTheoryLesson(node, {lesson: route.arg})},
+    lessons: {title: 'First lessons', place: 'exercises', parent: ['#/exercises', 'Exercises'], file: '../lessons/view.js', mount: (m, node) => m.mountLessons(node)},
+    lesson: {title: 'First lessons', place: 'exercises', parent: ['#/exercises/lessons', 'First lessons'], file: '../lessons/view.js', mount: (m, node, head, route) => m.mountLesson(node, {lesson: route.arg})},
     ear: {title: 'Ear training', place: 'exercises', parent: ['#/exercises', 'Exercises'], file: '../ear/view.js', mount: (m, node) => m.mountEarTrainer(node)},
   };
   const host = createViewHost(root);
@@ -213,6 +226,8 @@ export async function startApp() {
     await ready;
     if (token !== routeToken) return;
     const entry = find(route.id);
+    if (entry && isBeginnerPiece(entry)) await Promise.race([levelKnown, new Promise(r => setTimeout(r, 1000))]);
+    if (token !== routeToken) return;
     if (entry) return open(entry);
     const special = await resolveSpecial(route.id);
     if (token !== routeToken) return;

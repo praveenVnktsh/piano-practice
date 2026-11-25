@@ -130,7 +130,7 @@ describe('periods, smart collections and filters', () => {
     const {songs} = JSON.parse(readFileSync('public/songs/catalog.json', 'utf8'));
     for (const s of songs) {
       expect(s.period ?? null, s.id).toBe(periodOf(s.composer));
-      if (s.composer !== 'Traditional') expect(['Baroque', 'Classical', 'Romantic', 'Modern'], s.id).toContain(s.period);
+      if (!/^Traditional\b/.test(s.composer)) expect(['Baroque', 'Classical', 'Romantic', 'Modern'], s.id).toContain(s.period);
     }
   });
 

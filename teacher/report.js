@@ -8,6 +8,7 @@ import {normalizeDoc, dayKey} from '../src/progress/model.js';
 import {lastDays, readingSummary, streaks, totalMinutes, exerciseStats} from '../src/progress/stats.js';
 import {dueReviews, goalProgress, plateaus, repertoire, troubleSpots, sectionMastery} from '../src/progress/mastery.js';
 import {curriculum} from '../src/curriculum/levels.js';
+import {barsName, heatStrip, ladderLine, learnPlan, learnPlans, planLine, tempoLadder} from './insights.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PROGRESS_FILE = process.env.PROGRESS_FILE || join(ROOT, '.data', 'progress.json');
@@ -15,7 +16,13 @@ export const CATALOGS = [join(ROOT, 'public', 'songs', 'catalog.json'), join(ROO
 
 export function readProgressDoc(file = PROGRESS_FILE) {
   try {
-    return normalizeDoc(JSON.parse(readFileSync(file, 'utf8')));
+    const raw = JSON.parse(readFileSync(file, 'utf8'));
+    const doc = normalizeDoc(raw);
+    // "Learn this piece" plans (Phase 12) live in totals.learn; keep them even where the
+    // progress model doesn't know them yet.
+    const learn = raw?.totals?.learn;
+    if (!doc.totals.learn && learn && typeof learn === 'object' && !Array.isArray(learn)) doc.totals.learn = learn;
+    return doc;
   } catch {
     return normalizeDoc(null);
   }
@@ -35,8 +42,11 @@ export function readCatalog(files = CATALOGS) {
 const pct = v => (typeof v === 'number' ? `${Math.round(v)}%` : '–');
 const bars = s => (Array.isArray(s) ? `[${s[0]}, ${s[1]}] (bars ${s[0] + 1}–${s[1] + 1})` : '?');
 
-/** The report as text. `days` = how far back the "recent" sections look. */
-export function progressReport(doc, catalog = [], {now = Date.now(), days = 7} = {}) {
+/**
+ * The report as text. `days` = how far back the "recent" sections look; `comments` = the
+ * teacher's bar comments (teacher/store.js), listed under their piece.
+ */
+export function progressReport(doc, catalog = [], {now = Date.now(), days = 7, comments = []} = {}) {
   const targets = Object.fromEntries(catalog.filter(e => e.tempo).map(e => [e.id, e.tempo]));
   const out = [];
   const week = lastDays(doc, days, now);
@@ -57,6 +67,24 @@ export function progressReport(doc, catalog = [], {now = Date.now(), days = 7} =
     if (weak.length) out.push(`      weakest bars: ${weak.map(b => `${b.label} (${b.accuracy}% of ${b.attempts})`).join(', ')}`);
     const secs = sectionMastery(doc, m.songId, {target: m.target}).slice(0, 3);
     for (const s of secs) out.push(`      section ${bars(s.section)}: ${s.status}, ${s.attempts} passes on ${s.days} day(s), best ${pct(s.best)}`);
+    const heat = heatStrip(doc, m.songId, {measureCount: m.measureCount});
+    if (heat) {
+      out.push(`      heat strip (G clean ≥95% · f ≥80% · W below · · not yet): ${heat.counts.good} G, ${heat.counts.fair} f, ${heat.counts.weak} W`);
+      for (const line of heat.text.split('\n')) out.push(`        ${line}`);
+    }
+    const ladder = tempoLadder(doc, m.songId, {target: m.target}).slice(0, 4);
+    if (ladder.length) out.push(`      tempo ladder: ${ladder.map(ladderLine).join('; ')}`);
+    const plan = learnPlan(doc, m.songId);
+    if (plan) out.push(`      learn plan: ${planLine(plan)}`);
+    const pinned = comments.filter(c => c.songId === m.songId && !c.dismissedAt);
+    if (pinned.length)
+      out.push(`      your bar comments: ${pinned.map(c => `#${c.id} ${barsName([c.first, c.last])} (${c.readAt ? 'read' : 'unread'})`).join(', ')}`);
+  }
+  const listed = new Set(rep.slice(0, 15).map(m => m.songId));
+  const otherPlans = learnPlans(doc).filter(p => !listed.has(p.songId));
+  if (otherPlans.length) {
+    out.push('', 'Learn plans (pieces with no practice passes yet):');
+    for (const p of otherPlans) out.push(`  ${p.title} [${p.songId}]: ${planLine(p)}`);
   }
 
   const due = dueReviews(doc, {targets, now});

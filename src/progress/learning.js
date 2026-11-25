@@ -68,7 +68,13 @@ function levelBody(lp) {
   const group = (title, note, items) => el('div', {class: 'pg-syl-group'},
     el('p', {class: 'pg-syl-h'}, title, note ? el('span', {class: 'pg-syl-note', text: note}) : null),
     el('ul', {class: 'pg-syl', role: 'list'}, items));
+  const lessons = lp.lessons?.items || [];
   return el('div', {class: 'pg-level-body'},
+    lessons.length ? group('First lessons', `${lessons.filter(l => l.done).length} of ${lessons.length}`,
+      lessons.map(l => el('li', {},
+        tick(l.done),
+        el('a', {class: 'pg-syl-item', href: '#/exercises/lessons/' + l.id}, l.label),
+        el('span', {class: 'pg-syl-status', text: l.best != null ? `best ${Math.round(l.best)}%` : ''})))) : null,
     group('Pieces', pieces.items.length ? `${pieces.have} of ${pieces.need} secure` : 'more pieces are coming to the library',
       pieces.items.map(p => el('li', {},
         tick(p.done),

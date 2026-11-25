@@ -278,13 +278,17 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   `isSetUp`, `listenSpan`), `first-look.mjs` (pure: `firstLook(song, {tempo})` → key, meter, tempo, hand ranges,
   `trickyBars`), `position.mjs` (pure: `startingKeys`), `guide.js` (`attachLearn(api)` from src/player.js:
   the "Next step" button `#learn-next` under the stage, Bars ▾ → `#learn-toggle`, the first-look card).
-- **Plan steps** per phrase (`detectPhrases`; phrases that only replay a repeat are skipped): `listen` →
-  `right` → `left` (only when both hands play) → `slow` (play along at 60 % of the target) → `tempo`
-  (the slow-practice ladder to the target) → `join` (with the phrase before it); then `whole`.
+- **Plan steps** per passage: phrases (`detectPhrases`) are grouped into passages of about 4–8 bars
+  (`groupPassages`: short phrases merged at phrase ends, a phrase split only when longer than 8 bars), and
+  literal repeats of 4+ bars (`repeatRuns`: the same notes bar for bar as earlier bars, unfolded or written
+  out) become one passage "same as passage N" with a single `through` step (play it through at tempo).
+  New passages walk `listen` → `right` → `left` (only when both hands play) → `slow` (play along at 60 %
+  of the target) → `tempo` (the slow-practice ladder to the target) → `join` (with up to 8 bars before);
+  then `whole`. Passages are numbered among new music only ("Passage 2 of 6 · Left hand", "Step 9 of 36").
   Step keys are `"<first>-<last>:<kind>"`. A step is done by a `practice:result` covering its bars with its
   hands, mode and tempo at ≥ 90 % accuracy, or (listen) by listening to the end of a covering section.
   "Next step" sets the step up through `window.pianoPlayer` (`setSection`, `setHands`, `setMode`,
-  `setStrategy`, `setTempo`); once set up, the same button starts it.
+  `setStrategy`, `setTempo`); once set up, the same button starts it. A step completed during a loop lets that pass finish, then stops quietly (no results card) with the next step in the prompt.
 - **Event `learn:step`** (window CustomEvent, recorded by the progress store):
   `detail: {songId, title, action: 'start' | 'done' | 'stop', key? (done step), total, next: {key, label} | null, at}`.
   The progress document aggregates it into `totals.learn[songId] = {title, active, done: [key], total, next,
@@ -318,3 +322,65 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
 - **Player**: an entry `view: 'falling'` hint shows falling notes for that piece only (like the
   sight-reading `view: 'sheet'` hint); choosing a view while on it saves the student's choice.
 - Pieces labels them "From a MIDI file — unverified". Guide: songs/README.md "Importing a MIDI file".
+
+## v6 additions: the absolute beginner (Phase 13)
+- **First lessons** (`src/lessons/`): `lessons.js` (pure: lesson data, task generation from a seed,
+  `step(task, state, midi)` checking, `score`, `lessonBests(doc)`), `art.js` (SVG strings, colours
+  only through `.la-*` classes in `lessons.css`), `view.js`. Routes under Exercises:
+  `#/exercises/lessons` → `mountLessons(container)` and `#/exercises/lessons/<id>` →
+  `mountLesson(container, {lesson})` (returns `{title}`). Lesson ids: `keyboard`, `fingers`,
+  `middle-c`, `first-tunes`. Keys are checked from window `piano:note` (MIDI, relay, mic) and the
+  lesson's own on-screen keys. The Exercises hub has one wide "First lessons" card; Today's first
+  movement becomes the next lesson while the path is at Beginner and lessons remain.
+- **`trainer:result` level prefix `lesson:<id>`** (with `passed`, ≥ 80 %). `src/progress/model.js`
+  counts it as a skill (`SKILLS` adds `lesson`, `totals.skills.lesson.levels[id] = best`),
+  `isSkillLevel(level)` tells the other drills from note reading; Today's reading step and the
+  note-reading trend ignore `rhythm:` / `theory:` / `ear:` / `lesson:` levels.
+- **localStorage `piano-practice.lessons`** = `{lessons: {<id>: {best, done, at, attempts}}}` (like
+  `piano-practice.theory`); the progress document stays the source of truth for the path.
+- **Curriculum**: a level may list `lessons: [lesson ids]` (Beginner only), each passed once at
+  ≥ 80 %; `evaluateLevel` returns `lessons: {items: [{id, label, best, done}], done}` and counts them
+  in `fraction`; `curriculum().next.lesson`. Beginner lists twelve Grade 0 pieces (`need: 6`) and the
+  reading track `c-position` (new note-reading level: C–G in each hand) → `landmarks` → `treble`.
+  The teacher context's path adds `lessonsLeft`.
+- **Beginner arrangements**: `songs/repertoire.json` `arrangements: [{id, title, composer, grade,
+  tempo, hands: 'right'|'left'|'alternating'|'both', position, license}]` (sources `songs/<id>.notes`);
+  `npm run songs` writes their MusicXML and catalog entries (`arrangementEntry` / `syncArrangements` in
+  `tools/notes2musicxml.mjs`). Catalog entries may carry `hands` and `arrangement` (a short position
+  note). Licence string: "Public domain (traditional), arrangement MIT". In `.notes`, a `clef=` in
+  the first measure sets that staff's starting clef.
+- **Beginner score aids** (`src/curriculum/aids.js`, pure): while the path's current level is
+  Beginner, the shell opens Grade 0 pieces with an `aids: {names: true}` entry hint (for that piece
+  only). The player then shows note names unless the global setting `beginnerAids` is `false`; on such
+  a piece the Note names toggle sets `beginnerAids` (off also clears `names`).
+
+
+## Phase 14: teacher, closer to the music
+
+- **Bar comments** (`teacher/store.js`): `comments.json` in the teacher dir (`TEACHER_DIR`, default `.teacher/`) =
+  `{lastId, comments: [{id, at, songId, first, last, text (≤ 500), readAt?, dismissedAt?}]}`, `first`/`last` 0-based
+  measure indices; ids are never reused. CLI: `comment <songId> <fromBar> <toBar> "<text>"` (bar numbers from 1 =
+  index + 1), `comments [<songId>] [--all]`, `uncomment <id>`. Endpoints: `GET /__teacher/comments[?songId=]` →
+  `{comments}`, `POST /__teacher/comments/<id>/read|dismiss` → the comment; the thread (GET `/__teacher` and the SSE
+  `thread` event) carries `comments`.
+- **In the player** (`src/teacher/bar-notes.js`, pure helpers in `src/teacher/comments.mjs`): `attachBarNotes({root,
+  highway, song, range, entry, label, setSection})` → `{layout(sheetTrack, measureBoxes), loaded(), destroy()}`; the
+  player calls `layout` after laying out the sheet and `loaded` when a piece is shown. Live comments come from the
+  Teacher panel's window event `teacher:thread` (detail = the thread) after one `GET /__teacher/comments`. A brass
+  hairline + quill tab over the bars (score: a layer in `#um-sheet` following the track's transform; falling notes:
+  a layer in the stage using `highway.yOf(t)`); the tab opens a note with "Practise these bars" (`setSection`),
+  "Ask about these bars" and "Dismiss". ⋯ gets "Ask the teacher about bars X–Y" (`#ask-teacher-btn`, only with a teacher).
+- **Ask about these bars**: window event `teacher:ask` `{songId, title, section, bars, tempo?, hands?, comments?}` → the
+  panel opens with the text "About bars X–Y: " and an attachment; the message's context gains
+  `ask: {songId, title, section, bars, tempo?, hands?, lastResult: <trimmed practice:result over those bars> | null,
+  comments?}` (sent even with sharing off). `teacher/cli.js` `list --open` / `show` print it as `ASKING ABOUT …`.
+- **Progress report** (`teacher/insights.js`): per piece the heat strip (`heatStrip`: G/f/W/· per bar), the tempo ladder
+  (`tempoLadder`: best clean play-along tempo ≥ 95 % per section and hands + `nextTempoStep`), the learn plan
+  (`learnPlan`, read defensively from `totals.learn[songId]` of the progress document, Phase 12) and the teacher's
+  comments; `readProgressDoc` keeps `totals.learn` even where the model drops it.
+- **Teacher exercises** (`teacher/exercises.js` storage, `teacher/compose.js` composing via tools/notes2musicxml.mjs;
+  the plugin must not import the converter): `exercises.json` = `{lastId, exercises: [{id, at, title, about?, songId?,
+  first?, last?}]}` + `exercises/<id>.musicxml`. CLI `exercise "<title>" <file.notes> [--about] [--song --bars 5-8]`,
+  `exercises`, `unexercise <id>`. Endpoints `GET /__teacher/exercises` → `{exercises}`, `GET
+  /__teacher/exercises/<id>.musicxml`. App ids `tex:<id>` resolve through `catalog.resolveEntry` →
+  `src/teacher/exercises.js`; Exercises lists them under "From your teacher"; mastery leaves `tex:` out of repertoire.
