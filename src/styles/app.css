@@ -399,7 +399,10 @@ button.menu-row:hover > span:first-child { color: var(--brass); }
 .sheet::before, .sheet::after { content: ""; position: absolute; top: 0; bottom: 0; width: 36px; z-index: 2; pointer-events: none; }
 .sheet::before { left: 0; background: linear-gradient(90deg, var(--paper-raised), transparent); }
 .sheet::after { right: 0; background: linear-gradient(-90deg, var(--paper-raised), transparent); }
-.sheet-track { position: relative; flex: none; will-change: transform; }
+/* No will-change here: the track is the whole piece (thousands of px wide), and promoting it to its
+   own layer made the browser re-raster all of it every frame once the whole piece was the section
+   (~600 ms frames on Für Elise). Moving it without the hint costs one visible-area paint. */
+.sheet-track { position: relative; flex: none; }
 .sheet-track svg { display: block; color: var(--ink); fill: var(--ink); overflow: visible; }
 .sheet-track svg * { stroke-linecap: butt; }
 /* Brass playhead with a small engraved cap. */
