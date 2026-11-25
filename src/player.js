@@ -21,6 +21,7 @@ import {playerMusicality, compactMusicality} from './analysis/musicality.mjs';
 import {renderMusicality} from './analysis/musicality-view.js';
 import {attachLearn} from './learn/guide.js';
 import {startingKeys} from './learn/position.mjs';
+import {fingeringFor, drawSuggestedFingering} from './fingering/overlay.js';
 
 // Per-bar statistics from the progress store (src/progress/mastery.js, owned by
 // the learning-path module). Loaded lazily; a glob so the player still builds
@@ -242,7 +243,7 @@ export function createPlayer(root) {
     sheetEls = new Map([...sheetSvg.querySelectorAll('.note')].map(el => [el.id, el]));
     measureEls = new Map([...sheetSvg.querySelectorAll('.measure')].map(el => [el.id, el]));
     for (const seg of song.segments) sheetEls.get(seg.id)?.classList.add(seg.hand === 'l' ? 'h-l' : 'h-r');
-    labelled = false;
+    labelled = false; fingered = false;
     layoutSheet();
   }
   // Letter names drawn inside each notehead (shown when "Note names" is on).
@@ -265,6 +266,15 @@ export function createPlayer(root) {
       t.textContent = info.name;
       head.append(t);
     }
+  }
+  // Suggested fingering where the score prints none (src/fingering/), drawn once laid out;
+  // an easy piece (Grade 0–1) favours five-finger positions.
+  let fingered = false;
+  function fingerNoteheads() {
+    if (fingered || !sheetSvg || !sheetHost.clientHeight) return;
+    fingered = true;
+    const easy = current?.grade != null ? current.grade <= 1 : ['beginner', 'easy'].includes(current?.difficulty);
+    drawSuggestedFingering(sheetSvg, sheetEls, song, fingeringFor(song, {beginner: easy}));
   }
   // Size the system to the card and map score time → horizontal position.
   function unmountSheet() {
@@ -380,6 +390,7 @@ export function createPlayer(root) {
     const view0 = root.dataset.view;
     if ((view0 !== 'sheet' && view0 !== 'pages') || !sheetTrack || !anchors.length) return;
     if (!labelled && root.classList.contains('show-names')) labelNoteheads();
+    if (!fingered && !root.classList.contains('no-fing')) fingerNoteheads();
     const p = livePos(); if (p == null) return;
     const target = xAt(p);
     sheetX = playing || scrub || REDUCED.matches || Math.abs(target - sheetX) > 2000 ? target : sheetX + (target - sheetX) * .2;
@@ -2023,6 +2034,10 @@ export function createPlayer(root) {
     q('#set-pedal').checked = st.pedal !== false;
     root.classList.toggle('no-fing', st.fingering === false);
     q('#set-fing').checked = st.fingering !== false;
+    // Larger noteheads: the student's own choice, else on for a Beginner's Grade 0 piece.
+    const large = typeof st.largeNotes === 'boolean' ? st.largeNotes : largeAided;
+    root.classList.toggle('large-notes', large);
+    q('#set-large').checked = large;
     highway.layout();
     requestAnimationFrame(layoutSheet);
   }
@@ -2050,6 +2065,7 @@ export function createPlayer(root) {
   const setNames = v => { save(namesAided ? (v ? {beginnerAids: true} : {beginnerAids: false, names: false}) : {names: !!v}); applySettings(load()); };
   q('#set-names').onchange = () => setNames(q('#set-names').checked);
   q('#set-fing').onchange = () => { save({fingering: q('#set-fing').checked}); applySettings(load()); };
+  q('#set-large').onchange = () => { save({largeNotes: q('#set-large').checked}); applySettings(load()); };
   q('#names-btn').onchange = () => setNames(q('#names-btn').checked);
   root.querySelectorAll('input[name="menu-view"]').forEach(input => input.onchange = () => { viewHinted = false; save({view: input.value}); applySettings(load()); draw(); });
   q('#set-pedal').onchange = () => { save({pedal: q('#set-pedal').checked}); applySettings(load()); };
@@ -2249,10 +2265,11 @@ export function createPlayer(root) {
   // `view: 'falling'` (a MIDI import whose timing was too loose for a clean score) does the reverse.
   let viewHinted = false;
   let namesAided = false; // entry.aids.names: a Beginner's Grade 0 piece (src/curriculum/aids.js)
+  let largeAided = false; // entry.aids.large: the same, for larger noteheads
   function applyEntryHints(entry) {
     const st = load();
-    const aided = !!entry?.aids?.names;
-    if (aided !== namesAided) { namesAided = aided; applySettings(st); }
+    const aided = !!entry?.aids?.names, large = !!entry?.aids?.large;
+    if (aided !== namesAided || large !== largeAided) { namesAided = aided; largeAided = large; applySettings(st); }
     const m = entry?.mode === 'timed' || entry?.mode === 'wait' ? entry.mode : st.mode === 'timed' ? 'timed' : 'wait';
     const i = entry?.intent === 'practice' || entry?.intent === 'listen' ? entry.intent : st.intent === 'practice' ? 'practice' : 'listen';
     setMode(m, {persist: false});

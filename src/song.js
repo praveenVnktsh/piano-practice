@@ -1,6 +1,7 @@
 import {createToolkit} from './verovio.js';
 import {buildScore} from './score-core.mjs';
 import {prepareMusicXml} from './musicxml.mjs';
+import {printedFingering} from './fingering/printed.mjs';
 
 // Turns a score (MusicXML, compressed MXL or MEI) into a playable song:
 // measures and note events with times in quarter notes, plus the whole
@@ -51,6 +52,7 @@ export async function loadSong(source = {}) {
     segments: score.segments,
     marks: score.marks, // {dynamics, hairpins, pedals, slurs} from the score, timed in quarter notes
     noteNames: noteNames(score.mei, score.segments),
+    printedFingering: printedFingering(score.mei), // {fingers, bars} (src/fingering/printed.mjs)
     fullSvg: () => svg,
   };
 }

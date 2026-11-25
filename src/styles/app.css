@@ -405,6 +405,14 @@ button.menu-row:hover > span:first-child { color: var(--brass); }
 }
 .sheet .nh-name.hollow { fill: var(--ink) !important; }
 .show-names .sheet .nh-name { display: inline; }
+/* Suggested fingering (src/fingering/): small italic numerals in the secondary ink, never the printed ones. */
+.sheet g.sfing text { fill: var(--ink-soft); font-family: var(--font-text); font-style: italic; text-anchor: middle; pointer-events: none; }
+.no-fing .sheet g.sfing { display: none; }
+.hands-right .sheet g.sfing.h-l, .hands-left .sheet g.sfing.h-r { opacity: .35; }
+.sfing-key { font-family: var(--font-text); font-style: italic; color: var(--ink-soft); }
+/* Larger notes (Settings → The stage): noteheads scaled about their centre, so the playhead,
+   highlights and the letters inside them stay where they were. */
+.large-notes .sheet .notehead { transform-box: fill-box; transform-origin: center; transform: scale(1.3); }
 .sheet.tall { overflow-y: auto; align-items: flex-start; scrollbar-width: thin; }
 
 /* Trouble spots: a hairline of colour above each practised bar. */
