@@ -1,5 +1,6 @@
 import {passage, spelledName, FollowNotes, handGroups, handFilter, TimedGrader, TIMING, beatsOf, countIn, measureBeats, beatInfo, speedUpTempo, MissLog} from './score-core.mjs';
 import {createHighway} from './highway.js';
+import {follower} from './motion.mjs';
 import {createPiano} from './piano.js';
 import {keyForControl} from './app/dom.js';
 import {mountSoundSettings} from './audio/sound-ui.js'; // [sound] instrument, room, metronome sound, microphone
@@ -236,6 +237,10 @@ export function createPlayer(root) {
   const sheetHost = q('#um-sheet');
   let sheetTrack = null, sheetSvg = null, sheetEls = new Map(), measureEls = new Map();
   let anchors = [], sheetX = 0, lit = new Set();
+  // The music glides under the playhead between notes (Wait mode, stepping): a critically damped
+  // spring, the same speed at 60 and 120 Hz. Playing in real time follows exactly.
+  const sheetGlide = follower(.24, {epsilon: .5});
+  let lastFrame = 0;
   let measureBoxes = [], pages = [], page = -1, manualPage = null, autoPage = -1;
   let barNotes = null; // the teacher's bar comments, drawn over the score (attachBarNotes below)
   function mountSheet() {
@@ -288,7 +293,7 @@ export function createPlayer(root) {
   function unmountSheet() {
     sheetHost.replaceChildren();
     sheetTrack = sheetSvg = null; sheetEls = new Map(); measureEls = new Map();
-    anchors = []; sheetX = 0; lit = new Set();
+    anchors = []; sheetX = sheetGlide.jump(0); lit = new Set();
     measureBoxes = []; pages = []; page = -1; manualPage = null; autoPage = -1; clefW = 0;
     barNotes?.layout(null, []);
   }
@@ -323,7 +328,7 @@ export function createPlayer(root) {
     const lastEl = measureEls.get(last.id);
     if (lastEl) byTime.set(last.end, lastEl.getBoundingClientRect().right - base);
     anchors = [...byTime].sort((a, b) => a[0] - b[0]).filter(([, x], i, arr) => i === 0 || x > arr[i - 1][1]);
-    sheetX = xAt(livePos() ?? 0);
+    sheetX = sheetGlide.jump(xAt(livePos() ?? 0));
     // Measure boxes on the system: for the trouble strip and for pages.
     measureBoxes = song.measures.map(m => {
       const r = measureEls.get(m.id)?.getBoundingClientRect();
@@ -395,13 +400,15 @@ export function createPlayer(root) {
   }
   function scrollSheet() {
     requestAnimationFrame(scrollSheet);
+    const now = performance.now(), dt = lastFrame ? (now - lastFrame) / 1000 : 0;
+    lastFrame = now;
     const view0 = root.dataset.view;
     if ((view0 !== 'sheet' && view0 !== 'pages') || !sheetTrack || !anchors.length) return;
     if (!labelled && root.classList.contains('show-names')) labelNoteheads();
     if (!fingered && !root.classList.contains('no-fing')) fingerNoteheads();
     const p = livePos(); if (p == null) return;
     const target = xAt(p);
-    sheetX = playing || scrub || REDUCED.matches || Math.abs(target - sheetX) > 2000 ? target : sheetX + (target - sheetX) * .2;
+    sheetX = playing || scrub || clock || external || REDUCED.matches || Math.abs(target - sheetX) > 2000 ? sheetGlide.jump(target) : sheetGlide.step(target, dt);
     if (view0 === 'pages' && pages.length) return showPage(p);
     const view = sheetHost.clientWidth;
     if (sheetTrack.style.clipPath) {
@@ -1745,6 +1752,7 @@ export function createPlayer(root) {
 
   // ───────── Highway ─────────
   const highway = createHighway({
+    glides: () => !playing && !scrub && !clock && !external,
     canvas: q('#um-highway'),
     keys: q('#um-keys'),
     getEvents: () => range?.events ?? [],
