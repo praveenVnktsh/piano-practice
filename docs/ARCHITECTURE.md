@@ -286,7 +286,7 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   Step keys are `"<first>-<last>:<kind>"`. A step is done by a `practice:result` covering its bars with its
   hands, mode and tempo at ≥ 90 % accuracy, or (listen) by listening to the end of a covering section.
   "Next step" sets the step up through `window.pianoPlayer` (`setSection`, `setHands`, `setMode`,
-  `setStrategy`, `setTempo`); once set up, the same button starts it.
+  `setStrategy`, `setTempo`); once set up, the same button starts it. A step completed during a loop lets that pass finish, then stops quietly (no results card) with the next step in the prompt.
 - **Event `learn:step`** (window CustomEvent, recorded by the progress store):
   `detail: {songId, title, action: 'start' | 'done' | 'stop', key? (done step), total, next: {key, label} | null, at}`.
   The progress document aggregates it into `totals.learn[songId] = {title, active, done: [key], total, next,
