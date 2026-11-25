@@ -1,0 +1,9 @@
+dist/
+node_modules/
+src/vendor/
+public/
+package-lock.json
+work/
+outputs/
+local-converter/
+.notes/

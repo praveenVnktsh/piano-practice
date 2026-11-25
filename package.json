@@ -1,0 +1,32 @@
+{
+  "name": "piano-practice",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:ipad": "ANNOTATE=1 vite --host",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "songs": "node tools/notes2musicxml.mjs --all",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
+    "jsdom": "^29.1.1",
+    "prettier": "^3.10.1",
+    "vite": "^6.4.6",
+    "vitest": "^4.1.12"
+  },
+  "license": "MIT",
+  "description": "Practice piano in the browser: falling notes or sheet music, a sampled grand piano, MIDI keyboard practice and section looping.",
+  "engines": {
+    "node": ">=20"
+  }
+}

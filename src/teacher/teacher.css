@@ -1,0 +1,445 @@
+/* Teacher panel (src/teacher/). Built on the design tokens in src/styles/tokens.css
+   (docs/DESIGN.md: "letters/notes in the margin"); fallbacks keep it readable without them. */
+.tch-fab,
+.tch-panel {
+  --t-paper: var(--paper-raised, #fbf8f1);
+  --t-sunk: var(--paper-sunk, #ebe4d5);
+  --t-ink: var(--ink, #1d1b18);
+  --t-soft: var(--ink-soft, #6d665b);
+  --t-faint: var(--ink-faint, #a39b8d);
+  --t-rule: var(--rule, rgba(29, 27, 24, 0.14));
+  --t-brass: var(--brass, #a8833f);
+  --t-brass-soft: var(--brass-soft, rgba(168, 131, 63, 0.16));
+  --t-sage: var(--sage, #5f8a69);
+  --t-ox: var(--oxblood, #8e3b3f);
+  --t-ui: var(--font-ui, Inter, ui-sans-serif, system-ui, -apple-system, sans-serif);
+  --t-text: var(--font-text, 'EB Garamond', Georgia, serif);
+  --t-display: var(--font-display, 'Cormorant Garamond', 'EB Garamond', Georgia, serif);
+  --t-off: 0px; /* room taken by the annotate sidebar */
+}
+html.__ann-side-open .tch-fab,
+html.__ann-side-open .tch-panel {
+  --t-off: var(--ann-width, 0px);
+}
+
+/* Floating button: right side, above the on-screen keyboard and clear of the annotate buttons. */
+.tch-fab {
+  position: fixed;
+  z-index: 60;
+  right: calc(16px + var(--t-off) + env(safe-area-inset-right));
+  bottom: calc(var(--kb-h, 160px) + 14px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px 0 13px;
+  border: 1px solid var(--t-rule);
+  border-radius: 999px;
+  background: var(--t-paper);
+  color: var(--t-ink);
+  font: 600 14px var(--t-ui);
+  box-shadow: var(--shadow-paper, 0 10px 30px -12px rgba(40, 30, 15, 0.35));
+  -webkit-tap-highlight-color: transparent;
+}
+.tch-fab svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: var(--t-brass);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tch-fab:hover {
+  border-color: var(--t-brass);
+}
+.tch-fab.has-unread {
+  border-color: var(--t-brass);
+}
+.tch-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--t-brass);
+  color: #fff;
+  font: 700 11px/20px var(--t-ui);
+  text-align: center;
+}
+html.tch-open .tch-fab {
+  display: none;
+}
+
+/* Slide-over panel. */
+.tch-panel {
+  position: fixed;
+  z-index: 61;
+  top: 0;
+  bottom: 0;
+  right: var(--t-off);
+  width: min(420px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--t-paper);
+  color: var(--t-ink);
+  border-left: 1px solid var(--t-rule);
+  box-shadow: -18px 0 40px -24px rgba(40, 30, 15, 0.45);
+  font-family: var(--t-ui);
+  user-select: text;
+  -webkit-user-select: text;
+  animation: tch-in var(--dur, 200ms) var(--ease, ease-out);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@keyframes tch-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@media (max-width: 600px) {
+  .tch-panel {
+    width: 100vw;
+    right: 0;
+    border-left: 0;
+  }
+}
+
+.tch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(14px + env(safe-area-inset-top)) 16px 12px 20px;
+  border-bottom: 1px solid var(--t-rule);
+}
+.tch-head h2 {
+  margin: 0;
+  font: 600 24px/1.1 var(--t-display);
+  letter-spacing: 0.01em;
+}
+.tch-head p {
+  margin: 2px 0 0;
+  color: var(--t-soft);
+  font-size: 12px;
+  font-variant: all-small-caps;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.tch-close {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-control, 6px);
+  border: 1px solid transparent;
+  background: none;
+  color: var(--t-soft);
+  font-size: 26px;
+  line-height: 1;
+}
+.tch-close:hover {
+  border-color: var(--t-rule);
+  color: var(--t-ink);
+}
+
+.tch-thread {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.tch-msg {
+  margin: 0 0 18px;
+  display: flex;
+  flex-direction: column;
+}
+.tch-msg small {
+  margin-top: 4px;
+  color: var(--t-faint);
+  font-size: 11px;
+}
+.tch-msg.mine {
+  align-items: flex-end;
+}
+.tch-bubble {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: var(--radius-card, 10px) var(--radius-card, 10px) 2px var(--radius-card, 10px);
+  background: var(--t-sunk);
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+/* Teacher replies read like a letter: serif text, a brass hairline in the margin. */
+.tch-msg.teacher {
+  padding-left: 14px;
+  border-left: 2px solid var(--t-brass-soft);
+}
+.tch-letter {
+  font: 18px/1.5 var(--t-text);
+  overflow-wrap: anywhere;
+}
+.tch-letter p,
+.tch-letter ul,
+.tch-letter ol {
+  margin: 0 0 0.6em;
+}
+.tch-letter ul,
+.tch-letter ol {
+  padding-left: 1.3em;
+}
+.tch-letter li {
+  margin: 0.15em 0;
+}
+.tch-letter h4 {
+  margin: 0.4em 0 0.3em;
+  font: 600 19px var(--t-display);
+}
+.tch-letter code {
+  font:
+    13px ui-monospace,
+    Menlo,
+    monospace;
+  background: var(--t-sunk);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.tch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 4px;
+}
+.tch-action {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-control, 6px);
+  border: 1px solid var(--t-brass);
+  background: var(--t-brass-soft);
+  color: var(--t-ink);
+  font: 600 13px var(--t-ui);
+}
+.tch-action:hover {
+  background: var(--t-brass);
+  color: #fff;
+}
+.tch-note {
+  font-size: 12px;
+  font-weight: 600;
+}
+.tch-note.ok {
+  color: var(--t-sage);
+}
+.tch-note.bad {
+  color: var(--t-ox);
+}
+
+.tch-plan {
+  margin: 6px 0 8px;
+  border: 1px solid var(--t-rule);
+  border-radius: var(--radius-card, 10px);
+  background: var(--t-paper);
+}
+.tch-plan-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--t-rule);
+}
+.tch-plan-head strong {
+  font: 600 18px var(--t-display);
+  flex: 1;
+}
+.tch-plan-head small {
+  color: var(--t-soft);
+  font-size: 12px;
+}
+.tch-plan ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tch-plan li {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--t-rule);
+}
+.tch-plan li:last-child {
+  border-bottom: 0;
+}
+.tch-plan label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.tch-plan label span {
+  flex: 1;
+}
+.tch-plan label small {
+  color: var(--t-soft);
+  white-space: nowrap;
+}
+.tch-plan input {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--t-brass);
+  flex: none;
+}
+.tch-plan li.done label span {
+  color: var(--t-faint);
+  text-decoration: line-through;
+}
+.tch-plan-act {
+  margin: 6px 0 0 28px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.tch-empty p {
+  margin: 4px 0 14px;
+  color: var(--t-soft);
+  font: 17px/1.5 var(--t-text);
+}
+.tch-suggest {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.tch-chip {
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  text-align: left;
+  border: 1px solid var(--t-rule);
+  background: none;
+  color: var(--t-ink);
+  font: 500 13px var(--t-ui);
+}
+.tch-chip:hover {
+  border-color: var(--t-brass);
+}
+
+.tch-thinking {
+  padding: 6px 20px 8px;
+  color: var(--t-soft);
+  font: italic 16px var(--t-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tch-thinking span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--t-brass);
+  animation: tch-dot 1.2s infinite ease-in-out;
+}
+.tch-thinking span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.tch-thinking span:nth-child(3) {
+  animation-delay: 0.3s;
+  margin-right: 6px;
+}
+@keyframes tch-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.tch-quick {
+  padding: 0 20px;
+}
+.tch-quick:not(:empty) {
+  padding-bottom: 8px;
+}
+.tch-feedback {
+  border-color: var(--t-brass);
+  background: var(--t-brass-soft);
+  font-weight: 600;
+}
+
+.tch-compose {
+  border-top: 1px solid var(--t-rule);
+  padding: 10px 16px 14px 20px;
+}
+.tch-share {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--t-soft);
+  font-size: 12px;
+  cursor: pointer;
+}
+.tch-share input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--t-brass);
+}
+.tch-share em {
+  font-style: normal;
+  color: var(--t-ink);
+}
+.tch-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.tch-row textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 160px;
+  resize: none;
+  padding: 9px 11px;
+  border-radius: var(--radius-control, 6px);
+  border: 1px solid var(--t-rule);
+  background: var(--t-sunk);
+  color: var(--t-ink);
+  font: 16px/1.35 var(--t-ui); /* 16px: no zoom-on-focus on iOS */
+}
+.tch-row textarea:focus {
+  outline: none;
+  border-color: var(--t-brass);
+}
+.tch-send {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: var(--radius-control, 6px);
+  border: 0;
+  background: var(--t-ink);
+  color: var(--t-paper);
+  font: 600 14px var(--t-ui);
+}
+.tch-error {
+  margin: 8px 0 0;
+  color: var(--t-ox);
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tch-panel,
+  .tch-thinking span {
+    animation: none;
+  }
+}
+
+/* The annotate overlay's buttons (dev server, bottom-right, always on top) would cover the composer. */
+body:has(> .__ann-bar) .tch-compose {
+  padding-bottom: 64px;
+}

@@ -1,0 +1,53 @@
+Third-party notices for Piano Practice
+======================================
+
+The application code is MIT-licensed (see LICENSE in the source repository).
+It bundles or uses the following third-party components and content, each
+under its own licence.
+
+SOFTWARE
+--------
+
+Verovio 6.2.0 — Laurent Pugin and contributors.
+  License: LGPL-3.0-or-later. Unmodified toolkit modules are in src/vendor/
+  (verovio.mjs, verovio-module.mjs) and are shipped as separate files.
+  Source and license: https://github.com/rism-digital/verovio/tree/version-6.2.0
+  https://www.gnu.org/licenses/lgpl-3.0.html
+
+Audiveris 5.11.0 — optional optical music recognition helper.
+  Used separately as a local, unmodified, source-built executable. It is not
+  included in this app or its build output. License: AGPL-3.0.
+  Source: https://github.com/Audiveris/audiveris/tree/5.11.0
+
+SAMPLES
+-------
+
+Salamander Grand Piano samples (public/samples/piano)
+  Recorded by Alexander Holm. Licensed under Creative Commons Attribution 3.0
+  (https://creativecommons.org/licenses/by/3.0/). MP3 subset as distributed by
+  the Tone.js project (https://tonejs.github.io/audio/salamander/).
+
+SCORES
+------
+
+Bundled songs are public domain or openly licensed. Each entry in
+public/songs/catalog.json records the licence, source and source URL of its
+file. Songs converted from the Mutopia Project (https://www.mutopiaproject.org)
+with tools/ly2musicxml.mjs:
+
+Für Elise (Bagatelle in A minor, WoO 59) — Ludwig van Beethoven
+  Typeset by Stelios Samelis for the Mutopia Project.
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Piano Sonata No. 14 "Moonlight", Op. 27 No. 2 — 1st movement (Adagio sostenuto)
+  — Ludwig van Beethoven
+  Typeset by Stewart Holmes for the Mutopia Project.
+  License: Creative Commons Attribution-ShareAlike 2.5
+  (https://creativecommons.org/licenses/by-sa/2.5/). The converted MusicXML is
+  a derivative work and remains under CC BY-SA 2.5, with the same attribution.
+
+Hand transcriptions in songs/*.notes (compiled to public/songs/*.musicxml)
+carry the licence stated in each file's header.
+
+Private scores placed in public/songs/local/ are not part of this project,
+are not committed, and are the responsibility of whoever adds them.

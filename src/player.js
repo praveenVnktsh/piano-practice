@@ -1,0 +1,1405 @@
+import {passage, FollowNotes, handGroups, handFilter, TimedGrader, TIMING, beatsOf, countIn, measureBeats, beatInfo, speedUpTempo, MissLog} from './score-core.mjs';
+import {createHighway} from './highway.js';
+import {createPiano} from './piano.js';
+import {onRelayMidi, onRelayStatus, relayAvailable} from './midi-relay.js';
+
+const BLACK = [1, 3, 6, 8, 10];
+const NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+const name = n => NAMES[n % 12] + (Math.floor(n / 12) - 1);
+const PRAISE = ['Great!', 'Nice!', 'Perfect!', 'Yes!', 'Awesome!'];
+const EPS = 1e-6;
+const LOOKAHEAD_MS = 150, TICK_MS = 25; // audio scheduler
+const HANDS = ['left', 'both', 'right'];
+const GRADE_TEXT = {perfect: 'Perfect', early: 'Early', late: 'Late', miss: 'Miss'};
+const ZOOM_MIN = .6, ZOOM_MAX = 3;
+const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, {detail}));
+
+// Settings shared by every song (view, labels, loop, mute, playhead, pedal,
+// hand colours) and per-song state (section, tempo) keyed by song id.
+const STORE = 'piano-practice:settings';
+const SONG_STORE = id => 'piano-practice:song:' + id;
+const LEGACY_STORE = 'una-mattina-player';
+const read = key => { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; } };
+const write = (key, v) => { try { localStorage.setItem(key, JSON.stringify({...read(key), ...v})); } catch {} };
+const load = () => read(STORE);
+const save = v => write(STORE, v);
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
+
+// Carry the old single-song app's global settings over once.
+function migrateSettings() {
+  try {
+    if (localStorage.getItem(STORE) != null || localStorage.getItem(LEGACY_STORE) == null) return;
+    const old = read(LEGACY_STORE), keep = {};
+    for (const k of ['view', 'labels', 'hands', 'playhead', 'pedal', 'loop', 'muted']) if (k in old) keep[k] = old[k];
+    save(keep);
+  } catch {}
+}
+
+// The song player. Every element it uses lives inside `root`.
+//   const player = createPlayer(document.getElementById('player'));
+//   player.load(entry, loadSong(source));
+export function createPlayer(root) {
+  const q = s => root.querySelector(s);
+  migrateSettings();
+  const piano = createPiano(() => setStatus('Audio unavailable · tap Listen to try again'));
+  const tone = piano.tone;
+
+  let song = null, range = null, points = [], pos = 0;
+  let playing = false, finished = false, loop = false;
+  let follow = null, practicing = false, rightCount = 0, wrongCount = 0;
+  const matched = new Set();
+  // Practice options: mode 'wait' | 'timed', hands 'both' | 'right' | 'left'.
+  let mode = 'wait', hands = 'both', metronome = false, metroInWait = false, speedUp = false, zoom = 1;
+  let practiceMode = 'wait';     // mode of the running practice
+  let clock = null;              // transport for Listen and Play along
+  let grader = null;             // play-along grading
+  const grades = new Map();      // event id -> perfect | early | late | miss
+  let autoTimer = null, autoPlayed = new Set(), freeClick = null;
+  let session = null, passStartedAt = 0, misses = new MissLog(50);
+  const wantHand = e => handFilter(hands)(e);
+  const handClass = h => (h === 'l' ? 'lh' : 'rh');
+
+  const tempo = () => +q('#um-tempo').value;
+  const quarterMs = () => 60000 / tempo();
+  const measureIndexAt = t => {
+    const i = song.measures.findIndex(m => m.start <= t + EPS && t + EPS < m.end);
+    return i < 0 || i > range.last ? range.last : Math.max(range.first, i);
+  };
+
+  // ───────── UI helpers ─────────
+  const setStatus = t => { q('#um-status').textContent = t; };
+  const setPrompt = html => { q('#um-practice-status').innerHTML = html; };
+  let feedbackTimer = null;
+  function flash(text, kind = 'good') {
+    const el = q('#um-feedback');
+    el.textContent = text; el.className = 'feedback show ' + kind;
+    clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(() => { el.className = 'feedback ' + kind; }, 650);
+  }
+  function flashKey(n, cls) {
+    const key = q(`.pkey[data-note="${n}"]`); if (!key) return;
+    key.classList.remove(cls); void key.offsetWidth; key.classList.add(cls);
+    setTimeout(() => key.classList.remove(cls), 450);
+  }
+  function setButtons() {
+    q('#um-play span').textContent = playing ? 'Pause' : 'Listen';
+    q('#um-play').classList.toggle('is-playing', playing);
+    q('#um-play svg').innerHTML = playing ? '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>' : '<path d="M7 4.5v15l12-7.5z"/>';
+    q('#um-practice span').textContent = practicing ? 'Restart' : mode === 'timed' ? 'Play along' : 'Practice';
+    q('#um-practice').classList.toggle('is-active', practicing);
+    root.classList.toggle('practicing', practicing);
+    root.classList.toggle('timed', practicing && practiceMode === 'timed');
+  }
+  // "Measure 12", "Pickup", "Measure 3 (repeat)".
+  const shortName = m => m.label + (m.visit > 1 ? ' (repeat)' : '');
+  const measureName = m => m.pickup ? 'Pickup' : 'Measure ' + shortName(m);
+  const sectionLabel = () => {
+    const a = song.measures[range.first], b = song.measures[range.last];
+    if (a === b) return measureName(a);
+    if (a.pickup) return `Pickup – measure ${shortName(b)}`;
+    return `Measures ${shortName(a)}–${shortName(b)}`;
+  };
+
+  // ───────── Keyboard ─────────
+  let keyboardRange = '', defaultLow = 40, defaultHigh = 72;
+  function buildKeyboard(low = defaultLow, high = defaultHigh) {
+    if (keyboardRange === low + ':' + high) return;
+    keyboardRange = low + ':' + high;
+    const keys = q('#um-keys');
+    keys.replaceChildren();
+    keys.setAttribute('aria-label', `Piano keyboard, ${name(low)} to ${name(high)}`);
+    const whites = [];
+    for (let n = low; n <= high; n++) if (!BLACK.includes(n % 12)) whites.push(n);
+    const whiteW = 100 / whites.length;
+    for (let n = low; n <= high; n++) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'pkey'; b.dataset.note = n; b.dataset.hand = n < 60 ? 'l' : 'r';
+      b.setAttribute('aria-label', name(n));
+      if (BLACK.includes(n % 12)) {
+        b.classList.add('black');
+        const idx = whites.filter(w => w < n).length;
+        b.style.left = `calc(${idx * whiteW}% - ${whiteW * .3}%)`;
+        b.style.width = `${whiteW * .6}%`;
+      } else {
+        b.innerHTML = `<span class="label${n % 12 === 0 ? ' c' : ''}">${name(n)}</span>`;
+      }
+      b.addEventListener('pointerdown', e => { e.preventDefault(); userAttack(n, {source: 'screen', velocity: 96}); });
+      keys.append(b);
+    }
+    root.classList.toggle('dense-keys', whites.length > 30);
+    highway.layout();
+  }
+  const whiteBelow = n => { while (BLACK.includes(n % 12)) n--; return n; };
+  const whiteAbove = n => { while (BLACK.includes(n % 12)) n++; return n; };
+
+  // ───────── Section ─────────
+  function setRange(first, last, {quiet = false} = {}) {
+    stopAll();
+    first = Math.max(0, Math.min(song.measures.length - 1, first));
+    last = Math.max(first, Math.min(song.measures.length - 1, last));
+    range = passage(song, first, last);
+    points = [...new Set(range.events.map(e => e.t))].sort((a, b) => a - b);
+    pos = points[0] ?? range.start;
+    finished = false; matched.clear(); grades.clear();
+    saveSong({first, last});
+    highway.jump();
+    markSection();
+    draw();
+    showSectionInputs();
+    if (!quiet) { setStatus(sectionLabel()); setPrompt(promptIdle()); }
+  }
+
+  // ───────── Drawing ─────────
+  // ───────── Unrolled sheet music ─────────
+  // The whole piece is one long system that scrolls under a fixed playhead.
+  const sheetHost = q('#um-sheet');
+  let sheetTrack = null, sheetSvg = null, sheetEls = new Map(), measureEls = new Map();
+  let anchors = [], sheetX = 0, lit = new Set();
+  function mountSheet() {
+    sheetHost.innerHTML = `<div class="sheet-track">${song.fullSvg()}<div class="playhead"></div></div>` +
+      '<div class="sel-ruler" title="Drag across bars to loop them"><span>Drag across bars to loop</span></div>';
+    sheetTrack = sheetHost.firstElementChild;
+    sheetSvg = sheetTrack.querySelector('svg');
+    sheetEls = new Map([...sheetSvg.querySelectorAll('.note')].map(el => [el.id, el]));
+    measureEls = new Map([...sheetSvg.querySelectorAll('.measure')].map(el => [el.id, el]));
+    for (const seg of song.segments) sheetEls.get(seg.id)?.classList.add(seg.hand === 'l' ? 'h-l' : 'h-r');
+    labelled = false;
+    layoutSheet();
+  }
+  // Letter names drawn inside each notehead (shown when "Note names" is on).
+  let labelled = false;
+  function labelNoteheads() {
+    if (labelled || !sheetSvg || !sheetHost.clientHeight) return;
+    labelled = true;
+    const NS = 'http://www.w3.org/2000/svg';
+    for (const [id, info] of song.noteNames ?? []) {
+      const head = sheetEls.get(id)?.querySelector('.notehead');
+      if (!head) continue;
+      let box;
+      try { box = head.getBBox(); } catch { continue; }
+      if (!box.width) continue;
+      const t = document.createElementNS(NS, 'text');
+      t.setAttribute('class', 'nh-name' + (info.hollow ? ' hollow' : ''));
+      t.setAttribute('x', box.x + box.width / 2);
+      t.setAttribute('y', box.y + box.height / 2);
+      t.setAttribute('font-size', box.height * (info.name.length > 1 ? .62 : .8));
+      t.textContent = info.name;
+      head.append(t);
+    }
+  }
+  // Size the system to the card and map score time → horizontal position.
+  function unmountSheet() {
+    sheetHost.replaceChildren();
+    sheetTrack = sheetSvg = null; sheetEls = new Map(); measureEls = new Map();
+    anchors = []; sheetX = 0; lit = new Set();
+  }
+  function layoutSheet() {
+    if (!song || !sheetSvg || !sheetHost.clientHeight) return;
+    const vb = sheetSvg.viewBox.baseVal;
+    // Zoom scales the system height; taller than the card, it scrolls vertically.
+    const h = Math.round(Math.min(sheetHost.clientHeight, 300) * zoom);
+    sheetHost.classList.toggle('tall', h > sheetHost.clientHeight + 1);
+    sheetSvg.style.height = h + 'px';
+    sheetSvg.style.width = (h * vb.width / vb.height) + 'px';
+    const base = sheetSvg.getBoundingClientRect().left;
+    const byTime = new Map();
+    for (const e of song.events) {
+      const el = sheetEls.get(e.id); if (!el) continue;
+      const r = (el.querySelector('.notehead') || el).getBoundingClientRect();
+      if (!r.width) continue;
+      const x = r.left - base + r.width / 2;
+      byTime.set(e.t, Math.min(byTime.get(e.t) ?? Infinity, x));
+    }
+    const last = song.measures.at(-1);
+    const lastEl = measureEls.get(last.id);
+    if (lastEl) byTime.set(last.end, lastEl.getBoundingClientRect().right - base);
+    anchors = [...byTime].sort((a, b) => a[0] - b[0]).filter(([, x], i, arr) => i === 0 || x > arr[i - 1][1]);
+    sheetX = xAt(livePos() ?? 0);
+  }
+  function xAt(t) {
+    if (!anchors.length) return 0;
+    if (t <= anchors[0][0]) return anchors[0][1];
+    for (let i = 1; i < anchors.length; i++) {
+      const [t1, x1] = anchors[i];
+      if (t <= t1) { const [t0, x0] = anchors[i - 1]; return x0 + (x1 - x0) * (t - t0) / (t1 - t0); }
+    }
+    return anchors.at(-1)[1];
+  }
+  // Inverse of xAt: horizontal position on the system → score time.
+  function tAt(x) {
+    if (!anchors.length) return 0;
+    if (x <= anchors[0][1]) return anchors[0][0];
+    for (let i = 1; i < anchors.length; i++) {
+      const [t1, x1] = anchors[i];
+      if (x <= x1) { const [t0, x0] = anchors[i - 1]; return t0 + (t1 - t0) * (x - x0) / (x1 - x0); }
+    }
+    return anchors.at(-1)[0];
+  }
+  function scrollSheet() {
+    requestAnimationFrame(scrollSheet);
+    if (root.dataset.view !== 'sheet' || !sheetTrack || !anchors.length) return;
+    if (!labelled && root.classList.contains('show-names')) labelNoteheads();
+    const p = livePos(); if (p == null) return;
+    const target = xAt(p);
+    sheetX = playing || scrub || Math.abs(target - sheetX) > 2000 ? target : sheetX + (target - sheetX) * .2;
+    const view = sheetHost.clientWidth;
+    // The playhead stays at a fixed spot on screen; the music slides under it.
+    const offset = view * (root.dataset.playhead === 'left' ? .3 : .5) - sheetX;
+    sheetTrack.style.transform = `translateX(${offset}px)`;
+    sheetTrack.lastElementChild.style.left = sheetX + 'px';
+  }
+  new ResizeObserver(() => layoutSheet()).observe(sheetHost);
+  function noteStateAt(seg, root) {
+    if (root && grades.has(root.id)) return grades.get(root.id);
+    if (practicing && practiceMode === 'wait' && follow?.active && root && root.t === follow.current.t && wantHand(root))
+      return follow.collected.has(root.n) ? 'matched' : 'expected';
+    if (root && matched.has(root.id)) return 'matched';
+    if (finished) return '';
+    if (seg.t <= pos + EPS && pos + EPS < seg.end) return root?.t === pos ? 'attack' : 'held';
+    return '';
+  }
+  function renderSheet() {
+    if (!sheetSvg || !range) return;
+    for (const el of lit) el.classList.remove('s-attack', 's-held', 's-expected', 's-matched', 's-perfect', 's-early', 's-late', 's-miss');
+    lit = new Set();
+    const roots = new Map(range.events.map(e => [e.id, e]));
+    for (const seg of song.segments) {
+      if (seg.measure < range.first || seg.measure > range.last) continue;
+      const state = noteStateAt(seg, roots.get(seg.root));
+      if (!state) continue;
+      const el = sheetEls.get(seg.id); if (!el) continue;
+      el.classList.add('s-' + state); lit.add(el);
+    }
+  }
+  function markSection() {
+    if (!song || !range) return;
+    song.measures.forEach((m, i) => measureEls.get(m.id)?.classList.toggle('s-out', i < range.first || i > range.last));
+  }
+  function draw(sound = false) {
+    if (!song || !range) return;
+    buildKeyboard();
+    const mi = measureIndexAt(pos), m = song.measures[mi];
+    const active = finished ? [] : range.events.filter(e => e.t <= pos + EPS && pos + EPS < e.t + e.d);
+    const att = active.filter(e => Math.abs(e.t - pos) < EPS);
+    const waiting = practicing && practiceMode === 'wait' && follow?.active;
+    const expected = waiting ? follow.current.notes : null;
+    // Key colour follows the hand (staff) of the note it plays.
+    const keyHand = new Map();
+    for (const e of [...active, ...(waiting ? follow.current.events : [])]) keyHand.set(e.n, e.hand);
+    root.querySelectorAll('.pkey').forEach(b => {
+      const n = +b.dataset.note;
+      b.dataset.hand = keyHand.get(n) ?? (n < 60 ? 'l' : 'r');
+      b.classList.toggle('held', !expected && active.some(e => e.n === n));
+      b.classList.toggle('attack', expected ? expected.includes(n) && !follow.collected.has(n) : att.some(e => e.n === n));
+    });
+    renderSheet();
+    renderBeats(pos, mi);
+
+    q('#um-measure').textContent = measureName(m);
+    q('#um-detail').textContent = att.length ? att.map(e => name(e.n)).join(' + ') : '';
+    q('#lesson-subtitle').textContent = sectionLabel();
+    q('#section-btn-label').textContent = sectionLabel();
+    const span = range.end - range.start || 1;
+    q('#um-progress').style.width = `${(finished ? 1 : (pos - range.start) / span) * 100}%`;
+    if (sound) playChord(att, mi);
+  }
+
+  // Beat strip under the sheet: the beats of the measure from its time signature.
+  function renderBeats(p, mi = measureIndexAt(Math.max(range.start, p))) {
+    const m = song.measures[mi], list = measureBeats(m);
+    const beats = beatInfo(m.meter).beats;
+    const strip = q('#um-count');
+    if (strip.children.length !== beats) {
+      strip.replaceChildren(...Array.from({length: beats}, (_, i) => {
+        const el = document.createElement('span'); el.className = 'pulse'; el.textContent = i + 1; return el;
+      }));
+      strip.style.setProperty('--beats', beats);
+    }
+    let beat = -1;
+    for (const b of list) if (b.t <= p + EPS) beat = b.beat;
+    [...strip.children].forEach((el, i) => el.classList.toggle('current', !finished && p >= range.start - EPS && i === beat));
+  }
+
+  // ───────── Listen ─────────
+  // Sound a group of attacks like a pianist: sustain pedal held to the barline,
+  // melody (top note) a little louder, bass a little fuller, slight variation.
+  function playChord(att, mi, delay = 0) {
+    if (!att.length) return;
+    const pedal = root.dataset.pedal !== 'off';
+    const barEnd = song.measures[mi].end;
+    const top = Math.max(...att.map(e => e.n));
+    for (const e of att) {
+      const beats = pedal ? Math.max(e.d, barEnd - e.t) : e.d;
+      let v = .58 + Math.random() * .08;
+      if (e.n === top && att.length > 1 || e.n >= 67) v += .14;
+      if (e.n < 48) v += .06;
+      piano.tone(e.n, beats * quarterMs() / 1000, Math.min(1, v), delay);
+    }
+  }
+
+  // ───────── Sessions (practice:session) ─────────
+  function beginSession(kind) {
+    if (session?.kind === kind) return;
+    endSession();
+    session = {kind, start: performance.now()};
+  }
+  function endSession() {
+    if (!session) return;
+    const durationMs = Math.round(performance.now() - session.start);
+    const kind = session.kind;
+    session = null;
+    if (durationMs >= 3000 && current)
+      emit('practice:session', {songId: current.id, title: current.title || song?.title || '', kind, durationMs, at: Date.now()});
+  }
+
+  const promptIdle = () => (mode === 'timed' ? 'Press <b>Play along</b> and keep time, or <b>Listen</b> first' : 'Press <b>Practice</b> and play along, or <b>Listen</b> first');
+
+  function stopAll() {
+    if (scrub) { scrub = null; clearTimeout(wheelTimer); root.classList.remove('scrubbing'); }
+    stopClock(); clearTimeout(autoTimer); autoTimer = null;
+    playing = false; piano.silence(); piano.stopClicks();
+    if (practicing) { practicing = false; follow = null; grader = null; }
+    refreshFreeClick();
+    endSession();
+    setButtons();
+  }
+
+  // ───────── Transport (Listen and Play along) ─────────
+  // A clock maps performance.now() to score time; a lookahead scheduler
+  // (every TICK_MS, LOOKAHEAD_MS ahead) puts notes and metronome clicks on the
+  // audio clock, so timing does not depend on timer jitter.
+  function clockPos(now = performance.now()) { return clock.pos0 + (now - clock.perf0) / clock.qms; }
+  function startClock(kind, from, {count = false} = {}) {
+    stopClock();
+    const first = song.measures[range.first];
+    const ci = count ? countIn(first) : null;
+    const startAt = ci ? ci.from : from;
+    clock = {kind, pos0: startAt, perf0: performance.now() + 40, qms: quarterMs(), timer: 0};
+    clock.groups = soundGroups(kind);
+    clock.next = clock.groups.findIndex(g => g.t >= from - EPS);
+    if (clock.next < 0) clock.next = clock.groups.length;
+    clock.beats = [...(ci ? ci.beats.map(b => ({...b, count: true})) : []), ...beatsOf(song.measures.slice(range.first, range.last + 1)).filter(b => b.t >= from - EPS)];
+    clock.nextBeat = 0;
+    clock.shown = -1;
+    tick();
+    clock.timer = setInterval(tick, TICK_MS);
+  }
+  function stopClock() {
+    if (!clock) return;
+    clearInterval(clock.timer);
+    clock = null;
+  }
+  // What the app sounds: everything when listening; the other hand in play-along.
+  function soundGroups(kind) {
+    if (kind === 'listen') return points.map(t => ({t, events: range.events.filter(e => Math.abs(e.t - t) < EPS)}));
+    return handGroups(range, hands).filter(g => g.auto.length).map(g => ({t: g.t, events: g.auto}));
+  }
+  function tick() {
+    if (!clock) return;
+    const now = performance.now(), p = clockPos(now);
+    const horizon = p + LOOKAHEAD_MS / clock.qms;
+    const delay = t => Math.max(0, (t - p) * clock.qms / 1000);
+    while (clock.next < clock.groups.length && clock.groups[clock.next].t < horizon && clock.groups[clock.next].t < range.end - EPS) {
+      const g = clock.groups[clock.next++];
+      playChord(g.events, measureIndexAt(g.t), delay(g.t));
+    }
+    while (clock.nextBeat < clock.beats.length && clock.beats[clock.nextBeat].t < horizon) {
+      const b = clock.beats[clock.nextBeat++];
+      if (b.count || metronome) piano.click(delay(b.t), b.accent);
+    }
+    // Visual position: the latest note onset passed.
+    if (p < range.start - EPS) {
+      const counted = clock.beats.filter(b => b.count && b.t <= p + EPS);
+      setPrompt(counted.length ? `Count in · <b>${counted.at(-1).beat + 1}</b>` : 'Get ready…');
+      renderBeats(p);
+    } else {
+      let i = clock.shown;
+      while (i + 1 < points.length && points[i + 1] <= p + EPS) i++;
+      if (i !== clock.shown && i >= 0) {
+        if (clock.shown < 0 && clock.kind === 'timed') timedPrompt();
+        clock.shown = i; pos = points[i]; draw();
+      } else renderBeats(p);
+    }
+    if (clock.kind === 'timed' && grader) {
+      const missed = grader.sweep(p, clock.qms);
+      if (missed.length) { for (const note of missed) gradeNote(note, 'miss'); renderSheet(); timedPrompt(); }
+    }
+    if (p >= range.end - EPS) clockEnded(clock.perf0 + (range.end - clock.pos0) * clock.qms);
+  }
+  // The pass reached the end of the section at `endPerf`.
+  function clockEnded(endPerf) {
+    const kind = clock.kind;
+    if (kind === 'timed') finishTimedPass();
+    if (!clock) return; // finishing stopped it
+    if (loop) {
+      // Seamless loop: the next pass starts exactly where this one ended.
+      matched.clear(); grades.clear();
+      if (kind === 'timed') newGrader();
+      Object.assign(clock, {pos0: range.start, perf0: endPerf, qms: quarterMs(), groups: soundGroups(kind), next: 0, nextBeat: 0, shown: -1,
+        beats: beatsOf(song.measures.slice(range.first, range.last + 1))});
+      passStartedAt = endPerf;
+      return;
+    }
+    stopClock();
+    if (kind === 'listen') {
+      playing = false; finished = true; pos = range.end; endSession(); setButtons(); draw();
+      setStatus('Finished'); setPrompt('Nice listening! Now press <b>Practice</b> and play it yourself');
+    } else {
+      practicing = false; grader = null; finished = true; pos = range.end; endSession(); setButtons(); draw();
+      setStatus('Finished'); showResults(lastResult);
+    }
+  }
+
+  q('#um-play').onclick = () => {
+    if (!song) return;
+    if (playing) {
+      const p = livePos();
+      stopAll(); pos = points.filter(x => x <= p + EPS).at(-1) ?? range.start; draw();
+      setStatus('Paused'); setPrompt('Paused · press <b>Listen</b> to continue'); return;
+    }
+    hideResults();
+    const wasPracticing = practicing; stopAll();
+    let i = points.findIndex(p => p >= pos - EPS);
+    if (finished || i < 0 || wasPracticing) i = 0;
+    finished = false; matched.clear(); grades.clear(); playing = true; setButtons();
+    beginSession('listen');
+    setStatus(`Listening · ${sectionLabel()}${loop ? ' · looping' : ''}`); setPrompt('Listen and watch the notes');
+    pos = points[i] ?? range.start; draw();
+    startClock('listen', pos);
+  };
+
+  // ───────── Results (practice:result) ─────────
+  let lastResult = null;
+  function emitResult(r) {
+    lastResult = r;
+    const detail = {
+      songId: current?.id ?? null, title: current?.title || song?.title || '', section: [range.first, range.last],
+      mode: practiceMode, hands, tempo: tempo(), right: r.right, wrong: r.wrong, accuracy: r.accuracy,
+      timing: r.timing ?? null, durationMs: Math.round(performance.now() - passStartedAt), at: Date.now(),
+      misses: misses.list(),
+    };
+    emit('practice:result', detail);
+    // Speed trainer: a clean pass raises the tempo toward the target.
+    r.tempoFrom = detail.tempo; r.tempoTo = detail.tempo;
+    if (speedUp) {
+      const next = speedUpTempo(detail.tempo, targetTempo(), r.accuracy);
+      if (next !== detail.tempo) { setTempoValue(next); r.tempoTo = tempo(); flash(`Tempo ${r.tempoTo}`); }
+    }
+    misses = new MissLog(50);
+    passStartedAt = performance.now();
+    return detail;
+  }
+  const measureLabelAt = t => song.measures[measureIndexAt(t)].label;
+
+  // ───────── Practice: Wait for me ─────────
+  function practicePrompt() {
+    if (!practicing || practiceMode !== 'wait' || !follow?.active) return;
+    const g = follow.current;
+    if (!g.notes.length) { setPrompt('Listen…'); return; }
+    const remaining = g.notes.filter(n => !follow.collected.has(n));
+    const hand = n => g.events.find(e => e.n === n)?.hand;
+    setPrompt(`Play ${remaining.map(n => `<b class="${handClass(hand(n))}">${name(n)}</b>`).join(' + ')}`);
+    setStatus(`${measureName(song.measures[measureIndexAt(g.t)])} · ${follow.index + 1} / ${follow.groups.length}${hands !== 'both' ? ` · ${hands} hand` : ''}`);
+  }
+  function startPractice() {
+    if (!song) return;
+    hideResults(); stopAll();
+    finished = false; matched.clear(); grades.clear(); rightCount = 0; wrongCount = 0;
+    misses = new MissLog(50);
+    const groups = handGroups(range, hands);
+    if (!groups.some(g => g.notes.length)) {
+      setPrompt(hands === 'both' ? 'This section has no notes' : `No ${hands}-hand notes in this section`); draw(); return;
+    }
+    practiceMode = mode;
+    if (mode === 'timed') return startTimed();
+    follow = new FollowNotes(groups);
+    autoPlayed = new Set();
+    practicing = true; passStartedAt = performance.now(); beginSession('practice');
+    pos = follow.current.t; setButtons(); draw(); practicePrompt();
+    refreshFreeClick();
+    runAuto(true);
+  }
+  // Play the other hand's notes of group i (once).
+  function playAuto(i, delay = 0) {
+    const g = follow?.groups[i];
+    if (!g || autoPlayed.has(i) || !g.auto.length) return;
+    autoPlayed.add(i);
+    for (const e of g.auto) piano.tone(e.n, e.d * quarterMs() / 1000, .55, delay);
+  }
+  // Groups with nothing to play for the user's hand go by at tempo.
+  function runAuto(immediate = false, from = pos) {
+    clearTimeout(autoTimer); autoTimer = null;
+    if (!practicing || practiceMode !== 'wait' || !follow?.active || follow.current.notes.length) return;
+    const step = () => {
+      autoTimer = null;
+      if (!practicing || !follow?.active) return;
+      const i = follow.index, t = follow.current.t;
+      playAuto(i);
+      if (follow.skip() === 'finished') return finishWait();
+      pos = follow.current.t; draw(); practicePrompt();
+      if (!follow.current.notes.length) autoTimer = setTimeout(step, Math.max(0, (follow.current.t - t) * quarterMs()));
+    };
+    const wait = immediate ? 0 : Math.max(0, (follow.current.t - from) * quarterMs());
+    autoTimer = setTimeout(step, wait);
+  }
+  function practiceAttack(n) {
+    if (!practicing || practiceMode !== 'wait' || !follow?.active) return;
+    // Played ahead while the app is still playing the other hand: catch up.
+    if (!follow.current.notes.length) {
+      const k = follow.groups.findIndex((g, i) => i >= follow.index && g.notes.length);
+      if (k >= 0 && follow.groups[k].notes.includes(n)) {
+        clearTimeout(autoTimer); autoTimer = null;
+        while (follow.index < k) { playAuto(follow.index); follow.skip(); }
+        pos = follow.current.t;
+      }
+    }
+    const group = follow.current, index = follow.index;
+    if (group.notes.includes(n)) for (const e of group.events.filter(e => e.n === n)) matched.add(e.id);
+    const result = follow.attack(n);
+    if (result === 'wrong') {
+      wrongCount++; flashKey(n, 'wrong'); flash('Try again', 'bad');
+      misses.add(group.t, measureLabelAt(group.t), {expected: group.notes.filter(x => !follow.collected.has(x)).map(name), played: [name(n)]});
+      return;
+    }
+    rightCount++; flashKey(n, 'hit');
+    playAuto(index); // the other hand comes in with the user's first note of the chord
+    if (result === 'finished') return finishWait();
+    if (result === 'advanced') {
+      if (Math.random() < .3) flash(PRAISE[Math.floor(Math.random() * PRAISE.length)]);
+      const from = group.t;
+      pos = follow.current.t;
+      draw(); practicePrompt(); runAuto(false, from);
+      return;
+    }
+    draw(); practicePrompt();
+  }
+  function finishWait() {
+    const total = rightCount + wrongCount;
+    const r = {right: rightCount, wrong: wrongCount, accuracy: total ? Math.round(100 * rightCount / total) : 100, timing: null};
+    emitResult(r);
+    if (loop) {
+      flash(r.tempoTo !== r.tempoFrom ? `Again · ${r.tempoTo} BPM` : 'Again!');
+      follow.reset(); autoPlayed = new Set(); matched.clear(); rightCount = 0; wrongCount = 0;
+      pos = follow.current.t; draw(); practicePrompt(); runAuto(true);
+      return;
+    }
+    practicing = false; follow = null; finished = true; pos = range.end;
+    refreshFreeClick(); endSession(); setButtons(); draw();
+    setPrompt('Section complete'); setStatus('Finished'); showResults(r);
+  }
+
+  // Metronome while waiting: a steady pulse at the tempo, in the current bar's meter.
+  function refreshFreeClick() {
+    const want = metronome && metroInWait && practicing && practiceMode === 'wait';
+    if (!want) { clearInterval(freeClick?.timer); freeClick = null; return; }
+    if (freeClick) return;
+    freeClick = {next: performance.now() + 60, beat: 0};
+    freeClick.timer = setInterval(() => {
+      const now = performance.now(), qms = quarterMs();
+      while (freeClick.next < now + LOOKAHEAD_MS) {
+        const m = song.measures[measureIndexAt(pos)], info = beatInfo(m.meter);
+        piano.click(Math.max(0, (freeClick.next - now) / 1000), freeClick.beat % info.beats === 0);
+        freeClick.beat = (freeClick.beat + 1) % info.beats;
+        freeClick.next += info.len * qms;
+      }
+    }, TICK_MS);
+  }
+
+  // ───────── Practice: Play along (timed) ─────────
+  function newGrader() {
+    const want = handFilter(hands);
+    grader = new TimedGrader(range.events.filter(e => !e.carried && want(e)).map(e => ({id: e.id, n: e.n, t: e.t})));
+  }
+  function startTimed() {
+    newGrader();
+    practicing = true; passStartedAt = performance.now(); beginSession('practice');
+    pos = points[0] ?? range.start; setButtons(); draw();
+    setStatus(`Play along · ${sectionLabel()} · ${tempo()} BPM`);
+    startClock('timed', range.start, {count: true});
+  }
+  function gradeNote(note, grade) {
+    grades.set(note.id, grade);
+    if (grade !== 'miss') matched.add(note.id);
+    highway.popup(note.n, GRADE_TEXT[grade], grade);
+    if (grade === 'miss') misses.add(note.t, measureLabelAt(note.t), {expected: [name(note.n)]});
+  }
+  function timedAttack(n, time) {
+    if (!clock || clock.kind !== 'timed' || !grader) return;
+    const p = clockPos(time);
+    if (p < range.start - TIMING.window / clock.qms) return; // still counting in
+    const r = grader.attack(n, p, clock.qms);
+    if (r.result === 'wrong') {
+      flashKey(n, 'wrong');
+      // Attach the stray note to the nearest note the user should have played.
+      const near = range.events.filter(e => !e.carried && wantHand(e)).reduce((b, e) => (!b || Math.abs(e.t - p) < Math.abs(b.t - p) ? e : b), null);
+      const t = near && Math.abs(near.t - p) * clock.qms < 1000 ? near.t : p;
+      misses.add(t, measureLabelAt(Math.max(range.start, t)), {played: [name(n)]});
+    } else { flashKey(n, 'hit'); gradeNote(r.note, r.result); }
+    renderSheet(); timedPrompt();
+  }
+  function timedPrompt() {
+    if (!grader) return;
+    const c = grader.counts;
+    setPrompt(`<b class="rh">${c.perfect}</b> perfect · ${c.early} early · ${c.late} late · <b class="miss">${c.miss}</b> missed`);
+  }
+  function finishTimedPass() {
+    grader.finish().forEach(note => gradeNote(note, 'miss'));
+    const s = grader.summary;
+    const r = {...s, counts: {...grader.counts}};
+    emitResult(r);
+    if (!loop) return;
+    flash(r.tempoTo !== r.tempoFrom ? `Again · ${r.tempoTo} BPM` : `${r.accuracy}% · again!`);
+  }
+
+  function showResults(r = lastResult) {
+    if (!r) return;
+    const acc = r.accuracy;
+    const stars = acc >= 90 ? 3 : acc >= 70 ? 2 : 1;
+    q('#um-stars').querySelectorAll('span').forEach((s, i) => s.classList.toggle('on', i < stars));
+    q('#complete-title').textContent = `${sectionLabel()} complete!`;
+    const speed = r.tempoTo !== r.tempoFrom ? ` · tempo up to ${r.tempoTo} BPM` : '';
+    const timing = q('#um-complete-timing');
+    if (r.counts) {
+      q('#um-complete-text').textContent = `${acc}% accuracy · ${r.right} hit · ${r.missed} missed · ${r.extra} wrong notes${speed}`;
+      const c = r.counts;
+      timing.innerHTML = [['perfect', 'Perfect', c.perfect], ['early', 'Early', c.early], ['late', 'Late', c.late], ['miss', 'Miss', c.miss]]
+        .map(([k, label, v]) => `<span class="timing-chip t-${k}"><b>${v}</b> ${label}</span>`).join('');
+      timing.hidden = false;
+    } else {
+      q('#um-complete-text').textContent = `${acc}% accuracy · ${r.right} correct · ${r.wrong} missed${speed}`;
+      timing.hidden = true;
+    }
+    q('#um-complete').hidden = false;
+  }
+  function hideResults() { q('#um-complete').hidden = true; }
+  q('#um-practice').onclick = startPractice;
+  q('#um-again').onclick = startPractice;
+  q('#um-complete-close').onclick = hideResults;
+  q('#um-complete-next').onclick = () => {
+    hideResults(); if (!song) return;
+    const len = range.last - range.first;
+    if (range.last < song.measures.length - 1) setRange(range.last + 1, range.last + 1 + len);
+  };
+
+  // A key press from MIDI or the on-screen keyboard.
+  // Every attack is announced as `piano:note`, whether or not the player is on screen.
+  function userAttack(n, {source = 'screen', velocity = 96, time = performance.now()} = {}) {
+    emit('piano:note', {note: n, velocity, source, time});
+    if (source === 'screen') tone(n);
+    q('#um-midi-last').textContent = `Last note: ${name(n)} (MIDI ${n})`;
+    if (practicing && practiceMode === 'timed') timedAttack(n, time);
+    else practiceAttack(n);
+  }
+
+  // ───────── Navigation ─────────
+  function seek(t) {
+    const wasPlaying = playing;
+    if (practicing) stopAll();
+    stopClock(); piano.silence();
+    let i = points.findIndex(p => p >= t - EPS); if (i < 0) i = points.length - 1;
+    finished = false; pos = points[i] ?? range.start;
+    if (wasPlaying) { draw(); startClock('listen', pos); } else draw(true);
+    setStatus(measureName(song.measures[measureIndexAt(pos)]));
+  }
+  const stepBy = d => {
+    if (!song) return;
+    const i = points.findIndex(p => Math.abs(p - pos) < EPS);
+    const target = points[Math.max(0, Math.min(points.length - 1, (i < 0 ? points.findIndex(p => p > pos) - (d > 0 ? 1 : 0) : i) + d))];
+    stopAll(); finished = false; pos = target; draw(true);
+  };
+  q('#um-next').onclick = () => stepBy(1);
+  q('#um-prev').onclick = () => stepBy(-1);
+  q('#um-stop').onclick = () => {
+    if (!song) return;
+    stopAll(); finished = false; matched.clear(); grades.clear(); pos = points[0] ?? range.start; highway.jump(); draw();
+    setStatus(sectionLabel()); setPrompt(promptIdle());
+  };
+  q('#um-prev-measure').onclick = () => { if (song) seek(song.measures[Math.max(range.first, measureIndexAt(pos) - 1)].start); };
+  q('#um-next-measure').onclick = () => { if (song) seek(song.measures[Math.min(range.last, measureIndexAt(pos) + 1)].start); };
+  function showTempo() {
+    q('#um-bpm').textContent = tempo() + ' BPM';
+    const target = q('#um-target');
+    target.hidden = !speedUp || !song;
+    if (song) target.textContent = `→ ${targetTempo()}`;
+  }
+  // Keep the music where it is when the tempo changes mid-flow.
+  function setTempoValue(v) {
+    const p = clock ? clockPos() : null;
+    q('#um-tempo').value = clampTempo(v);
+    if (clock) { clock.pos0 = p; clock.perf0 = performance.now(); clock.qms = quarterMs(); }
+    showTempo(); saveSong({tempo: tempo()});
+  }
+  q('#um-tempo').oninput = () => setTempoValue(tempo());
+  // Click a measure on the progress bar to jump there.
+  q('#progress').addEventListener('click', e => {
+    if (!song) return;
+    const box = q('#progress').getBoundingClientRect();
+    seek(range.start + (e.clientX - box.left) / box.width * (range.end - range.start));
+  });
+  // Click a note in the sheet music to jump to it.
+  q('#um-sheet').addEventListener('click', e => {
+    if (suppressClick) { suppressClick = false; return; }
+    const el = e.target.closest('.note'); if (!el || !song) return;
+    const seg = song.segments.find(s => s.id === el.id);
+    const ev = seg && song.events.find(x => x.id === seg.root);
+    if (ev) seek(Math.max(range.start, ev.t));
+  });
+
+  // ───────── Section bar (typed measure numbers, right above the music) ─────────
+  const secFirst = q('#sec-first'), secLast = q('#sec-last');
+  // A typed measure number → measure index. Repeated measures share a number,
+  // so "from" takes its first appearance and "to" its last.
+  function measureFromText(text, which) {
+    const t = String(text).trim().toLowerCase().replace(/^m(easure)?\s*/, '');
+    if (!t) return null;
+    if ((t === 'p' || t === 'pickup' || t === '0') && song.measures[0]?.pickup) return 0;
+    const hits = song.measures.map((m, i) => (String(m.label).toLowerCase() === t ? i : -1)).filter(i => i >= 0);
+    if (!hits.length) return null;
+    return which === 'first' ? hits[0] : hits.at(-1);
+  }
+  function showSectionInputs() {
+    if (!song || !range) return;
+    const shown = i => (song.measures[i].pickup ? '0' : song.measures[i].label);
+    secFirst.value = shown(range.first);
+    secLast.value = shown(range.last);
+    q('#sec-of').textContent = `of ${song.measures.at(-1).label}`;
+  }
+  function rejectInput(input) {
+    showSectionInputs();
+    input.classList.remove('invalid'); void input.offsetWidth; input.classList.add('invalid');
+    setTimeout(() => input.classList.remove('invalid'), 600);
+  }
+  function applySectionInputs(changed) {
+    if (!song) return;
+    let a = measureFromText(secFirst.value, 'first');
+    let b = measureFromText(secLast.value, 'last');
+    if (a == null) return rejectInput(secFirst);
+    if (b == null) return rejectInput(secLast);
+    if (a > b) { if (changed === secFirst) b = a; else a = b; }
+    if (a === range.first && b === range.last) return showSectionInputs();
+    setRange(a, b);
+  }
+  for (const input of [secFirst, secLast]) {
+    input.addEventListener('change', () => applySectionInputs(input));
+    input.addEventListener('focus', () => input.select());
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); applySectionInputs(input); input.blur(); }
+      else if (e.key === 'Escape') { showSectionInputs(); input.blur(); }
+      else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!song) return;
+        const step = e.key === 'ArrowUp' ? 1 : -1;
+        const i = Math.max(0, Math.min(song.measures.length - 1, (input === secFirst ? range.first : range.last) + step));
+        input.value = song.measures[i].pickup ? '0' : song.measures[i].label;
+        applySectionInputs(input);
+      }
+    });
+  }
+  q('#section-bar').addEventListener('submit', e => e.preventDefault());
+  q('#section-btn').onclick = () => { secFirst.focus(); };
+  q('#sec-loop').onchange = () => setLoop(q('#sec-loop').checked);
+  q('#section-bar').querySelectorAll('[data-preset]').forEach(btn => btn.onclick = () => {
+    if (!song) return;
+    const here = measureIndexAt(pos), n = song.measures.length, len = range.last - range.first;
+    const [a, b] = {
+      whole: [0, n - 1], here: [here, here], four: [here, here + 3],
+      next: [range.last + 1, range.last + 1 + len], prev: [range.first - 1 - len, range.first - 1],
+    }[btn.dataset.preset];
+    if (a >= n || b < 0) return;
+    setRange(Math.max(0, a), Math.min(n - 1, b));
+  });
+
+  // Keyboard shortcuts.
+  window.addEventListener('keydown', e => {
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest?.('input,select,textarea,[contenteditable]')) return;
+    if (!root.isConnected || !root.getClientRects().length) return; // player not on screen
+    if (e.code === 'Space') { e.preventDefault(); q('#um-play').click(); }
+    else if (e.key === 'p' || e.key === 'P') q('#um-practice').click();
+    else if (e.key === 'l' || e.key === 'L') { q('#sec-loop').click(); }
+    else if (e.key === 'm' || e.key === 'M') q('#mute-btn').click();
+    else if (e.key === 'n' || e.key === 'N') q('#names-btn').click();
+    else if (e.key === 'k' || e.key === 'K') setMetronome(!metronome);
+    else if (e.key === 'h' || e.key === 'H') setHands(HANDS[(HANDS.indexOf(hands) + 1) % HANDS.length]);
+    else if (e.key === '+' || e.key === '=') setZoom(zoom * 1.2);
+    else if (e.key === '-' || e.key === '_') setZoom(zoom / 1.2);
+    else if (e.key === 'ArrowRight') e.shiftKey ? q('#um-next-measure').click() : stepBy(1);
+    else if (e.key === 'ArrowLeft') e.shiftKey ? q('#um-prev-measure').click() : stepBy(-1);
+    else if (e.key === 'Escape') { hideResults(); settingsModal.hidden = true; }
+  });
+
+  // ───────── MIDI ─────────
+  // Local Web MIDI inputs, plus notes relayed from a Mac over the dev server
+  // (iPad Safari has no Web MIDI; see src/midi-relay.js).
+  let midiAccess = null;
+  let relay = {bridge: false, devices: []};
+  const midiHeld = new Map();
+  const localInputs = () => midiAccess ? [...midiAccess.inputs.values()].filter(p => p.state === 'connected') : [];
+  function renderMidi() {
+    const notes = [...new Set([...midiHeld.values()].flatMap(s => [...s]))];
+    root.querySelectorAll('.pkey').forEach(b => b.classList.toggle('midi-down', notes.includes(+b.dataset.note)));
+    q('#um-midi-notes').textContent = notes.length ? 'You: ' + notes.sort((a, b) => a - b).map(name).join(' + ')
+      : midiAccess || relay.bridge ? 'Piano ready' : 'Tap the keys or connect a MIDI piano';
+  }
+  function setMidiChip(text, state) {
+    q('#um-midi span:last-child').textContent = text;
+    q('#midi-chip').dataset.state = state;
+    q('#um-midi-status').textContent = text;
+  }
+  function refreshChip() {
+    const inputs = localInputs();
+    const relayName = relay.devices.length > 1 ? `${relay.devices.length} inputs` : relay.devices[0] || 'piano';
+    if (inputs.length) setMidiChip((inputs.length === 1 ? (inputs[0].name || 'Piano') : `${inputs.length} inputs`) + (relay.bridge ? ' + Mac' : ''), 'on');
+    else if (relay.bridge) setMidiChip('Mac · ' + relayName, 'on');
+    else if (midiAccess) setMidiChip('No piano found', 'warn');
+    else setMidiChip('Connect piano', '');
+  }
+  // One MIDI message [status, note, velocity] from any source. `source`
+  // separates held keys per input so one device can't release another's.
+  function midiMessage(source, [status, n, velocity], time = performance.now()) {
+    const command = status & 240;
+    if (command !== 144 && command !== 128 && command !== 176) return;
+    const key = source + ':' + (status & 15);
+    if (!midiHeld.has(key)) midiHeld.set(key, new Set());
+    const held = midiHeld.get(key);
+    if (command === 144 && velocity > 0) {
+      const already = held.has(n); held.add(n);
+      if (!already) userAttack(n, {source: source.startsWith('local:') ? 'midi' : 'relay', velocity, time});
+    } else if (command === 128 || command === 144) held.delete(n);
+    else if (n === 120 || n === 123) held.clear();
+    renderMidi();
+  }
+  const clearHeld = (prefix = '') => { for (const k of [...midiHeld.keys()]) if (k.startsWith(prefix)) midiHeld.delete(k); };
+  onRelayMidi(bytes => midiMessage('relay', bytes));
+  onRelayStatus(status => {
+    relay = {bridge: !!status?.bridge, devices: Array.isArray(status?.devices) ? status.devices : []};
+    clearHeld('relay:'); refreshChip(); renderMidi();
+  });
+  function wireMidi() {
+    if (practicing) { stopAll(); setPrompt('MIDI devices changed · press <b>Practice</b> to restart'); }
+    const select = q('#um-midi-device');
+    const selected = select.value;
+    const inputs = localInputs();
+    select.innerHTML = '<option value="all">All inputs</option>';
+    inputs.forEach(p => select.append(new Option(p.name || 'MIDI input', p.id)));
+    select.value = inputs.some(p => p.id === selected) ? selected : 'all';
+    clearHeld('local:'); renderMidi(); refreshChip();
+    inputs.forEach(input => {
+      input.onmidimessage = event => {
+        if (select.value !== 'all' && select.value !== input.id) return;
+        midiMessage('local:' + input.id, event.data, event.timeStamp || performance.now());
+      };
+    });
+  }
+  q('#um-midi-clear').onclick = () => { midiHeld.clear(); renderMidi(); };
+  q('#um-midi-device').onchange = () => { midiHeld.clear(); renderMidi(); };
+  window.addEventListener('blur', () => { midiHeld.clear(); renderMidi(); });
+  q('#um-midi').onclick = async () => {
+    const noWebMidi = !window.isSecureContext || !navigator.requestMIDIAccess;
+    if (noWebMidi && relay.bridge) { refreshChip(); return; }
+    if (noWebMidi && relayAvailable) { setMidiChip('Use the Mac bridge (see README)', 'warn'); return; }
+    if (!window.isSecureContext) { setMidiChip('MIDI needs HTTPS', 'warn'); return; }
+    if (!navigator.requestMIDIAccess) { setMidiChip('Use Chrome or Edge for MIDI', 'warn'); return; }
+    try {
+      setMidiChip('Connecting…', 'busy');
+      midiAccess = await navigator.requestMIDIAccess({sysex: false});
+      midiAccess.onstatechange = wireMidi; wireMidi();
+    } catch { setMidiChip('MIDI blocked', 'warn'); }
+  };
+
+  // Current musical position, moving smoothly between notes while playing.
+  function livePos() {
+    if (!song || !range) return null;
+    if (scrub) return scrub.t;
+    if (clock) return Math.min(range.end, clockPos());
+    return pos;
+  }
+
+  // ───────── Highway ─────────
+  const highway = createHighway({
+    canvas: q('#um-highway'),
+    keys: q('#um-keys'),
+    getEvents: () => range?.events ?? [],
+    getMeasures: () => song && range ? song.measures.slice(range.first, range.last + 1) : [],
+    position: () => (finished && song ? range.end + 1 : livePos()),
+    handColors: () => !root.classList.contains('no-hands'),
+    noteLabel: e => (root.classList.contains('show-names') ? song?.noteNames?.get(e.id)?.name ?? NAMES[e.n % 12] : null),
+    noteState(e) {
+      if (grades.has(e.id)) return grades.get(e.id);
+      if (!wantHand(e)) return 'auto'; // the hand the app plays: greyed
+      if (practicing && practiceMode === 'wait' && follow?.active && e.t === follow.current.t) return follow.collected.has(e.n) ? 'matched' : 'expected';
+      if (matched.has(e.id)) return 'matched';
+      return '';
+    },
+  });
+
+  // ───────── Scrubbing ─────────
+  // Drag or wheel over the sheet (horizontal) or the highway (vertical) to
+  // move the music under the playhead; on release snap to the nearest note.
+  let scrub = null, suppressClick = false, wheelTimer = null;
+  const clampT = t => Math.max(range.start, Math.min(range.end, t));
+  function scrubBegin() {
+    if (scrub) return true;
+    if (!song || !range) return false;
+    if (playing) {
+      const p = livePos();
+      stopAll(); pos = points.filter(x => x <= p + EPS).at(-1) ?? range.start;
+      setStatus('Paused'); setPrompt('Paused · press <b>Listen</b> to continue');
+    } else if (practicing && practiceMode === 'timed') {
+      stopAll(); setStatus('Stopped'); setPrompt('Press <b>Play along</b> to start again');
+    }
+    hideResults();
+    const from = finished ? range.end : livePos();
+    finished = false;
+    scrub = {t: clampT(from ?? range.start)};
+    root.classList.add('scrubbing');
+    return true;
+  }
+  function scrubTo(t) {
+    if (!scrub) return;
+    scrub.t = clampT(t);
+    highway.jump(); // follow the gesture exactly, no easing
+  }
+  function scrubEnd() {
+    if (!scrub) return;
+    const t = scrub.t;
+    scrub = null;
+    root.classList.remove('scrubbing');
+    if (practicing && follow?.active) {
+      // Continue practising from the first chord at or after this point.
+      clearTimeout(autoTimer);
+      let i = follow.groups.findIndex(g => g.t >= t - EPS);
+      if (i < 0) i = follow.groups.length - 1;
+      follow.index = i; follow.collected.clear();
+      for (const e of follow.groups.slice(i).flatMap(g => g.events)) matched.delete(e.id);
+      for (let k = i; k < follow.groups.length; k++) autoPlayed.delete(k);
+      pos = follow.current.t;
+      draw(); practicePrompt(); runAuto(true);
+      return;
+    }
+    if (!points.length) { pos = t; draw(); return; }
+    pos = points.reduce((best, p) => Math.abs(p - t) < Math.abs(best - t) ? p : best, points[0]);
+    draw(true); // like stepping: sound the chord once
+    setStatus(measureName(song.measures[measureIndexAt(pos)]));
+  }
+
+  // Map a gesture delta to time for each view.
+  const sheetTime = (t, dx) => tAt(xAt(t) + dx);
+  // Falling notes follow the finger: dragging down pulls upcoming notes onto the keys (forward in time).
+  const highwayTime = (t, dy) => t + dy / highway.pixelsPerQuarter();
+
+  // ───────── Drag to select a section (and loop it) ─────────
+  // Sheet: drag across the measure-number strip at the top, long-press then
+  // drag (touch), or shift-drag. Falling notes: the same on the bar-number
+  // strip at the left edge.
+  const inRuler = e => !!e.target?.closest?.('.sel-ruler');
+  function measureAtPoint(axis, e) {
+    if (axis === 'x') {
+      let best = 0, bestDist = Infinity;
+      song.measures.forEach((m, i) => {
+        const r = measureEls.get(m.id)?.getBoundingClientRect();
+        if (!r || !r.width) return;
+        const d = e.clientX < r.left ? r.left - e.clientX : e.clientX >= r.right ? e.clientX - r.right + 1 : 0;
+        if (d < bestDist) { bestDist = d; best = i; }
+      });
+      return best;
+    }
+    const box = highwayBox().getBoundingClientRect();
+    const t = (livePos() ?? 0) + (box.bottom - e.clientY) / highway.pixelsPerQuarter();
+    const i = song.measures.findIndex(m => m.start <= t && t < m.end);
+    return i < 0 ? (t < song.measures[0].start ? 0 : song.measures.length - 1) : i;
+  }
+  const highwayBox = () => q('#um-highway').closest('.highway') || q('#um-highway');
+  function showSelection(axis, a, b) {
+    const host = axis === 'x' ? sheetHost : highwayBox();
+    let band = host.querySelector(':scope > .sel-band');
+    if (!band) { band = document.createElement('div'); band.className = 'sel-band'; host.append(band); }
+    const hb = host.getBoundingClientRect();
+    if (axis === 'x') {
+      const ra = measureEls.get(song.measures[a].id)?.getBoundingClientRect();
+      const rb = measureEls.get(song.measures[b].id)?.getBoundingClientRect();
+      if (!ra || !rb) return;
+      Object.assign(band.style, {left: ra.left - hb.left + 'px', width: rb.right - ra.left + 'px', top: '0', height: '100%'});
+    } else {
+      const pps = highway.pixelsPerQuarter(), now = livePos() ?? 0;
+      const yOf = t => hb.height - (t - now) * pps;
+      const top = yOf(song.measures[b].end), bottom = yOf(song.measures[a].start);
+      Object.assign(band.style, {left: '0', width: '100%', top: top + 'px', height: bottom - top + 'px'});
+    }
+    const label = a === b ? measureName(song.measures[a]) : `${measureName(song.measures[a])} – ${song.measures[b].label}`;
+    band.dataset.label = label + ' · release to loop';
+    band.hidden = false;
+  }
+  function hideSelection() {
+    for (const band of root.querySelectorAll('.sel-band')) band.hidden = true;
+  }
+  function commitSelection(a, b) {
+    hideSelection();
+    const [first, last] = a <= b ? [a, b] : [b, a];
+    setRange(first, last);
+    setLoop(true);
+    flash(first === last ? `Looping ${measureName(song.measures[first])}` : `Looping ${song.measures[first].label}–${song.measures[last].label}`);
+  }
+
+  function scrubbable(el, axis) {
+    let drag = null, pinch = null;
+    const touches = new Map();
+    const spread = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
+    if (axis === 'x') {
+      // Two-finger pinch on the sheet zooms it (iPad).
+      const forget = e => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; };
+      el.addEventListener('pointerdown', e => {
+        if (e.pointerType !== 'touch') return;
+        touches.set(e.pointerId, {x: e.clientX, y: e.clientY});
+        if (touches.size === 2) {
+          if (drag) { clearTimeout(drag.hold); if (drag.active && !drag.select && !drag.pan) scrubEnd(); hideSelection(); el.classList.remove('selecting'); drag = null; }
+          pinch = {dist: spread(), zoom};
+        }
+      }, true);
+      el.addEventListener('pointermove', e => {
+        if (!touches.has(e.pointerId)) return;
+        touches.set(e.pointerId, {x: e.clientX, y: e.clientY});
+        if (pinch && touches.size === 2) { e.preventDefault(); setZoom(pinch.zoom * spread() / pinch.dist); }
+      }, true);
+      for (const type of ['pointerup', 'pointercancel']) el.addEventListener(type, forget, true);
+      el.addEventListener('gesturestart', e => e.preventDefault());
+    }
+    el.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (!song || !range || pinch) return;
+      drag = {id: e.pointerId, x: e.clientX, y: e.clientY, active: false, t0: 0, select: null};
+      const startSelect = ev => {
+        if (!drag) return;
+        stopAll();
+        const at = measureAtPoint(axis, ev);
+        drag.select = {from: at, to: at};
+        drag.active = true;
+        try { el.setPointerCapture(drag.id); } catch {}
+        el.classList.add('selecting');
+        showSelection(axis, at, at);
+      };
+      if (e.shiftKey || inRuler(e)) { e.preventDefault(); startSelect(e); return; }
+      // Touch: hold still for a moment, then drag to select.
+      clearTimeout(drag.hold);
+      drag.hold = setTimeout(() => { if (drag && !drag.active) startSelect({clientX: drag.x, clientY: drag.y}); }, 450);
+    });
+    el.addEventListener('pointermove', e => {
+      if (!drag || e.pointerId !== drag.id || pinch) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (drag.pan) { e.preventDefault(); sheetHost.scrollTop = drag.pan.top - dy; return; }
+      if (drag.select) {
+        e.preventDefault();
+        drag.select.to = measureAtPoint(axis, e);
+        const {from, to} = drag.select;
+        showSelection(axis, Math.min(from, to), Math.max(from, to));
+        return;
+      }
+      if (!drag.active) {
+        if (Math.hypot(dx, dy) < 6) return; // still a click (or a long-press in progress)
+        clearTimeout(drag.hold);
+        if (axis === 'x' && Math.abs(dy) > Math.abs(dx) && sheetHost.classList.contains('tall')) {
+          drag.pan = {top: sheetHost.scrollTop}; drag.active = true;
+          try { el.setPointerCapture(e.pointerId); } catch {}
+          return;
+        }
+        if (!scrubBegin()) { drag = null; return; }
+        drag.active = true; drag.t0 = scrub.t;
+        try { el.setPointerCapture(e.pointerId); } catch {}
+      }
+      e.preventDefault();
+      // Sheet: drag left = forward. Highway: drag down = back in time.
+      scrubTo(axis === 'x' ? sheetTime(drag.t0, -dx) : highwayTime(drag.t0, dy));
+    });
+    const finish = e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      clearTimeout(drag.hold);
+      el.classList.remove('selecting');
+      if (drag.select) {
+        suppressClick = true;
+        if (e.type === 'pointerup') commitSelection(drag.select.from, drag.select.to);
+        else hideSelection();
+      } else if (drag.pan) suppressClick = e.type === 'pointerup';
+      else if (drag.active) { suppressClick = e.type === 'pointerup'; scrubEnd(); }
+      drag = null;
+    };
+    el.addEventListener('pointerup', finish);
+    el.addEventListener('pointercancel', finish);
+    el.addEventListener('lostpointercapture', finish);
+    el.addEventListener('wheel', e => {
+      if (!song || !range) return;
+      if (e.ctrlKey) { // trackpad pinch (and ctrl+wheel) zooms the sheet
+        if (axis === 'x') { e.preventDefault(); setZoom(zoom * Math.exp(-e.deltaY * .01)); }
+        return;
+      }
+      // A zoomed-in sheet taller than the card scrolls vertically.
+      if (axis === 'x' && sheetHost.classList.contains('tall') && Math.abs(e.deltaY) > Math.abs(e.deltaX) && !e.shiftKey && !scrub) return;
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
+      const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * unit;
+      if (!scrubBegin()) return;
+      scrubTo(axis === 'x' ? sheetTime(scrub.t, delta) : highwayTime(scrub.t, delta));
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(scrubEnd, 150);
+    }, {passive: false});
+  }
+  scrubbable(q('#um-sheet'), 'x');
+  scrubbable(q('#um-highway').closest('.highway') || q('#um-highway'), 'y');
+
+  // ───────── App chrome ─────────
+  window.addEventListener('pagehide', stopAll);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopAll(); });
+
+  q('#fullscreen-btn').onclick = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+
+
+  // ───────── Sound ─────────
+  function setMuted(v) {
+    piano.setMuted(v); save({muted: !!v});
+    root.classList.toggle('muted', !!v);
+    q('#mute-btn').setAttribute('aria-pressed', String(!!v));
+    q('#mute-btn').title = v ? 'Unmute (M)' : 'Mute (M)';
+  }
+  q('#mute-btn').onclick = () => setMuted(!piano.muted);
+
+  // ───────── Settings ─────────
+  const settingsModal = q('#settings');
+  function applySettings(st) {
+    const view = st.view === 'sheet' ? 'sheet' : 'falling';
+    root.dataset.view = view;
+    root.dataset.labels = ['none', 'c', 'all'].includes(st.labels) ? st.labels : 'c';
+    root.classList.toggle('no-hands', st.hands === false);
+    settingsModal.querySelector(`input[name="view"][value="${view}"]`).checked = true;
+    settingsModal.querySelector(`input[name="labels"][value="${root.dataset.labels}"]`).checked = true;
+    q('#set-hands').checked = st.hands !== false;
+    root.classList.toggle('show-names', !!st.names);
+    q('#set-names').checked = !!st.names;
+    q('#names-btn').setAttribute('aria-pressed', String(!!st.names));
+    root.dataset.playhead = st.playhead === 'left' ? 'left' : 'center';
+    settingsModal.querySelector(`input[name="playhead"][value="${root.dataset.playhead}"]`).checked = true;
+    root.dataset.pedal = st.pedal === false ? 'off' : 'on';
+    q('#set-pedal').checked = st.pedal !== false;
+    highway.layout();
+    requestAnimationFrame(layoutSheet);
+  }
+  function setLoop(v) {
+    loop = v; save({loop}); root.classList.toggle('looping', loop);
+    q('#sec-loop').checked = loop; q('#set-loop').checked = loop;
+  }
+  q('#settings-btn').onclick = () => { settingsModal.hidden = false; };
+  q('#settings-close').onclick = () => { settingsModal.hidden = true; };
+  settingsModal.addEventListener('click', e => { if (e.target === settingsModal) settingsModal.hidden = true; });
+  settingsModal.querySelectorAll('input[name="view"],input[name="labels"],input[name="playhead"]').forEach(input => input.onchange = () => {
+    save({[input.name]: input.value}); applySettings(load()); if (input.name === 'view') draw();
+  });
+  q('#set-hands').onchange = () => { save({hands: q('#set-hands').checked}); applySettings(load()); };
+  q('#set-loop').onchange = () => setLoop(q('#set-loop').checked);
+  const setNames = v => { save({names: !!v}); applySettings(load()); };
+  q('#set-names').onchange = () => setNames(q('#set-names').checked);
+  q('#names-btn').onclick = () => setNames(!root.classList.contains('show-names'));
+  q('#set-pedal').onchange = () => { save({pedal: q('#set-pedal').checked}); applySettings(load()); };
+
+  // ───────── Practice options ─────────
+  function setHands(h, {persist = true} = {}) {
+    if (!HANDS.includes(h)) return;
+    const changed = h !== hands;
+    hands = h;
+    root.classList.toggle('hands-right', h === 'right');
+    root.classList.toggle('hands-left', h === 'left');
+    const input = q(`input[name="sec-hands"][value="${h}"]`); if (input) input.checked = true;
+    if (persist) saveSong({hands: h});
+    if (!changed || !song || !range) return;
+    if (practicing) startPractice();
+    else { draw(); if (!playing) setPrompt(promptIdle()); }
+  }
+  function setMode(m) {
+    if (m !== 'wait' && m !== 'timed') return;
+    const changed = m !== mode;
+    mode = m; save({mode: m});
+    const input = q(`input[name="sec-mode"][value="${m}"]`); if (input) input.checked = true;
+    if (changed && practicing) stopAll();
+    if (changed && song && !playing) { setStatus(sectionLabel()); setPrompt(promptIdle()); }
+    setButtons();
+  }
+  function setMetronome(v) {
+    metronome = !!v; save({metronome});
+    q('#metro-btn').setAttribute('aria-pressed', String(metronome));
+    q('#set-metro').checked = metronome;
+    root.classList.toggle('metro-on', metronome);
+    if (!metronome) piano.stopClicks();
+    refreshFreeClick();
+  }
+  function setSpeedUp(v) {
+    speedUp = !!v; save({speedUp});
+    q('#sec-speed').checked = speedUp;
+    showTempo();
+  }
+  function setZoom(z) {
+    z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +z || 1));
+    if (Math.abs(z - 1) < .04) z = 1;
+    zoom = Math.round(z * 100) / 100; save({zoom});
+    root.style.setProperty('--sheet-zoom', zoom);
+    q('#zoom-level').textContent = Math.round(zoom * 100) + '%';
+    requestAnimationFrame(layoutSheet);
+  }
+  root.querySelectorAll('input[name="sec-hands"]').forEach(i => i.onchange = () => setHands(i.value));
+  root.querySelectorAll('input[name="sec-mode"]').forEach(i => i.onchange = () => setMode(i.value));
+  q('#sec-speed').onchange = () => setSpeedUp(q('#sec-speed').checked);
+  q('#metro-btn').onclick = () => setMetronome(!metronome);
+  q('#set-metro').onchange = () => setMetronome(q('#set-metro').checked);
+  q('#set-metro-wait').onchange = () => { metroInWait = q('#set-metro-wait').checked; save({metroInWait}); refreshFreeClick(); };
+  q('#set-metro-vol').oninput = () => { const v = +q('#set-metro-vol').value / 100; piano.setClickVolume(v); save({metroVolume: v}); };
+  q('#zoom-in').onclick = () => setZoom(zoom * 1.2);
+  q('#zoom-out').onclick = () => setZoom(zoom / 1.2);
+
+  // ───────── Songs ─────────
+  let current = null, loadToken = 0;
+  const saveSong = v => { if (current?.id != null) write(SONG_STORE(current.id), v); };
+  const clampTempo = v => Math.max(+q('#um-tempo').min || 20, Math.min(+q('#um-tempo').max || 160, Math.round(v)));
+
+  // Default section: the catalog's, else the first 4 measures (plus a
+  // pickup), or the whole piece when it is short.
+  function defaultSection(entry) {
+    const n = song.measures.length;
+    const valid = (a, b) => Number.isInteger(a) && Number.isInteger(b) && a >= 0 && a <= b && b < n;
+    const saved = read(SONG_STORE(entry.id));
+    if (valid(saved.first, saved.last)) return [saved.first, saved.last];
+    const [a, b] = Array.isArray(entry.section) ? entry.section.map(Number) : [];
+    if (valid(a, b)) return [a, b];
+    if (n <= 8) return [0, n - 1];
+    return [0, Math.min(n - 1, song.measures[0].pickup ? 4 : 3)];
+  }
+  // Speed trainer goal: the catalog's tempo, else the score's.
+  const targetTempo = () => clampTempo(+current?.tempo > 0 ? +current.tempo : song?.tempo > 0 ? song.tempo : 100);
+  function defaultTempo(entry) {
+    for (const v of [read(SONG_STORE(entry.id)).tempo, entry.tempo, song.tempo]) if (+v > 0) return clampTempo(+v);
+    return 60;
+  }
+
+  function showLoading(entry) {
+    unmountSheet();
+    song = null; range = null; points = []; pos = 0; finished = false; matched.clear(); grades.clear();
+    keyboardRange = '';
+    q('#lesson-title').textContent = entry.title || 'Untitled';
+    q('#lesson-subtitle').textContent = 'Loading…';
+    q('#section-btn-label').textContent = 'Loading…';
+    q('#um-progress').style.width = '0%';
+    q('#um-count').replaceChildren();
+    q('#um-measure').textContent = ''; q('#um-detail').textContent = '';
+    root.querySelectorAll('.pkey').forEach(b => b.classList.remove('held', 'attack'));
+    setStatus(''); setPrompt('Loading score…');
+    root.classList.add('loading');
+    root.classList.remove('load-error');
+  }
+
+  function showSong(entry, s) {
+    song = s;
+    const notes = song.events.map(e => e.n);
+    defaultLow = whiteBelow(Math.max(21, Math.min(48, Math.min(...notes) - 1)));
+    defaultHigh = whiteAbove(Math.min(108, Math.max(72, Math.max(...notes) + 1)));
+    q('#um-tempo').value = defaultTempo(entry); showTempo();
+    const savedHands = read(SONG_STORE(entry.id)).hands;
+    setHands(HANDS.includes(savedHands) ? savedHands : 'both', {persist: false});
+    root.classList.remove('loading');
+    buildKeyboard();
+    mountSheet();
+    const [first, last] = defaultSection(entry);
+    setRange(first, last);
+  }
+
+  function showError(entry, err) {
+    root.classList.remove('loading');
+    root.classList.add('load-error');
+    q('#lesson-subtitle').textContent = 'Could not load';
+    q('#section-btn-label').textContent = 'Could not load';
+    setStatus('');
+    setPrompt(`Could not load <b>${escapeHtml(entry.title || 'this song')}</b>: ${escapeHtml(err?.message || err || 'unknown error')}`);
+  }
+
+  // Swap to another song. Only the most recent call wins.
+  async function loadEntry(entry, songPromise) {
+    const token = ++loadToken;
+    stopAll(); hideResults();
+    current = entry;
+    showLoading(entry);
+    let s;
+    try { s = await songPromise; } catch (err) {
+      if (token === loadToken) showError(entry, err);
+      return null;
+    }
+    if (token !== loadToken) return null;
+    try { showSong(entry, s); } catch (err) {
+      song = null; range = null; unmountSheet();
+      showError(entry, err);
+      return null;
+    }
+    return s;
+  }
+
+  // ───────── Boot ─────────
+  const saved = load();
+  const urlView = new URLSearchParams(location.search).get('view');
+  if (urlView) saved.view = urlView;
+  setLoop(!!saved.loop);
+  setMuted(!!saved.muted);
+  setMode(saved.mode === 'timed' ? 'timed' : 'wait');
+  metroInWait = !!saved.metroInWait; q('#set-metro-wait').checked = metroInWait;
+  const metroVolume = saved.metroVolume != null && Number.isFinite(+saved.metroVolume) ? +saved.metroVolume : .6;
+  piano.setClickVolume(metroVolume); q('#set-metro-vol').value = Math.round(metroVolume * 100);
+  setMetronome(!!saved.metronome);
+  setSpeedUp(!!saved.speedUp);
+  setZoom(+saved.zoom || 1);
+  piano.load();
+  applySettings(saved);
+  setButtons();
+  buildKeyboard();
+  highway.start();
+  requestAnimationFrame(scrollSheet);
+
+  function stopPublic() {
+    const busy = playing || practicing;
+    stopAll(); hideResults();
+    if (busy && song) { setStatus(sectionLabel()); setPrompt(promptIdle()); }
+  }
+
+  // ───────── Teacher hooks (window.pianoPlayer) ─────────
+  // Setters run through the same code paths as the UI and return getState().
+  function getState() {
+    return {
+      songId: current?.id ?? null, title: current?.title || song?.title || '', composer: current?.composer || song?.composer || '',
+      section: range ? [range.first, range.last] : null, sectionLabel: song && range ? sectionLabel() : '',
+      measureCount: song?.measures.length ?? 0, tempo: tempo(), targetTempo: song ? targetTempo() : null,
+      mode, hands, view: root.dataset.view, playing, practicing, loop,
+    };
+  }
+  const int = v => (v !== null && v !== '' && Number.isFinite(+v) ? Math.round(+v) : NaN);
+  window.pianoPlayer = {
+    getState,
+    setSection(first, last = first) {
+      if (!song) return getState();
+      const n = song.measures.length;
+      let a = int(first), b = int(last);
+      if (Number.isNaN(a)) return getState();
+      if (Number.isNaN(b)) b = a;
+      a = Math.max(0, Math.min(n - 1, a)); b = Math.max(0, Math.min(n - 1, b));
+      if (a > b) [a, b] = [b, a];
+      setRange(a, b);
+      return getState();
+    },
+    setTempo(bpm) { if (Number.isFinite(+bpm) && +bpm > 0) setTempoValue(+bpm); return getState(); },
+    setHands(h) { setHands(String(h).toLowerCase()); return getState(); },
+    setMode(m) { m = String(m).toLowerCase(); setMode(m === 'play-along' || m === 'playalong' || m === 'timed' ? 'timed' : m); return getState(); },
+    setLoop(v) { setLoop(!!v); return getState(); },
+    listen() { if (song && !playing) q('#um-play').click(); return getState(); },
+    practice() { if (song) startPractice(); return getState(); },
+    stop() { stopPublic(); return getState(); },
+  };
+
+  return {
+    load: loadEntry,
+    stop: stopPublic,
+    get current() { return current; },
+  };
+}
