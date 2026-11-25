@@ -200,7 +200,7 @@ describe('beginner score aids', () => {
     expect(studentIsBeginner(null, lib, curriculum)).toBe(true);
     expect(studentIsBeginner({events: [], totals: {songs: {}}, settings: {pathStart: 'grade-1'}}, lib, curriculum)).toBe(false);
     expect(studentIsBeginner(null, lib, () => { throw Error('no path'); })).toBe(true);
-    expect(aidsFor({id: 'hot-cross-buns', grade: 0}, {beginner: true})).toEqual({names: true});
+    expect(aidsFor({id: 'hot-cross-buns', grade: 0}, {beginner: true})).toEqual({names: true, large: true});
     expect(aidsFor({id: 'hot-cross-buns', grade: 0}, {beginner: false})).toBeNull();
     expect(aidsFor({id: 'minuet-in-g', grade: 1}, {beginner: true})).toBeNull();
   });

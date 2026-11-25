@@ -313,6 +313,19 @@ mounted) and the public site shows one quiet line in Progress instead. sessionSt
   is dismissed or the piece is played). Exercises (`ex:`) and sight-reading (`sr:`) get neither.
 - **Settings**: `piano-practice:settings.fingering` (default on) shows/hides Verovio's `g.fing`
   (MusicXML `<fingering>` / MEI `<fing>`) via `.no-fing` on `#player`.
+- **Suggested fingering** (Phase 19, `src/fingering/`): `printed.mjs` (pure) `printedFingering(mei)` →
+  `{fingers: Map(noteId → 1..5), bars: Set('<measureId>:<staff>')}`, kept on the song as
+  `song.printedFingering`; `suggest.mjs` (pure) `suggestFingering(notes, {hand, beginner, fixed})` is a
+  second-order Viterbi over finger tuples per slice (Parncutt-style span table, crossing, black-key,
+  repeated-note and hand-position costs; weights in `WEIGHTS`) and `suggestForSong(song, {printed, beginner})`
+  suggests only for bars/staves with no printed fingering, anchored on the printed numbers. `overlay.js`
+  draws them as `g.sfing.h-r|h-l` (italic `--ink-soft` numerals, RH above / LH below, `<title>Suggested
+  fingering</title>`) inside each measure once the score is laid out; hidden with `.no-fing`. Grade 0–1
+  pieces use the beginner weights (five-finger positions).
+- **Larger notes**: `settings.largeNotes` (true/false = the student's choice; unset = on when the entry
+  carries `aids.large`, which `aidsFor` now adds with `names` for a Beginner's Grade 0 piece) puts
+  `.large-notes` on `#player`; noteheads scale 1.3× about their centre (CSS), so anchors, highlights and
+  note-name letters are unaffected.
 - **Hand-position preview**: stopped at a section's start, the first five pitches of each practised hand
   are ghosted on the keyboard (`.pkey.ghost`).
 
