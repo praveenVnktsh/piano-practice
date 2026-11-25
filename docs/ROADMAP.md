@@ -139,6 +139,6 @@ New capability arrives inside an existing place or behind progressive disclosure
 - [ ] P2 Sustained-use e2e (long play under virtual time)
 
 ## Phase 17: Library breadth ⏳
-- [ ] P1 MIDI file import: a .mid becomes a playable piece (quantised, hands split by pitch or track) for falling notes; the sheet is engraved when quantisation is clean
+- [x] P1 MIDI file import: a .mid becomes a playable piece (quantised, hands split by pitch or track) for falling notes; the sheet is engraved when quantisation is clean
 - [ ] P1 Repertoire to 50+ verified pieces, filling Grades 1–3 especially (Türk, Gurlitt, Kabalevsky's PD-eligible, Diabelli, more Burgmüller and Czerny)
 - [ ] P2 Duets: teacher/primo part plays from the sampler while you play secondo (and vice versa)

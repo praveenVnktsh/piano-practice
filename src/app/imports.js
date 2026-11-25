@@ -3,9 +3,11 @@
 // site data and are shared with other devices on the same dev server (iPad);
 // otherwise (production build, server unreachable) in this browser's IndexedDB.
 //
-// Server entry: {id: "import:<id>", title, composer?, added, file, format, omr?}
+// Server entry: {id: "import:<id>", title, composer?, added, file, format, omr?, midi?, quality?, view?}
 //   → played from {url: file}
-// Browser record: {id: "import:<uuid>", title, composer?, added, data | mxlBase64, omr?}
+// Browser record: {id: "import:<uuid>", title, composer?, added, data | mxlBase64, omr?, midi?, quality?, view?}
+// A MIDI file is converted to MusicXML on import (src/midi-file/): `midi: true`, `quality` (0–1, how
+// cleanly it quantised) and, when that is poor, `view: 'falling'` (the player opens it in falling notes).
 
 const DB_NAME = 'piano-practice-imports';
 const STORE = 'songs';
@@ -60,6 +62,7 @@ const server = {
       id: rec.id, title: rec.title, composer: rec.composer, added: rec.added,
       ...(rec.mxlBase64 ? {mxlBase64: rec.mxlBase64} : {data: rec.data}),
       ...(rec.omr ? {omr: true} : {}), ...(rec.partial ? {partial: true} : {}),
+      ...(rec.midi ? {midi: true, quality: rec.quality} : {}), ...(rec.view === 'falling' ? {view: 'falling'} : {}),
     }),
   }),
   delete: id => api('/' + encodeURIComponent(id), {method: 'DELETE'}),
@@ -163,14 +166,16 @@ async function mxlText(bytes) {
   return '';
 }
 
-export const ACCEPTED = /\.(musicxml|xml|mxl|mei)$/i;
+export const ACCEPTED = /\.(musicxml|xml|mxl|mei|midi?)$/i;
 export const MAX_BYTES = 50 * 1024 * 1024;
+const MAX_MIDI_BYTES = 4 * 1024 * 1024;
 
 /** Turns a picked/dropped file into an import record (not yet stored). */
 export async function recordFromFile(file) {
-  if (!ACCEPTED.test(file.name)) throw Error('Choose a MusicXML (.musicxml, .xml, .mxl) or MEI (.mei) file.');
+  if (!ACCEPTED.test(file.name)) throw Error('Choose a MusicXML (.musicxml, .xml, .mxl), MEI (.mei) or MIDI (.mid) file.');
   if (file.size > MAX_BYTES) throw Error('Choose a score smaller than 50 MB.');
   const rec = {id: newImportId(), added: Date.now()};
+  if (/\.midi?$/i.test(file.name)) return recordFromMidi(file, rec);
   let meta = {};
   if (/\.mxl$/i.test(file.name)) {
     const bytes = new Uint8Array(await file.arrayBuffer());
@@ -187,6 +192,22 @@ export async function recordFromFile(file) {
   return rec;
 }
 const v32 = b => b.length >= 4 ? new DataView(b.buffer, b.byteOffset).getUint32(0, true) : 0;
+
+// A .mid becomes MusicXML here (quantised, hands split: src/midi-file/to-musicxml.mjs) and is then
+// checked and saved like any other import. Loose timing (a recorded performance) still gets a
+// rough score, but the piece is marked to open in falling notes.
+async function recordFromMidi(file, rec) {
+  if (file.size > MAX_MIDI_BYTES) throw Error('Choose a MIDI file smaller than 4 MB.');
+  const {midiToMusicXml} = await import('../midi-file/to-musicxml.mjs');
+  let out;
+  try { out = midiToMusicXml(new Uint8Array(await file.arrayBuffer()), {fileName: file.name}); }
+  catch (e) { throw Error(`This MIDI file couldn’t be read: ${String(e?.message || e).replace(/\.$/, '')}.`, {cause: e}); }
+  return {
+    ...rec, data: out.xml, title: out.title, midi: true, quality: out.quality,
+    ...(out.fallingPreferred ? {view: 'falling'} : {}),
+    warning: out.warnings.join(' ') || undefined,
+  };
+}
 
 // ───────── PDF recognition via the optional local Audiveris helper ─────────
 

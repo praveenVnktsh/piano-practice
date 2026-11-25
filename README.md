@@ -71,7 +71,7 @@ them and leads back with **←**.
 | Place | What it is for |
 | --- | --- |
 | **Today** | Your home. Each day: a warm-up (the next technique step of your path), your current piece, and a short reading drill, plus your daily goal ring, your streak, pieces due for review, homework from your teacher and their latest note. Most days you never need to leave it. |
-| **Pieces** | The repertoire: bundled public-domain pieces with a grade, grouped by composer like a concert programme, your own songs and imported scores, each with its status (learning, secure, polished, maintained). **Browse Mutopia** searches the whole Mutopia piano archive and converts a piece on the spot (marked *unverified*). **Import a score** takes MusicXML (`.musicxml`, `.xml`, `.mxl`) or MEI. |
+| **Pieces** | The repertoire: bundled public-domain pieces with a grade, grouped by composer like a concert programme, your own songs and imported scores, each with its status (learning, secure, polished, maintained). **Browse Mutopia** searches the whole Mutopia piano archive and converts a piece on the spot (marked *unverified*). **Import a score** takes MusicXML (`.musicxml`, `.xml`, `.mxl`), MEI or a MIDI file (`.mid`), which is quantised into a two-staff score (marked *unverified*; a loosely timed file opens in falling notes). |
 | **Exercises** | Technique (scales, arpeggios, five-finger positions, chromatic scales and cadences in every key, with fingering), note reading, sight-reading, rhythm, theory lessons and ear training. |
 | **Progress** | Your practice diary: today against your goal, streak, the week, bars mastered, your path through the grades (Beginner to Grade 5), goals with dates, the journal, recordings, letters from your teacher, and the settings (daily goal, where your path starts, appearance, backup, help). |
 
@@ -285,7 +285,8 @@ See [`songs/README.md`](songs/README.md) for the full guide. In short:
   `node tools/ly2musicxml.mjs input.ly > public/songs/name.musicxml`.
 - **Your own private songs** go in `public/songs/local/` with their own
   `public/songs/local/catalog.json`. That folder is git-ignored and left out of builds.
-- Or use **Import a score** in the app.
+- Or use **Import a score** in the app (MusicXML, MXL, MEI or MIDI; see
+  [songs/README.md](songs/README.md#importing-a-midi-file) for what a MIDI import can and can't do).
 
 > **Licence rule.** Bundled songs must be public domain or openly licensed, with `license`,
 > `source` and `sourceUrl` filled in in the catalog. The licence must cover the *file* (the

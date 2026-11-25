@@ -3,6 +3,8 @@
 // two-part piano joined, pickup bars marked, a title found) and opened once the way the player
 // will open it, so a score that can't be played is reported here, in plain words, not later.
 // "How to export from MuseScore" (index.html, #import-guide) sums up songs/README.md.
+// A .mid/.midi file arrives here already converted to MusicXML (imports.js → src/midi-file/), so it
+// takes the same path; its "loose timing, opens in falling notes" note comes back as a warning.
 import {recordFromFile, recognizePdf, putImport, importStore, STORE_LABEL, ACCEPTED} from './imports.js';
 import {prepareMusicXml, unzipMxl} from '../musicxml.mjs';
 

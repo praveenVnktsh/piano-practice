@@ -53,7 +53,7 @@ const SECTIONS = [
     p('There are only four places in the app. Everything else, the player, the teacher and the settings, opens from them and leads back.'),
     el('dl', {class: 'hp-terms'},
       ...term('Today', 'Your home. Each day it lays out a warm-up (the next technique step on your path), the piece you are learning and a short reading drill, with your daily goal, streak and any homework from your teacher. Most days you need nothing else.'),
-      ...term('Pieces', 'The repertoire, grouped like a concert programme: bundled public-domain pieces with a grade, your own songs, imported scores (MusicXML, MXL, MEI) and an experimental browser for the Mutopia archive. Each piece shows how far along it is: learning, secure, polished.'),
+      ...term('Pieces', 'The repertoire, grouped like a concert programme: bundled public-domain pieces with a grade, your own songs, imported scores (MusicXML, MXL, MEI, MIDI) and an experimental browser for the Mutopia archive. Each piece shows how far along it is: learning, secure, polished.'),
       ...term('Exercises', 'Technique (scales, arpeggios, five-finger positions, chromatic scales and cadences in every key, with fingering), note reading, sight-reading, rhythm, theory and ear training.'),
       ...term('Progress', 'Your practice diary: minutes, streaks, the bars you have mastered, your path through the grades, goals with dates, the journal, recordings, letters from your teacher and the settings.'),
       ...term('Teacher', 'A companion, not a place. The quiet Teacher button opens letters in the margin: ask about a bar, ask for feedback on your last attempt, and follow the buttons in the reply. It needs the dev server on your Mac.')),

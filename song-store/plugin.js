@@ -3,11 +3,12 @@
 // (e.g. an iPad on http://<mac-ip>:5173, see `npm run dev:ipad`).
 //
 //   GET    /__songs        → {store: 'disk', songs: [entry, ...]} (newest first)
-//   POST   /__songs        ← {title, composer?, data | mxlBase64, id?, added?, omr?, partial?}
+//   POST   /__songs        ← {title, composer?, data | mxlBase64, id?, added?, omr?, partial?, midi?, quality?, view?}
 //                          → 201 entry (200 + duplicate:true if the same title and content exist)
 //   DELETE /__songs/<id>   → {ok: true} (404 if unknown)
 //
-// entry = {id, title, composer?, added, file, format, hash, omr?, partial?}
+// entry = {id, title, composer?, added, file, format, hash, omr?, partial?, midi?, quality?, view?}
+// (midi: converted from a .mid; quality: 0–1 quantisation score; view: 'falling' to open in falling notes)
 // Files go to public/songs/local/imports/<slug>-<shortid>.<musicxml|mei|mxl>
 // (gitignored, dropped from production builds) and are listed in index.json
 // there. Filenames are always generated here; nothing the client sends ends
@@ -99,6 +100,11 @@ export function parseSong(fields) {
   if (Number.isFinite(fields.added) && fields.added > 0 && fields.added < 1e14) meta.added = Math.round(fields.added);
   if (fields.omr === true) meta.omr = true;
   if (fields.partial === true) meta.partial = true;
+  if (fields.midi === true) {
+    meta.midi = true;
+    if (Number.isFinite(fields.quality) && fields.quality >= 0 && fields.quality <= 1) meta.quality = Math.round(fields.quality * 100) / 100;
+  }
+  if (fields.view === 'falling') meta.view = 'falling';
   return {meta, bytes, format, hash: createHash('sha256').update(bytes).digest('hex')};
 }
 
@@ -123,6 +129,7 @@ export function addSong(dir, fields) {
     id, title: meta.title, ...(meta.composer ? {composer: meta.composer} : {}),
     added: meta.added ?? Date.now(), file: URL_BASE + name, format, hash,
     ...(meta.omr ? {omr: true} : {}), ...(meta.partial ? {partial: true} : {}),
+    ...(meta.midi ? {midi: true} : {}), ...(meta.quality != null ? {quality: meta.quality} : {}), ...(meta.view ? {view: meta.view} : {}),
   };
   try { writeIndex(dir, [...songs, entry]); }
   catch (e) { rmSync(join(dir, name), {force: true}); throw e; }

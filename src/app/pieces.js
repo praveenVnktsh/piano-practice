@@ -39,7 +39,10 @@ const surname = c => {
 function fineprint(entry, where) {
   if (entry.kind === 'import') {
     const when = entry.added ? new Date(entry.added).toLocaleDateString(undefined, {day: 'numeric', month: 'short', year: 'numeric'}) : '';
-    return [(entry.omr ? 'Recognised from a PDF — notes may need checking' : 'Imported') + (when ? ' ' + when : ''), where === 'mac' ? 'saved on your Mac' : 'saved in this browser'].join(' · ');
+    const how = entry.omr ? 'Recognised from a PDF — notes may need checking'
+      : entry.midi ? 'From a MIDI file — unverified' + (entry.view === 'falling' ? ', best in falling notes' : '')
+      : 'Imported';
+    return [how + (when ? ' ' + when : ''), where === 'mac' ? 'saved on your Mac' : 'saved in this browser'].join(' · ');
   }
   const src = entry.source?.split(/\s[–—-]\s/)[0];
   return [entry.license, src].filter(Boolean).join(' · ') || (entry.kind === 'local' ? 'Your private library' : '');
