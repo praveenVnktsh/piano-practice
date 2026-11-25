@@ -1,0 +1,18 @@
+Verovio 6.2.0 — Laurent Pugin and contributors.
+License: LGPL-3.0-or-later. Unmodified toolkit modules are in vendor/.
+Source and license: https://github.com/rism-digital/verovio/tree/version-6.2.0
+https://www.gnu.org/licenses/lgpl-3.0.html
+
+PDF.js 5.5.207 — Mozilla Foundation and contributors.
+License: Apache-2.0. Unmodified pdf.mjs/pdf.worker.mjs are in vendor/.
+Source and license: https://github.com/mozilla/pdf.js/tree/v5.5.207
+https://www.apache.org/licenses/LICENSE-2.0
+
+Audiveris 5.11.0 is used separately by a local, unmodified source-built executable.
+It is not included in this hosted site's archive. License: AGPL-3.0.
+Source: https://github.com/Audiveris/audiveris/tree/5.11.0
+
+The original sheet-music PDF was supplied by the owner for private practice.
+The full-score recognition is an OMR draft, requiring comparison with that PDF.
+The opening pickup is numbered 0; the final printed measure is 51.
+Measures 36–40 were separately checked and corrected against the PDF.

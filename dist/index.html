@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://persistent.oaistatic.com/plugins/visualize/; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://persistent.oaistatic.com/plugins/visualize/charts/; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://persistent.oaistatic.com/plugins/visualize/; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://persistent.oaistatic.com/plugins/visualize/charts/; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src 'self' blob:; connect-src 'self' blob: data: http://127.0.0.1:8937; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Una Mattina · Measures 36–40</title>
 <style>:root {
   color-scheme: light dark;
@@ -1513,329 +1513,26 @@ svg.lucide {
 html>body{padding:0}</style>
 </head>
 <body>
-<script type="application/json" id="codex-visualization-widget-state">__CODEX_VISUALIZATION_WIDGET_STATE__</script>
-<script>(() => {
-  const root = document.documentElement;
-  const mediaQuery = globalThis.matchMedia("(prefers-color-scheme: dark)");
-  const apply = Reflect.apply;
-  const isArray = Array.isArray;
-  const hasOwn = Object.hasOwn;
-  const parentWindow = globalThis.parent;
-  const stringify = JSON.stringify;
-  const parse = JSON.parse;
-  const encode = TextEncoder.prototype.encode.bind(new TextEncoder());
-  const initialStateElement = document.getElementById(
-    "codex-visualization-widget-state",
-  );
-  const initialGlobals = parse(initialStateElement?.textContent ?? "{}");
-  initialStateElement?.remove();
-  /** @type {Record<string, unknown> | null} */
-  let state = initialGlobals.widgetState ?? null;
-  const statePersistence = initialGlobals.statePersistence ?? "none";
-  let nextStateRequestId = 0;
-  /** @type {Map<number, { resolve: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof globalThis.setTimeout>; serializedState: string }>} */
-  const pendingStateWrites = new Map();
-  const persistenceError = () =>
-    Object.assign(
-      new Error("The host could not persist the widget state update"),
-      {
-        code: -32000,
-        data: { code: "widget_state_persistence_failed", retryable: false },
-      },
-    );
-  /**
-   * @param {object} prototype
-   * @param {string} property
-   */
-  const getPrototypeGetter = (prototype, property) => {
-    // oxlint-disable-next-line typescript/unbound-method -- invoked through captured Reflect.apply
-    const getter = Object.getOwnPropertyDescriptor(prototype, property)?.get;
-    if (getter == null) {
-      throw new Error(`Missing ${property} getter`);
-    }
-    return getter;
-  };
-  const getMessageData = getPrototypeGetter(MessageEvent.prototype, "data");
-  const getMessagePorts = getPrototypeGetter(MessageEvent.prototype, "ports");
-  const getMessageSource = getPrototypeGetter(MessageEvent.prototype, "source");
-  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
-  const addHostMessageListener = MessagePort.prototype.addEventListener;
-  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
-  const postHostMessage = MessagePort.prototype.postMessage;
-  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
-  const startHostPort = MessagePort.prototype.start;
-  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
-  const stopMessagePropagation = Event.prototype.stopImmediatePropagation;
-  /** @type {MessagePort | null} */
-  let hostPort = null;
-  const postToHost = (type, payload) => {
-    if (hostPort != null) {
-      apply(postHostMessage, hostPort, [{ type, ...payload }]);
-    }
-  };
-  const openExternal = ({ href }) => {
-    if (globalThis.navigator.userActivation?.isActive === true) {
-      postToHost("open-external", { href });
-    }
-  };
-  const sendFollowUpMessage = ({ context, prompt, title }) => {
-    if (globalThis.navigator.userActivation?.isActive === true) {
-      postToHost("follow-up", { context, prompt, title });
-    }
-    return Promise.resolve();
-  };
-  /**
-   * @param {Record<string, unknown> | ((previous: Record<string, unknown> | null) => Record<string, unknown>)} next
-   * @returns {Promise<void>}
-   */
-  const setWidgetState = async (next) => {
-    const nextState = typeof next === "function" ? next(state) : next;
-    if (
-      nextState == null ||
-      typeof nextState !== "object" ||
-      isArray(nextState)
-    ) {
-      throw new TypeError("Widget state must be a JSON object");
-    }
-    const inputState = stringify(
-      nextState,
-      (_key, /** @type {unknown} */ value) => {
-        if (
-          typeof value === "undefined" ||
-          typeof value === "function" ||
-          typeof value === "symbol" ||
-          (typeof value === "number" && !Number.isFinite(value))
-        ) {
-          throw new TypeError("Widget state must be a JSON object");
-        }
-        return value;
-      },
-    );
-    const parsedState = parse(inputState);
-    if (
-      parsedState == null ||
-      typeof parsedState !== "object" ||
-      isArray(parsedState)
-    ) {
-      throw new TypeError("Widget state must be a JSON object");
-    }
-    const storedState = {
-      modelContent: null,
-      privateContent: null,
-      ...parsedState,
-    };
-    const serializedState = stringify(storedState);
-    if (encode(serializedState).length > 16 * 1024) {
-      throw new TypeError(
-        "Widget state must be a JSON object of at most 16 KiB",
-      );
-    }
-    if (
-      hasOwn(storedState, "imageIds") &&
-      (!isArray(storedState.imageIds) ||
-        storedState.imageIds.some(
-          (/** @type {unknown} */ id) => typeof id !== "string",
-        ))
-    ) {
-      throw new TypeError("Widget state imageIds must be an array of strings");
-    }
-    if (storedState.imageIds?.length > 0) {
-      throw Object.assign(
-        new TypeError("Visualization state does not support image attachments"),
-        { code: -32602, data: { code: "images_unsupported" } },
-      );
-    }
-    state = storedState;
-    globalThis.openai.widgetState = state;
-    globalThis.dispatchEvent(
-      new CustomEvent("openai:set_globals", {
-        detail: { globals: { widgetState: state } },
-      }),
-    );
-    if (statePersistence === "none") {
-      throw persistenceError();
-    }
-    const id = ++nextStateRequestId;
-    return new Promise((resolve, reject) => {
-      const timeout = globalThis.setTimeout(() => {
-        pendingStateWrites.delete(id);
-        reject(persistenceError());
-      }, 30_000);
-      pendingStateWrites.set(id, { resolve, reject, timeout, serializedState });
-      postToHost("widget-state-write", { id, state: serializedState });
-    });
-  };
-  const mockElement = document.getElementById("codex-connector-mocks");
-  const connectorGlobals = {};
-  if (mockElement != null) {
-    const values = new Map(Object.entries(parse(mockElement.textContent)));
-    mockElement.remove();
-    connectorGlobals.visualizationData = {
-      updates: Array.from(values, ([name, value]) => ({
-        name,
-        revision: 1,
-        state: "ready",
-        value: { type: "json", value },
-      })),
-    };
-    connectorGlobals.visualization = {
-      /** @param {string} name @param {(value: unknown) => void} callback */
-      onData(name, callback) {
-        if (typeof callback !== "function") {
-          throw new TypeError("onData requires a callback");
-        }
-        try {
-          callback(values.get(name));
-        } catch (error) {
-          // oxlint-disable-next-line no-console -- Keep authored callback failures local.
-          console.error("Live visualization data callback failed", error);
-        }
-        // A static preview delivers the current fixture once per subscription.
-        return () => {};
-      },
-    };
-  }
-  const syncTheme = () => {
-    const theme = mediaQuery.matches ? "dark" : "light";
-    root.dataset.theme = theme;
-    globalThis.openai = {
-      ...globalThis.openai,
-      ...connectorGlobals,
-      openExternal,
-      sendFollowUpMessage,
-      setWidgetState,
-      theme,
-      visualizationStyleVariables: {},
-      visualizationTheme: theme,
-      widgetState: state,
-      statePersistence,
-      stateModelContext: "none",
-    };
-    globalThis.dispatchEvent(
-      new CustomEvent("openai:set_globals", {
-        detail: { globals: globalThis.openai },
-      }),
-    );
-  };
-  const sendHeight = () => {
-    postToHost("height", {
-      height: Math.ceil(
-        Math.max(
-          document.body.scrollHeight,
-          document.body.getBoundingClientRect().height,
-        ),
-      ),
-    });
-  };
-
-  globalThis.addEventListener(
-    "message",
-    (event) => {
-      const data = apply(getMessageData, event, []);
-      const ports = apply(getMessagePorts, event, []);
-      const source = apply(getMessageSource, event, []);
-      if (
-        hostPort != null ||
-        source !== parentWindow ||
-        typeof data !== "object" ||
-        data?.type !== "codex-visualization-initialize" ||
-        !isArray(ports) ||
-        ports.length !== 1
-      ) {
-        return;
-      }
-      apply(stopMessagePropagation, event, []);
-      const nextHostPort = ports[0];
-      try {
-        apply(addHostMessageListener, nextHostPort, [
-          "message",
-          (event) => {
-            const data = apply(getMessageData, event, []);
-            if (typeof data === "object" && data?.type === "measure") {
-              sendHeight();
-            } else if (
-              typeof data === "object" &&
-              data?.type === "widget-state-result"
-            ) {
-              /** @type {unknown} */
-              const id = data.id;
-              if (typeof id !== "number") {
-                return;
-              }
-              const pending = pendingStateWrites.get(id);
-              if (pending != null) {
-                pendingStateWrites.delete(id);
-                globalThis.clearTimeout(pending.timeout);
-                if (data.ok === true) {
-                  pending.resolve();
-                } else {
-                  pending.reject(persistenceError());
-                }
-              }
-            }
-          },
-        ]);
-        apply(startHostPort, nextHostPort, []);
-      } catch {
-        return;
-      }
-      hostPort = nextHostPort;
-      for (const [id, { serializedState }] of pendingStateWrites) {
-        postToHost("widget-state-write", { id, state: serializedState });
-      }
-      sendHeight();
-    },
-    { capture: true },
-  );
-  document.currentScript?.remove();
-  mediaQuery.addEventListener("change", syncTheme);
-  globalThis.addEventListener("click", (event) => {
-    if (event.defaultPrevented) {
-      return;
-    }
-    let element = null;
-    if (event.target instanceof globalThis.Element) {
-      element = event.target;
-    } else if (event.target instanceof globalThis.Node) {
-      element = event.target.parentElement;
-    }
-    const link = element?.closest("a[href]");
-    const href = link?.getAttribute("href");
-    if (href == null) {
-      return;
-    }
-    if (href.startsWith("#")) {
-      let id;
-      try {
-        id = decodeURIComponent(href.slice(1));
-      } catch {
-        return;
-      }
-      const target = id.length === 0 ? root : document.getElementById(id);
-      if (
-        target == null ||
-        globalThis.navigator.userActivation?.isActive !== true
-      ) {
-        return;
-      }
-      event.preventDefault();
-      postToHost("scroll-to", {
-        top: target.getBoundingClientRect().top + globalThis.scrollY,
-      });
-      return;
-    }
-    event.preventDefault();
-    openExternal({ href });
-  });
-  new ResizeObserver(sendHeight).observe(document.body);
-  syncTheme();
-})();
-</script>
+<script type="application/json" id="codex-visualization-widget-state">{}</script>
+<script>(()=>{let state=null;try{state=JSON.parse(localStorage.getItem('unaPractice36to40')||'null')}catch{}window.openai={widgetState:state,setWidgetState(value){this.widgetState=value;try{localStorage.setItem('unaPractice36to40',JSON.stringify(value))}catch{}return Promise.resolve()}}})();</script>
 <div id="um37">
-<header class="lesson-heading"><h1>Una Mattina</h1><p>Guided piano practice · measures 36–40</p></header>
-<div class="viz-controls"><button class="btn" id="um-prev">Previous</button><button class="btn btn-primary" id="um-play">Listen</button><button class="btn" id="um-next">Next</button><button class="btn" id="um-stop">Stop</button><button class="btn" id="um-practice">Start note practice</button><label class="form-label">Tempo <input class="form-range" id="um-tempo" type="range" min="30" max="100" value="50"><span id="um-bpm">50 BPM</span></label></div>
-<div class="viz-controls"><button class="btn" id="um-midi">Connect piano</button><select id="um-midi-device" aria-label="MIDI input device"><option value="all">All MIDI inputs</option></select><button class="btn" id="um-midi-clear">Clear held keys</button><span id="um-midi-status" aria-live="polite">MIDI not connected</span></div><div id="um-practice-status" aria-live="polite">Note practice · measures 36–40 · waits for MIDI notes, no rhythm grading</div><section id="um-score" aria-label="Guided original sheet music"><div class="score-heading"><strong id="um-measure">Measure 36</strong><span>Passage 36–40</span></div><div class="score-stage"><img id="um-score-image" alt="Original notation for current measure"><div id="um-score-marks" aria-hidden="true"></div></div><div class="score-legend"><span>◎ Expected attack</span><span>● Matched</span><span>◌ Held / tied</span></div></section><div class="viz-row" id="um-count"></div>
-<div id="um-keys" role="group" aria-label="Piano keyboard, E2 to C5"></div>
+<header class="lesson-heading"><h1 id="lesson-title">Una Mattina</h1><p id="lesson-subtitle">Guided piano practice · measures 36–40</p></header><div class="viz-controls"><button class="btn" id="um-midi">Connect piano</button><select id="um-midi-device" aria-label="MIDI input device"><option value="all">All MIDI inputs</option></select><button class="btn" id="um-midi-clear">Clear held keys</button><span id="um-midi-status" aria-live="polite">MIDI not connected</span></div><details id="score-library"><summary>Score library · import a PDF or MusicXML</summary>
+<div class="library-body">
+<div class="viz-controls"><label>Import score <input id="lib-file" type="file" accept=".pdf,.musicxml,.xml,.mxl,.mei"></label><label>Saved scores <select id="lib-saved"><option value="">Choose a saved score</option></select></label><button class="btn" id="lib-demo">Open full Una Mattina draft</button></div>
+<p id="lib-status" role="status">PDFs are stored on this browser. Note extraction uses the local Audiveris converter; recognized notes need review.</p>
+<div id="lib-pdf-tools" hidden><div class="viz-controls"><button class="btn" id="lib-convert">Recognize notes from PDF</button><a id="lib-original" target="_blank" rel="noopener">Open original PDF</a></div><p>Recognition runs on this computer, not a paid service. The local converter must be running. Scans and complex notation can produce errors.</p><details><summary>Original PDF reference</summary><div class="viz-controls"><button class="btn" id="lib-pdf-prev">Previous PDF page</button><span id="lib-pdf-page"></span><button class="btn" id="lib-pdf-next">Next PDF page</button></div><canvas id="lib-pdf" aria-label="Original PDF page" style="display:block;max-width:100%;height:auto;background:white"></canvas></details></div>
+<div id="lib-score-tools" hidden>
+<div class="viz-controls"><label>From measure <select id="lib-first"></select></label><label>Through measure <select id="lib-last"></select></label><button class="btn" id="lib-range">Use passage</button><label>Tempo <input id="lib-tempo" type="number" min="20" max="200" value="60" style="width:80px"> BPM</label></div>
+<div class="viz-controls"><button class="btn" id="lib-listen">Listen once</button><button class="btn" id="lib-practice">Start imported-score practice</button><button class="btn" id="lib-stop">Stop</button><button class="btn" id="lib-prev">Previous measure</button><button class="btn" id="lib-next">Next measure</button></div>
+<label><input id="lib-reviewed" type="checkbox"> I checked this passage against the original score</label>
+<p id="lib-progress" aria-live="polite"></p><div id="lib-notation" aria-label="Imported score notation"></div>
+<details><summary>Correct a recognized pitch</summary><p>Click a notehead, enter its MIDI pitch, then save. Rhythm, missing notes, voices, and ties should be corrected in a notation editor and re-imported as MusicXML.</p><div class="viz-controls"><label>Selected note <output id="lib-note">None</output></label><label>MIDI pitch <input id="lib-pitch" type="number" min="0" max="127" value="60" style="width:80px"></label><button class="btn" id="lib-correct">Save pitch correction</button><button class="btn" id="lib-export">Download editable MEI</button></div></details>
+</div><p class="text-small">Notation: <a href="https://www.verovio.org" target="_blank" rel="noopener">Verovio</a> (LGPL-3.0). PDF recognition: <a href="https://github.com/Audiveris/audiveris" target="_blank" rel="noopener">Audiveris</a> (AGPL-3.0). Imported-note practice is untimed.</p>
+</div></details>
+
+<section id="built-in-panel" style="display:grid;gap:12px"><div class="viz-controls"><button class="btn" id="um-prev">Previous</button><button class="btn btn-primary" id="um-play">Listen</button><button class="btn" id="um-next">Next</button><button class="btn" id="um-stop">Stop</button><button class="btn" id="um-practice">Start note practice</button><label class="form-label">Tempo <input class="form-range" id="um-tempo" type="range" min="30" max="100" value="50"><span id="um-bpm">50 BPM</span></label></div>
+<div id="um-practice-status" aria-live="polite">Note practice · measures 36–40 · waits for MIDI notes, no rhythm grading</div><section id="um-score" aria-label="Guided original sheet music"><div class="score-heading"><strong id="um-measure">Measure 36</strong><span>Passage 36–40</span></div><div class="score-stage"><img id="um-score-image" alt="Original notation for current measure"><div id="um-score-marks" aria-hidden="true"></div></div><div class="score-legend"><span>◎ Expected attack</span><span>● Matched</span><span>◌ Held / tied</span></div></section><div class="viz-row" id="um-count"></div>
+</section><div id="um-keys" role="group" aria-label="Piano keyboard, E2 to C5"></div>
 <div id="um-midi-last" aria-live="polite">Last MIDI attack: none · middle C = C4 (MIDI 60)</div><div id="um-midi-notes" aria-live="polite">USB MIDI · connect your piano to this computer</div><div id="um-detail" aria-live="polite"></div>
 <div id="um-status" aria-live="polite">Ready · Listen starts at measure 36</div><div class="text-small">● Expected attack · — Expected hold · Green outline = your pressed key · C4 = middle C · Keyboard taps sound individual notes</div>
 <p class="text-small">Synthesized piano approximation with reverb. Tied notes stay held without a new attack. The A2 tied into measure 36 is sounded at the start; internal ties are held without retriggering.</p>
@@ -1904,13 +1601,15 @@ function practiceAttack(n){if(practice.active&&practice.current.notes.includes(n
 q('#um-practice').onclick=()=>{stop();finished=false;matchedScore.clear();practice.start();step=practice.current.t;draw();q('#um-status').textContent='Note practice · tempo is not graded';q('#um-practice').textContent='Restart note practice';practiceStatus()};
 let midiAccess=null;const midiHeld=new Map();
 function renderMidi(){const notes=[...new Set([...midiHeld.values()].flatMap(s=>[...s]))];root.querySelectorAll('.pkey').forEach(b=>b.classList.toggle('midi-down',notes.includes(+b.dataset.note)));q('#um-midi-notes').textContent=notes.length?'You are playing: '+notes.sort((a,b)=>a-b).map(name).join(' + '):'Piano ready · play a key to see its note';}
-function wireMidi(){if(practice.active){practice.stop();q('#um-practice-status').textContent='MIDI devices changed · restart note practice'}const selected=q('#um-midi-device').value;const inputs=[...midiAccess.inputs.values()].filter(p=>p.state==='connected');q('#um-midi-device').innerHTML='<option value="all">All MIDI inputs</option>';inputs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name||'MIDI input';q('#um-midi-device').append(o)});q('#um-midi-device').value=inputs.some(p=>p.id===selected)?selected:'all';midiHeld.clear();renderMidi();q('#um-midi-status').textContent=inputs.length?'Connected: '+inputs.map(p=>p.name||'MIDI piano').join(', '):'No MIDI input found · check USB and piano power';inputs.forEach(input=>{input.onmidimessage=event=>{if(q('#um-midi-device').value!=='all'&&q('#um-midi-device').value!==input.id)return;const [status,n,velocity]=event.data;const command=status&240;if(command!==144&&command!==128&&command!==176)return;const key=input.id+':'+(status&15);if(!midiHeld.has(key))midiHeld.set(key,new Set());const held=midiHeld.get(key);if(command===144&&velocity>0){q('#um-midi-last').textContent='Last MIDI attack: '+name(n)+' (MIDI '+n+') · '+(practice.active?'note practice active':'note practice stopped')+' · middle C = C4 (MIDI 60)';const alreadyHeld=held.has(n);held.add(n);if(!alreadyHeld)practiceAttack(n)}else if(command===128||command===144)held.delete(n);else if(n===120||n===123)held.clear();renderMidi()}});}
-q('#um-midi-clear').onclick=()=>{midiHeld.clear();renderMidi()};q('#um-midi-device').onchange=()=>{midiHeld.clear();renderMidi()};window.addEventListener('blur',()=>{midiHeld.clear();renderMidi()});
+function wireMidi(){window.dispatchEvent(new Event('piano-midi-reset'));if(practice.active){practice.stop();q('#um-practice-status').textContent='MIDI devices changed · restart note practice'}const selected=q('#um-midi-device').value;const inputs=[...midiAccess.inputs.values()].filter(p=>p.state==='connected');q('#um-midi-device').innerHTML='<option value="all">All MIDI inputs</option>';inputs.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name||'MIDI input';q('#um-midi-device').append(o)});q('#um-midi-device').value=inputs.some(p=>p.id===selected)?selected:'all';midiHeld.clear();renderMidi();q('#um-midi-status').textContent=inputs.length?'Connected: '+inputs.map(p=>p.name||'MIDI piano').join(', '):'No MIDI input found · check USB and piano power';inputs.forEach(input=>{input.onmidimessage=event=>{if(q('#um-midi-device').value!=='all'&&q('#um-midi-device').value!==input.id)return;const [status,n,velocity]=event.data;const command=status&240;if(command!==144&&command!==128&&command!==176)return;const key=input.id+':'+(status&15);if(!midiHeld.has(key))midiHeld.set(key,new Set());const held=midiHeld.get(key);if(command===144&&velocity>0){q('#um-midi-last').textContent='Last MIDI attack: '+name(n)+' (MIDI '+n+') · '+((practice.active||window.importedPracticeActive)?'note practice active':'note practice stopped')+' · middle C = C4 (MIDI 60)';const alreadyHeld=held.has(n);held.add(n);if(!alreadyHeld){practiceAttack(n);window.dispatchEvent(new CustomEvent('piano-midi',{detail:{note:n,attack:true}}))}}else if(command===128||command===144)held.delete(n);else if(n===120||n===123)held.clear();renderMidi()}});}
+q('#um-midi-clear').onclick=()=>{midiHeld.clear();renderMidi()};q('#um-midi-device').onchange=()=>{window.dispatchEvent(new Event('piano-midi-reset'));midiHeld.clear();renderMidi()};window.addEventListener('blur',()=>{midiHeld.clear();renderMidi()});
 q('#um-midi').onclick=async()=>{if(!window.isSecureContext){q('#um-midi-status').textContent='MIDI needs HTTPS · open the published app address';return}if(!navigator.requestMIDIAccess){q('#um-midi-status').textContent='Web MIDI unavailable here · open this same URL in Chrome or Edge';return}try{q('#um-midi-status').textContent='Requesting MIDI access…';midiAccess=await navigator.requestMIDIAccess({sysex:false});midiAccess.onstatechange=wireMidi;wireMidi();q('#um-midi').textContent='Refresh MIDI'}catch(error){q('#um-midi-status').textContent='MIDI access denied or unavailable · allow MIDI in browser site settings and retry'}};
-const whites=[];for(let n=40;n<=72;n++)if(![1,3,6,8,10].includes(n%12))whites.push(n);
-for(let n=40;n<=72;n++){const b=document.createElement('button');b.type='button';b.className='pkey cursor-interaction';b.dataset.note=n;b.setAttribute('aria-label',name(n));const black=[1,3,6,8,10].includes(n%12);if(black){b.classList.add('black');const idx=whites.filter(w=>w<n).length;b.style.left=(idx/whites.length*100-1.5)+'%'}else b.innerHTML='<span>'+name(n)+'</span>';b.onclick=()=>tone(n);q('#um-keys').append(b)}
+let keyboardRange='';function buildKeyboard(low=40,high=72){if(keyboardRange===low+':'+high)return;keyboardRange=low+':'+high;q('#um-keys').replaceChildren();q('#um-keys').setAttribute('aria-label','Piano keyboard, '+name(low)+' to '+name(high));const whites=[];for(let n=low;n<=high;n++)if(![1,3,6,8,10].includes(n%12))whites.push(n);
+for(let n=low;n<=high;n++){const b=document.createElement('button');b.type='button';b.className='pkey cursor-interaction';b.dataset.note=n;b.setAttribute('aria-label',name(n));const black=[1,3,6,8,10].includes(n%12);if(black){b.classList.add('black');const idx=whites.filter(w=>w<n).length;b.style.left=(idx/whites.length*100-1.5)+'%'}else b.innerHTML='<span>'+name(n)+'</span>';b.onclick=()=>tone(n);q('#um-keys').append(b)}
+}
+buildKeyboard();
 for(let i=0;i<16;i++){const el=document.createElement('span');el.className='pulse';el.textContent=['1','e','&','a','2','e','&','a','3','e','&','a','4','e','&','a'][i];q('#um-count').append(el)}
-function draw(sound=false,save=false){renderScore();const active=events.filter(e=>e.t<=step&&step<e.t+e.d),att=active.filter(e=>e.t===step);root.querySelectorAll('.pkey').forEach(b=>{const n=+b.dataset.note;b.classList.toggle('held',active.some(e=>e.n===n));b.classList.toggle('attack',att.some(e=>e.n===n))});root.querySelectorAll('.pulse').forEach((p,i)=>p.classList.toggle('current',i===step%16));const held=active.filter(e=>e.t!==step);q('#um-detail').textContent='Measure '+(36+Math.floor(step/16))+' of 40 · Beat '+(Math.floor((step%16)/4)+1)+' '+['','e','&','a'][step%4]+' · '+(att.length?'● '+att.map(e=>name(e.n)).join(' + '):'No new attack')+(held.length?' · — '+held.map(e=>name(e.n)).join(' + '):'');if(sound)att.forEach(e=>tone(e.n,e.d*60/(+q('#um-tempo').value*4)));if(save&&window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{measure:36+Math.floor(step/16),sixteenth:step%16+1,tempo:+q('#um-tempo').value},privateContent:{step}}).catch(()=>{})}
+function draw(sound=false,save=false){buildKeyboard();renderScore();const active=events.filter(e=>e.t<=step&&step<e.t+e.d),att=active.filter(e=>e.t===step);root.querySelectorAll('.pkey').forEach(b=>{const n=+b.dataset.note;b.classList.toggle('held',active.some(e=>e.n===n));b.classList.toggle('attack',att.some(e=>e.n===n))});root.querySelectorAll('.pulse').forEach((p,i)=>p.classList.toggle('current',i===step%16));const held=active.filter(e=>e.t!==step);q('#um-detail').textContent='Measure '+(36+Math.floor(step/16))+' of 40 · Beat '+(Math.floor((step%16)/4)+1)+' '+['','e','&','a'][step%4]+' · '+(att.length?'● '+att.map(e=>name(e.n)).join(' + '):'No new attack')+(held.length?' · — '+held.map(e=>name(e.n)).join(' + '):'');if(sound)att.forEach(e=>tone(e.n,e.d*60/(+q('#um-tempo').value*4)));if(save&&window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{measure:36+Math.floor(step/16),sixteenth:step%16+1,tempo:+q('#um-tempo').value},privateContent:{step}}).catch(()=>{})}
 function silence(){voices.forEach(v=>{v.disconnect()});voices.clear();if(pianoBus){pianoBus.disconnect();pianoBus._master.disconnect();pianoBus=null}}
 function stop(){if(practice.active){practice.stop();q('#um-practice-status').textContent='Note practice stopped · restart to begin again'}clearTimeout(timer);timer=null;playing=false;silence();q('#um-play').textContent=finished?'Listen again':'Listen'}
 function tick(){timer=setTimeout(()=>{if(!playing)return;if(step===TOTAL_STEPS-1){finished=true;stop();root.querySelectorAll('.pkey,.pulse').forEach(b=>b.classList.remove('held','attack','current'));q('#um-status').textContent='Finished · one pass complete';renderScore();return}step++;draw(true);tick()},60000/(+q('#um-tempo').value*4))}
@@ -1918,7 +1617,7 @@ q('#um-play').onclick=()=>{if(playing){stop();q('#um-status').textContent='Pause
 q('#um-stop').onclick=()=>{finished=false;matchedScore.clear();stop();step=0;draw();q('#um-status').textContent='Stopped · Listen starts at measure 36'};
 q('#um-next').onclick=()=>{stop();finished=false;step=Math.min(TOTAL_STEPS-1,step+1);draw(true,true);q('#um-status').textContent='Step '+(step+1)+' of '+TOTAL_STEPS};q('#um-prev').onclick=()=>{stop();finished=false;step=Math.max(0,step-1);draw(true,true);q('#um-status').textContent='Step '+(step+1)+' of '+TOTAL_STEPS};
 q('#um-tempo').oninput=()=>{q('#um-bpm').textContent=q('#um-tempo').value+' BPM';if(playing){stop();q('#um-status').textContent='Tempo changed · Listen restarts at measure 36'}};
-window.addEventListener('pagehide',stop);
+window.pianoPractice={tone,stop,setKeyboardRange:buildKeyboard,showOriginal:()=>draw()};window.addEventListener('stop-original-practice',stop);window.addEventListener('pagehide',stop);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
 function restore(s){if(Number.isInteger(s?.privateContent?.step))step=Math.max(0,Math.min(TOTAL_STEPS-1,s.privateContent.step));draw()};restore(window.openai?.widgetState);window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState)restore(e.detail.globals.widgetState)});
 })();
@@ -2509,5 +2208,5 @@ function restore(s){if(Number.isInteger(s?.privateContent?.step))step=Math.max(0
 })();
 </script>
 
-<style>#um37{gap:12px;padding-top:16px}#um37 h1{font-size:32px;line-height:1.2}#um37 .lesson-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}#um37 .lesson-heading p{font-size:14px}#um37 .score-stage{max-width:560px}#um37 #um-keys{height:145px}#um37 #um-detail{min-height:0}@media(max-width:520px){#um37 .lesson-heading{display:grid;gap:4px}#um37 h1{font-size:28px}}</style><style>#um37{box-sizing:border-box;width:100%;min-width:0}#um37>*{min-width:0}#um37 .score-stage{width:100%;box-sizing:border-box}#um37 #um-score-image{min-width:0;max-width:100%}#um37 .viz-controls{min-width:0}#um37 .viz-controls .form-label{max-width:100%}#um37 .score-heading{flex-wrap:wrap}#um37 .score-legend{gap:12px}</style></body>
+<style>#um37{gap:12px;padding-top:16px}#um37 h1{font-size:32px;line-height:1.2}#um37 .lesson-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}#um37 .lesson-heading p{font-size:14px}#um37 .score-stage{max-width:560px}#um37 #um-keys{height:145px}#um37 #um-detail{min-height:0}@media(max-width:520px){#um37 .lesson-heading{display:grid;gap:4px}#um37 h1{font-size:28px}}</style><style>#um37{box-sizing:border-box;width:100%;min-width:0}#um37>*{min-width:0}#um37 .score-stage{width:100%;box-sizing:border-box}#um37 #um-score-image{min-width:0;max-width:100%}#um37 .viz-controls{min-width:0}#um37 .viz-controls .form-label{max-width:100%}#um37 .score-heading{flex-wrap:wrap}#um37 .score-legend{gap:12px}</style><style>#score-library{border:1px solid var(--border);border-radius:12px;padding:12px}#score-library summary{font-size:16px}#score-library .library-body{display:grid;gap:14px;margin-top:16px}#score-library p{font-size:14px}#score-library label{display:grid;gap:4px;font-size:14px}#score-library input[type=file]{max-width:100%}#lib-notation{background:white;color:black;border-radius:10px;padding:8px;overflow:auto;min-width:0}#lib-notation svg{display:block;width:100%;height:auto;min-width:300px}#lib-notation .note.lib-expected{fill:#bc6300;color:#bc6300}#lib-notation .note.lib-matched{fill:#13864b;color:#13864b}#lib-notation .note.lib-held{fill:#3976ce;color:#3976ce}#lib-notation .note{cursor:pointer}#score-library [hidden]{display:none!important}</style><script type="module" src="library-685d3edcc0de.mjs"></script><style>#score-library[open]~#built-in-panel{display:none!important}#built-in-panel{min-width:0}#um37 #um-midi-notes{font-size:14px}</style><style>#score-library[open]~#um-detail,#score-library[open]~#um-status{display:none}</style><style>#um37 h1{overflow-wrap:anywhere}#score-library .viz-controls>label{min-width:0;max-width:100%}#score-library select{max-width:100%}#score-library .btn{max-width:100%;white-space:normal}#um37 .pkey{background:#f9fafb;color:#15202b;border-color:#89919a}#um37 .pkey.black{background:#17202a;color:#f6f8fa;border-color:#2a3440}#um37 .pkey.held{background:#d4e4fc;color:#15202b}#um37 .pkey.attack{background:#f7c77b;color:#24180a}#um37 .pkey.black.held{background:#416ca4;color:white}#um37 .pkey.black.attack{background:#d8943b;color:#24180a}#um37 .pkey.midi-down{box-shadow:inset 0 0 0 4px #17965b}</style><style>#score-library .library-body,#score-library .library-body>*{min-width:0}#score-library .viz-controls{width:100%;box-sizing:border-box}#score-library label:has(#lib-saved){width:280px;max-width:100%}#lib-saved{width:100%;min-width:0;max-width:100%;box-sizing:border-box}</style></body>
 </html>
