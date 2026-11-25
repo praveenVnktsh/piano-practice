@@ -50,7 +50,7 @@ or `mxlBase64` instead of `data` for compressed MusicXML.
 
 ### Song loading (`src/song.js`)
 `loadSong({url} | {data} | {mxlBase64}) → Promise<Song>` where
-`Song = {measures, events, segments, noteNames, fullSvg()}`; times are in quarter notes.
+`Song = {measures, events, segments, marks, noteNames, fullSvg()}`; times are in quarter notes.
 Each event/segment carries `staff` (1 = top) and `hand` (`'r'` | `'l'`, from the staff, not
 the pitch); each measure carries `label`, `pickup`, `visit` (repeat pass) and
 `meter: {count, unit}`. Practice passages from `passage()` mark notes held over from
@@ -121,10 +121,70 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
 ### Teacher hooks (v2.1)
 - `window.pianoPlayer` (set by src/player.js once created) — a small control API the AI teacher's tools call:
   `getState() → {songId, title, composer, section: [first, last], sectionLabel, measureCount, tempo, targetTempo,
-  mode: 'wait'|'timed', hands: 'both'|'right'|'left', view: 'falling'|'sheet', playing, practicing, loop}`,
+  mode: 'wait'|'timed', hands: 'both'|'right'|'left', view: 'falling'|'sheet'|'pages', playing, practicing, loop,
+  strategy: 'off'|'ladder'|'dotted'|'reversed'|'blocked'|'memory', chain: {dir, section, goal} | null, latencyMs}`,
   `setSection(first, last)` (0-based measure indices), `setTempo(bpm)`, `setHands(h)`, `setMode(m)`, `setLoop(bool)`,
-  `listen()`, `practice()`, `stop()`. Each setter returns the new `getState()`.
+  `setStrategy(s)`, `listen()`, `practice()`, `stop()`. Each setter returns the new `getState()`.
 - `practice:result` additionally carries `misses: [{measure: '<label>', expected: ['F♯4', ...], played: ['G4', ...]}]`
   (up to 50) so feedback can be specific.
+- `practice:result` optional fields (phases 5–6; present only when they apply). Touch fields need a real keyboard
+  (MIDI or relay velocities and note-offs), never on-screen taps:
+  - `evenness` (exercises except progressions): `{score (0–100), timingSdMs, velocitySd, velocityMean, notes,
+    msPerQuarter, hands: {r?: {velocityMean, velocitySd, notes}, l?: {…}}}`. Timing deviation is measured against
+    a line fitted through the player's own onsets, so a steady delay or tempo costs nothing.
+  - `dynamics` (pieces): `{velocityMean, marks: [{mark: 'p', bars: 'bars 5–8', played, expected}],
+    hairpins: [{form: 'cres'|'dim', bars, change}], balance: {lhMinusRh, heavy: 'bars 5–6'|null} | null, remarks: [..]}`.
+  - `articulation`: `{legatoPairs, detachedPairs, overlapMs (mean; + = keys overlap), staccato: {count, held},
+    pedal?: {presses, marks, caught}, remarks: [..]}`. Legato is judged under slurs (pieces) or everywhere (exercises).
+  - `strategy` ('ladder' | 'dotted' | 'reversed' | 'blocked' | 'memory') when a practice strategy was on;
+    `chain: {dir: 'forward'|'backward', section: [first, last]}` (the whole passage being chained) while chaining.
+  `remarks` are the short sentences the results card shows (at most two in total).
+- Per-song localStorage (`piano-practice:song:<id>`) also keeps `best: {"<first>-<last>[:right|:left]": bpm}`,
+  the highest play-along tempo with ≥ 95 % accuracy per section; global settings keep `latencyMs` (Settings → Calibrate).
 - src/main.js lazily mounts the teacher: `import('./teacher/index.js').then(m => m.mountTeacher(document.body)).catch(() => {})`.
 - Navigation from the teacher uses `location.hash` (routes above); progress comes from `getProgress()` in src/progress/store.js.
+
+## Devices: home-screen app, relay, offline, backup (Phase 10/11)
+- `src/pwa/index.js` is loaded from `index.html` `<head>` (independent of src/main.js). It sets
+  `window.pianoPWA = {wakeLock, holdAwake(reason) → release()}`, keeps `<meta name="theme-color">`
+  in step with the theme, and registers the service worker (production; `?sw=1` in dev).
+- Wake Lock (`src/pwa/wakelock.js`) watches `#player.playing / .practicing`, the route
+  (`#/play/…`, `#/train/reading`), `piano:note` / `practice:*` / `trainer:result` and input; a muted
+  inline video stands in where the API is missing (iPad over plain http).
+- MIDI relay status (`src/midi-relay.js`): `onRelayStatus(fn)` gets
+  `{bridge, devices, state: 'connected'|'no-piano'|'waiting'|'stale'|'reconnecting', label, latencyMs, at}`
+  on real changes; window `relay:status` events also carry label-only updates (latency).
+- Backup (`backup/plugin.js`, `/__backup`, dev only) + `mountBackupControls(container)` from
+  `src/pwa/backup.js` (export / validated import with confirmation).
+- E2E: `npm run e2e` (tests/e2e/run.mjs + cdp.mjs, no dependencies) against `vite preview`.
+
+## v3 additions (learning path, repertoire, devices)
+
+- **Catalog entries** may carry `grade` (0–5, ABRSM-like) and `typesetter`. Bundled pieces are
+  rebuilt from `songs/repertoire.json` by `tools/build-repertoire.mjs` (pinned Mutopia commit,
+  documented per-bar `fixes`).
+- **`mutopia:` ids** are unverified pieces from `public/songs/mutopia-index.json`, fetched from
+  raw.githubusercontent.com and converted in the browser by `tools/ly2musicxml-core.mjs`
+  (no Node imports); `catalog.resolveEntry` resolves them (async) via `src/mutopia/convert.js`.
+  Route: `#/pieces/mutopia` → `mountMutopia(container, {open})`.
+- **Mastery** (`src/progress/mastery.js`, pure): `barStats(songId, {measures})`,
+  `sectionMastery`, `troubleSpots`, `plateaus`, `repertoire`, `dueReviews`, `goalProgress`.
+  Thresholds are documented at the top of the file. `practice:result` events stored by the
+  progress store carry `measureCount`.
+- **Progress endpoints** (dev server): `POST /__progress/journal`, `PUT /__progress/goals`,
+  `PUT /__progress/settings` (adds `pathStart`). The browser store keeps a localStorage backlog.
+- **Curriculum** (`src/curriculum/`): levels Beginner–Grade 5 with repertoire, technique
+  (`ex:` ids) and reading (trainer level ids); shown as "Your path" in Progress.
+- **Teacher**: `teacher/cli.js` adds `assign`, `assignments`, `done`, `letter`, `letters`,
+  `progress [--days N]`; endpoints `POST /__teacher/assignments/<id>/done` and
+  `POST /__teacher/letters/<id>/read`; the thread includes `assignments` and `letters`.
+- **Practice logic** (`src/practice-core.mjs`, pure): chaining, phrases, strategies, rhythm
+  variations, evenness, latency. `getState()` adds `strategy`, `chain`, `latencyMs`; `view` may be
+  `'pages'`; `window.pianoPlayer.setStrategy(s)`.
+- **PWA** (`src/pwa/`): manifest + icons, wake lock (`window.pianoPWA.holdAwake(reason)` returns a
+  release function), service worker in production builds only (`?sw=1` in dev), backup
+  (`backup/plugin.js`, `mountBackupControls(container)` in Progress → Settings).
+- **MIDI relay** status objects: `{bridge, devices, state: connected|no-piano|waiting|stale|reconnecting,
+  label, latencyMs, at}` via `onRelayStatus` and the window `relay:status` event.
+- **E2E**: `npm run e2e` builds to a temp dir, serves it with `vite preview`, and drives headless,
+  muted Chrome over CDP (`tests/e2e/`). CI runs it.

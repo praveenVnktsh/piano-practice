@@ -18,7 +18,7 @@ const {loadCatalogs, songSource} = catalog;
 
 // Views shown in the main area instead of the player (docs/ARCHITECTURE.md, "Views and routes").
 // import.meta.glob = lazy import() that also works while a module doesn't exist yet (→ "coming soon").
-const VIEW_MODULES = import.meta.glob(['../today/view.js', '../exercises/view.js', '../progress/view.js', '../trainer/view.js']);
+const VIEW_MODULES = import.meta.glob(['../today/view.js', '../exercises/view.js', '../progress/view.js', '../trainer/view.js', '../mutopia/view.js']);
 
 const LAST_KEY = 'piano-practice.last-song';
 const RETURN_KEY = 'piano-practice.return-to';
@@ -164,6 +164,7 @@ export async function startApp() {
     exercises: {title: 'Exercises', place: 'exercises', eyebrow: 'Technique · Reading', file: '../exercises/view.js', mount: (m, node) => m.mountExercises(node, {open: go})},
     progress: {title: 'Progress', place: 'progress', eyebrow: 'Your practice diary', file: '../progress/view.js', mount: (m, node) => m.mountProgress(node)},
     technique: {title: 'Technique', place: 'exercises', parent: ['#/exercises', 'Exercises'], file: '../exercises/view.js', mount: (m, node) => m.mountTechnique(node, {open: go})},
+    mutopia: {title: 'Browse Mutopia', place: 'pieces', parent: ['#/pieces', 'Pieces'], file: '../mutopia/view.js', mount: (m, node) => m.mountMutopia(node, {open: go})},
     'train-reading': {title: 'Note reading', place: 'exercises', parent: ['#/exercises', 'Exercises'], fill: true, file: '../trainer/view.js', mount: (m, node) => m.mountReadingTrainer(node)},
   };
   const host = createViewHost(root);

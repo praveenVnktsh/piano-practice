@@ -66,14 +66,78 @@ export function buildScore(toolkit) {
 
   const tail = new Map();
   for (const s of segments) tail.set(s.root, Math.max(tail.get(s.root) ?? -Infinity, s.end));
-  const events = segments.filter(s => s.root === s.id).map(s => ({...s, d: tail.get(s.id) - s.t}));
+  const stacc = staccatoIds(mei);
+  const events = segments.filter(s => s.root === s.id).map(s => ({...s, d: tail.get(s.id) - s.t, ...(stacc.has(s.id) ? {stacc: true} : {})}));
   for (const seg of segments) seg.measure = measures.findIndex(m => m.start <= seg.t && seg.t < m.end);
+  const marks = scoreMarks(mei, measures, id => byId.get(id)?.t);
 
   // Score tempo (quarter notes per minute) if the file states one.
   const bpm = +(meiText.match(/midi\.bpm="([\d.]+)"/)?.[1] ?? NaN);
   const tempo = Number.isFinite(bpm) && bpm > 0 ? Math.round(bpm) : null;
 
-  return {measures, segments, events, end, tempo, mei: meiText};
+  return {measures, segments, events, end, tempo, marks, mei: meiText};
+}
+
+// ───────── Performance marks ─────────
+// Dynamics, hairpins, pedal marks and slurs from the MEI, timed in quarter notes:
+// {dynamics: [{t, mark, staff}], hairpins: [{t, end, form: 'cres' | 'dim', staff}],
+//  pedals: [{t, dir: 'down' | 'up' | 'bounce'}], slurs: [{start, end, staff}]}.
+// Control events are placed by @startid when it names a timed note, else by
+// @tstamp (1-based beats of the meter's unit) in their measure; @tstamp2
+// ("1m+2") or @endid gives a hairpin's or slur's end.
+export function scoreMarks(mei, measures, timeOfId = () => undefined) {
+  const out = {dynamics: [], hairpins: [], pedals: [], slurs: []};
+  const byId = new Map(measures.map((m, i) => [m.id, i]));
+  const ref = v => (v || '').trim().split(/\s+/)[0].replace(/^#/, '');
+  const staffOf = el => parseInt(el.getAttribute('staff'), 10) || null;
+  const beatTime = (mi, ts) => {
+    const m = measures[mi];
+    if (!m || !Number.isFinite(ts)) return undefined;
+    const unit = m.meter?.unit || 4;
+    return Math.min(m.end, m.start + Math.max(0, ts - 1) * 4 / unit);
+  };
+  const startOf = (el, mi) => timeOfId(ref(el.getAttribute('startid'))) ?? beatTime(mi, parseFloat(el.getAttribute('tstamp')));
+  const endOf = (el, mi) => {
+    const byEnd = timeOfId(ref(el.getAttribute('endid')));
+    if (byEnd != null) return byEnd;
+    const m2 = /^(?:(\d+)m\+)?([\d.]+)$/.exec((el.getAttribute('tstamp2') || '').trim());
+    if (!m2) return undefined;
+    return beatTime(Math.min(measures.length - 1, mi + (+m2[1] || 0)), parseFloat(m2[2]));
+  };
+  for (const el of mei.getElementsByTagName('measure')) {
+    const mi = byId.get(el.getAttribute('xml:id'));
+    if (mi == null) continue;
+    for (const c of el.children) {
+      const name = c.localName;
+      if (name === 'dynam') {
+        const t = startOf(c, mi), mark = (c.textContent || '').replace(/\s+/g, '').trim();
+        if (t != null && mark) out.dynamics.push({t, mark, staff: staffOf(c)});
+      } else if (name === 'hairpin') {
+        const t = startOf(c, mi), end = endOf(c, mi), form = c.getAttribute('form') === 'dim' ? 'dim' : 'cres';
+        if (t != null) out.hairpins.push({t, end: end != null && end > t ? end : measures[mi].end, form, staff: staffOf(c)});
+      } else if (name === 'pedal') {
+        const t = startOf(c, mi), dir = c.getAttribute('dir') || 'down';
+        if (t != null) out.pedals.push({t, dir: dir === 'up' ? 'up' : dir === 'bounce' ? 'bounce' : 'down'});
+      } else if (name === 'slur' || name === 'phrase') {
+        const start = startOf(c, mi), end = endOf(c, mi);
+        if (start != null && end != null && end > start) out.slurs.push({start, end, staff: staffOf(c)});
+      }
+    }
+  }
+  for (const k of Object.keys(out)) out[k].sort((a, b) => (a.t ?? a.start) - (b.t ?? b.start));
+  return out;
+}
+
+// Notes marked staccato (or staccatissimo / spiccato): @artic on the note or a child <artic>.
+function staccatoIds(mei) {
+  const ids = new Set();
+  const short = v => /\b(stacc|stacciss|spicc)\b/.test(v || '');
+  for (const note of mei.getElementsByTagName('note')) {
+    const id = note.getAttribute('xml:id');
+    if (!id) continue;
+    if (short(note.getAttribute('artic')) || [...note.getElementsByTagName('artic')].some(a => short(a.getAttribute('artic')))) ids.add(id);
+  }
+  return ids;
 }
 
 export function passage(score, first, last) {

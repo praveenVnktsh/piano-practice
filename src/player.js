@@ -3,6 +3,16 @@ import {createHighway} from './highway.js';
 import {createPiano} from './piano.js';
 import {onRelayMidi, onRelayStatus, relayAvailable} from './midi-relay.js';
 import {setTheme as setAppTheme, getTheme, THEME_EVENT} from './app/theme.js';
+import {
+  BarTally, normaliseBarStats, mergeBarStats, heatLevel, weakPassage, startChain, chainStep, detectPhrases, phraseAt, nextPhrase,
+  rhythmVariation, blockChords, applyTiming, ladderRungs, ladderNext, recordBest, nextTempoStep, evenness, evennessRemark,
+  dynamicsReport, articulationReport, pedalReport, measureLatency, clampLatency, paginate, pageAtTime, barsText,
+} from './practice-core.mjs';
+
+// Per-bar statistics from the progress store (src/progress/mastery.js, owned by
+// the learning-path module). Loaded lazily; a glob so the player still builds
+// and runs when that file is absent.
+const MASTERY = import.meta.glob('./progress/mastery.js');
 
 const BLACK = [1, 3, 6, 8, 10];
 const NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
@@ -18,6 +28,10 @@ const TEMPO_TERMS = [[40, 'Grave'], [60, 'Largo'], [66, 'Larghetto'], [76, 'Adag
 const tempoTerm = bpm => TEMPO_TERMS.find(([max]) => bpm < max)[1];
 const ZOOM_MIN = .6, ZOOM_MAX = 3;
 const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, {detail}));
+// Practice strategies (⋯ → Strategy), one at a time, off by default.
+const STRATEGIES = {off: '', ladder: 'Slow-practice ladder', dotted: 'Dotted rhythm', reversed: 'Reversed dotted', blocked: 'Blocked chords', memory: 'Memory check'};
+const VIEWS = ['sheet', 'pages', 'falling'];
+const CLEAN = 95; // accuracy (%) that counts as a clean pass
 
 // Settings shared by every song (view, labels, loop, mute, playhead, pedal,
 // hand colours) and per-song state (section, tempo) keyed by song id.
@@ -62,6 +76,11 @@ export function createPlayer(root) {
   const grades = new Map();      // event id -> perfect | early | late | miss
   let autoTimer = null, autoPlayed = new Set(), freeClick = null;
   let session = null, passStartedAt = 0, misses = new MissLog(50);
+  // Smarter practising (docs/ROADMAP.md phase 5) and touch feedback (phase 6).
+  let strategy = 'off', chain = null, latencyMs = 0, phrases = [];
+  let barTally = new BarTally(), trouble = new Map();
+  let played = [], pedalLog = [], pedalDown = false, memoryHints = 0;
+  const screenDown = new Set();
   const wantHand = e => handFilter(hands)(e);
   const handClass = h => (h === 'l' ? 'lh' : 'rh');
 
@@ -136,7 +155,8 @@ export function createPlayer(root) {
       } else {
         b.innerHTML = `<span class="label${n % 12 === 0 ? ' c' : ''}">${name(n)}</span>`;
       }
-      b.addEventListener('pointerdown', e => { e.preventDefault(); userAttack(n, {source: 'screen', velocity: 96}); });
+      b.addEventListener('pointerdown', e => { e.preventDefault(); screenDown.add(n); userAttack(n, {source: 'screen', velocity: 96}); });
+      for (const type of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(type, () => { if (screenDown.delete(n)) userRelease(n); });
       keys.append(b);
     }
     root.classList.toggle('dense-keys', whites.length > 30);
@@ -146,11 +166,13 @@ export function createPlayer(root) {
   const whiteAbove = n => { while (BLACK.includes(n % 12)) n++; return n; };
 
   // ───────── Section ─────────
-  function setRange(first, last, {quiet = false} = {}) {
+  // `keep` keeps a running chain (the chain itself moves the section).
+  function setRange(first, last, {quiet = false, keep = false} = {}) {
     stopAll();
+    if (!keep) chain = null;
     first = Math.max(0, Math.min(song.measures.length - 1, first));
     last = Math.max(first, Math.min(song.measures.length - 1, last));
-    range = passage(song, first, last);
+    range = varied(passage(song, first, last));
     points = [...new Set(range.events.map(e => e.t))].sort((a, b) => a - b);
     pos = points[0] ?? range.start;
     finished = false; matched.clear(); grades.clear();
@@ -159,7 +181,15 @@ export function createPlayer(root) {
     markSection();
     draw();
     showSectionInputs();
+    showStrategy(); showTempo();
     if (!quiet) { setStatus(sectionLabel()); setPrompt(promptIdle()); }
+  }
+  // Rhythm variations and blocked chords change the passage's timing itself, so
+  // Listen, Play along and Wait all use the altered version.
+  function varied(p) {
+    if (strategy === 'dotted' || strategy === 'reversed') return applyTiming(p, rhythmVariation(p.events, strategy));
+    if (strategy === 'blocked') return applyTiming(p, blockChords(p.events, song.measures.slice(p.first, p.last + 1)));
+    return p;
   }
 
   // ───────── Drawing ─────────
@@ -168,8 +198,9 @@ export function createPlayer(root) {
   const sheetHost = q('#um-sheet');
   let sheetTrack = null, sheetSvg = null, sheetEls = new Map(), measureEls = new Map();
   let anchors = [], sheetX = 0, lit = new Set();
+  let measureBoxes = [], pages = [], page = -1, manualPage = null, autoPage = -1;
   function mountSheet() {
-    sheetHost.innerHTML = `<div class="sheet-track">${song.fullSvg()}<div class="playhead"></div></div>` +
+    sheetHost.innerHTML = `<div class="sheet-track"><div class="trouble" aria-hidden="true"></div>${song.fullSvg()}<div class="playhead"></div></div>` +
       '<div class="sel-ruler" title="Drag across bars to loop them"><span>Drag across bars to loop</span></div>';
     sheetTrack = sheetHost.firstElementChild;
     sheetSvg = sheetTrack.querySelector('svg');
@@ -205,6 +236,7 @@ export function createPlayer(root) {
     sheetHost.replaceChildren();
     sheetTrack = sheetSvg = null; sheetEls = new Map(); measureEls = new Map();
     anchors = []; sheetX = 0; lit = new Set();
+    measureBoxes = []; pages = []; page = -1; manualPage = null; autoPage = -1;
   }
   function layoutSheet() {
     if (!song || !sheetSvg || !sheetHost.clientHeight) return;
@@ -228,7 +260,16 @@ export function createPlayer(root) {
     if (lastEl) byTime.set(last.end, lastEl.getBoundingClientRect().right - base);
     anchors = [...byTime].sort((a, b) => a[0] - b[0]).filter(([, x], i, arr) => i === 0 || x > arr[i - 1][1]);
     sheetX = xAt(livePos() ?? 0);
+    // Measure boxes on the system: for the trouble strip and for pages.
+    measureBoxes = song.measures.map(m => {
+      const r = measureEls.get(m.id)?.getBoundingClientRect();
+      return r && r.width ? {x0: r.left - base, x1: r.right - base} : null;
+    });
+    pages = paginate(measureBoxes, Math.max(200, sheetHost.clientWidth - 2 * PAGE_PAD));
+    page = -1; manualPage = null; autoPage = -1;
+    drawTrouble();
   }
+  const PAGE_PAD = 14;
   function xAt(t) {
     if (!anchors.length) return 0;
     if (t <= anchors[0][0]) return anchors[0][1];
@@ -250,18 +291,97 @@ export function createPlayer(root) {
   }
   function scrollSheet() {
     requestAnimationFrame(scrollSheet);
-    if (root.dataset.view !== 'sheet' || !sheetTrack || !anchors.length) return;
+    const view0 = root.dataset.view;
+    if ((view0 !== 'sheet' && view0 !== 'pages') || !sheetTrack || !anchors.length) return;
     if (!labelled && root.classList.contains('show-names')) labelNoteheads();
     const p = livePos(); if (p == null) return;
     const target = xAt(p);
     sheetX = playing || scrub || Math.abs(target - sheetX) > 2000 ? target : sheetX + (target - sheetX) * .2;
+    if (view0 === 'pages' && pages.length) return showPage(p);
     const view = sheetHost.clientWidth;
+    if (sheetTrack.style.clipPath) { sheetTrack.style.clipPath = ''; sheetTrack.lastElementChild.style.visibility = ''; }
     // The playhead stays at a fixed spot on screen; the music slides under it.
     const offset = view * (root.dataset.playhead === 'left' ? .3 : .5) - sheetX;
     sheetTrack.style.transform = `translateX(${offset}px)`;
     sheetTrack.lastElementChild.style.left = sheetX + 'px';
   }
   new ResizeObserver(() => layoutSheet()).observe(sheetHost);
+
+  // ───────── Page-turn mode (⋯ → View → Pages) ─────────
+  // The long system cut into card-wide pages of whole bars. The page turns a
+  // beat before its last note is due; ←/→ and PageUp/PageDown (what Bluetooth
+  // page-turner pedals send) turn it by hand.
+  const beatLenAt = t => beatInfo(song.measures[measureIndexAt(Math.max(range.start, Math.min(range.end - EPS, t)))].meter).len;
+  function showPage(p) {
+    const auto = pageAtTime(pages, song.measures, p, finished ? 0 : beatLenAt(p));
+    if (auto !== autoPage) { autoPage = auto; manualPage = null; } // the music moved on: follow it again
+    const i = Math.max(0, Math.min(pages.length - 1, manualPage ?? auto));
+    if (i !== page) {
+      const forward = i > page;
+      page = i;
+      sheetTrack.classList.remove('turn-fwd', 'turn-back'); void sheetTrack.offsetWidth;
+      sheetTrack.classList.add(forward ? 'turn-fwd' : 'turn-back');
+      q('#um-page').textContent = `Page ${i + 1} of ${pages.length}`;
+    }
+    const pg = pages[page];
+    sheetTrack.style.transform = `translateX(${PAGE_PAD - pg.x0}px)`;
+    // Only this page's bars: clip the neighbours' edges.
+    sheetTrack.style.clipPath = `inset(-40px ${Math.max(0, sheetTrack.offsetWidth - pg.x1 - 3)}px -40px ${page ? Math.max(0, pg.x0 - 3) : 0}px)`;
+    const ph = sheetTrack.lastElementChild;
+    ph.style.left = sheetX + 'px';
+    ph.style.visibility = sheetX >= pg.x0 - 1 && sheetX <= pg.x1 + 1 ? '' : 'hidden';
+  }
+  // Reading from the paged score keeps the screen on even while idle (src/pwa: holdAwake).
+  let releaseAwake = null;
+  function holdPagesAwake(on) {
+    if (on && !releaseAwake) { try { releaseAwake = window.pianoPWA?.holdAwake?.('page-turn') || null; } catch {} }
+    else if (!on && releaseAwake) { try { releaseAwake(); } catch {} releaseAwake = null; }
+  }
+  function turnPage(d) {
+    if (!song || !pages.length) return;
+    const cur = page < 0 ? 0 : page, i = Math.max(0, Math.min(pages.length - 1, cur + d));
+    if (i === cur) { flash(d > 0 ? 'Last page' : 'First page', 'good'); return; }
+    if (playing || practicing) { manualPage = i; return; }
+    // Idle: move to the first bar of that page (within the section when possible).
+    const m = song.measures[Math.max(range.first, Math.min(range.last, pages[i].first))];
+    if (pages[i].first > range.last || pages[i].last < range.first) { manualPage = i; return; }
+    finished = false;
+    pos = points.find(t => t >= m.start - EPS) ?? pos;
+    manualPage = i; autoPage = pageAtTime(pages, song.measures, pos, beatLenAt(pos));
+    draw();
+    setStatus(`Page ${i + 1} of ${pages.length}`);
+  }
+
+  // ───────── Trouble spots: a quiet per-bar accuracy strip ─────────
+  // Above each bar of the score (and at the left edge of the falling notes):
+  // sage = secure, brass = nearly, oxblood = needs work. From the progress
+  // store's bar statistics, filled in with this session's own counts.
+  function drawTrouble() {
+    const host = sheetTrack?.querySelector('.trouble');
+    if (!host || !song) return;
+    host.replaceChildren(...[...trouble].filter(([i]) => measureBoxes[i]).map(([i, st]) => {
+      const el = document.createElement('i'), b = measureBoxes[i];
+      el.className = 'heat-' + heatLevel(st.accuracy);
+      el.style.left = b.x0 + 'px'; el.style.width = Math.max(2, b.x1 - b.x0 - 2) + 'px';
+      el.title = `${measureName(song.measures[i])} · ${st.accuracy}%`;
+      return el;
+    }));
+  }
+  let troubleTimer = 0;
+  async function refreshTrouble() {
+    if (!song || !current) return;
+    const token = loadToken, id = current.id;
+    let long = new Map();
+    try {
+      const mod = await MASTERY['./progress/mastery.js']?.();
+      if (mod?.barStats) long = normaliseBarStats(await mod.barStats(id, {measures: song.measures}), song.measures);
+    } catch {}
+    if (token !== loadToken || !song) return;
+    trouble = mergeBarStats(long, new Map(barTally.list().map(st => [st.index, st])));
+    drawTrouble();
+  }
+  // After a pass the progress store needs a moment to take in practice:result.
+  const refreshTroubleSoon = () => { clearTimeout(troubleTimer); troubleTimer = setTimeout(refreshTrouble, 400); };
   function noteStateAt(seg, root) {
     if (root && grades.has(root.id)) return grades.get(root.id);
     if (practicing && practiceMode === 'wait' && follow?.active && root && root.t === follow.current.t && wantHand(root))
@@ -299,11 +419,12 @@ export function createPlayer(root) {
     // Key colour follows the hand (staff) of the note it plays.
     const keyHand = new Map();
     for (const e of [...active, ...(waiting ? follow.current.events : [])]) keyHand.set(e.n, e.hand);
+    const blind = strategy === 'memory' && practicing; // memory check: no key prompts
     root.querySelectorAll('.pkey').forEach(b => {
       const n = +b.dataset.note;
       b.dataset.hand = keyHand.get(n) ?? (n < 60 ? 'l' : 'r');
-      b.classList.toggle('held', !expected && active.some(e => e.n === n));
-      b.classList.toggle('attack', expected ? expected.includes(n) && !follow.collected.has(n) : att.some(e => e.n === n));
+      b.classList.toggle('held', !blind && !expected && active.some(e => e.n === n));
+      b.classList.toggle('attack', !blind && (expected ? expected.includes(n) && !follow.collected.has(n) : att.some(e => e.n === n)));
     });
     renderSheet();
     renderBeats(pos, mi);
@@ -435,7 +556,7 @@ export function createPlayer(root) {
       } else renderBeats(p);
     }
     if (clock.kind === 'timed' && grader) {
-      const missed = grader.sweep(p, clock.qms);
+      const missed = grader.sweep(clockPos(now - latencyMs), clock.qms);
       if (missed.length) { for (const note of missed) gradeNote(note, 'miss'); renderSheet(); timedPrompt(); }
     }
     if (p >= range.end - EPS) clockEnded(clock.perf0 + (range.end - clock.pos0) * clock.qms);
@@ -443,7 +564,7 @@ export function createPlayer(root) {
   // The pass reached the end of the section at `endPerf`.
   function clockEnded(endPerf) {
     const kind = clock.kind;
-    if (kind === 'timed') finishTimedPass();
+    if (kind === 'timed' && finishTimedPass()) return; // a chain moved on to a longer passage
     if (!clock) return; // finishing stopped it
     if (loop) {
       // Seamless loop: the next pass starts exactly where this one ended.
@@ -510,16 +631,80 @@ export function createPlayer(root) {
       timing: r.timing ?? null, durationMs: Math.round(performance.now() - passStartedAt), at: Date.now(),
       misses: misses.list(),
     };
+    // Optional touch feedback (phase 6): only with a real keyboard's velocities.
+    const touch = analyseTouch();
+    r.touch = touch;
+    if (touch.evenness) { const {points, ...rest} = touch.evenness; detail.evenness = rest; }
+    if (touch.dynamics) detail.dynamics = touch.dynamics;
+    if (touch.articulation) detail.articulation = touch.articulation;
+    if (strategy !== 'off') detail.strategy = strategy;
+    if (chain) detail.chain = {dir: chain.dir, section: [...chain.goal]};
     emit('practice:result', detail);
-    // Speed trainer: a clean pass raises the tempo toward the target.
+    r.memory = strategy === 'memory';
+    // Best clean tempo for this section (play along only: Wait has no tempo to keep).
     r.tempoFrom = detail.tempo; r.tempoTo = detail.tempo;
-    if (speedUp) {
-      const next = speedUpTempo(detail.tempo, targetTempo(), r.accuracy);
-      if (next !== detail.tempo) { setTempoValue(next); r.tempoTo = tempo(); flash(`♩ = ${r.tempoTo}`); }
+    if (practiceMode === 'timed' && !['dotted', 'reversed', 'blocked'].includes(strategy) && current?.id != null) {
+      const res = recordBest(read(SONG_STORE(current.id)).best || {}, bestKey(), detail.tempo, r.accuracy, {threshold: CLEAN});
+      if (res.improved) { saveSong({best: res.bests}); r.newBest = detail.tempo; }
+    }
+    // Slow-practice ladder, else the speed trainer: a clean pass raises the tempo toward the target.
+    const next = strategy === 'ladder' ? ladderNext(detail.tempo, targetTempo(), r.accuracy, {threshold: CLEAN})
+      : speedUp ? speedUpTempo(detail.tempo, targetTempo(), r.accuracy) : detail.tempo;
+    if (next !== detail.tempo) { setTempoValue(next); r.tempoTo = tempo(); flash(`♩ = ${r.tempoTo}`); }
+    // Chaining: a clean pass adds a bar.
+    r.chainNext = null;
+    if (chain) {
+      const step = chainStep(chain, r.accuracy, {threshold: CLEAN});
+      if (step.done) { r.chainDone = [...chain.goal]; chain = null; flash('Chain complete.'); }
+      else if (step.grew) { chain = step.chain; r.chainNext = [chain.first, chain.last]; }
     }
     misses = new MissLog(50);
+    played = []; pedalLog = []; memoryHints = 0;
     passStartedAt = performance.now();
+    showTempo(); showStrategy(); refreshTroubleSoon();
     return detail;
+  }
+  // The chain grew: practise the longer passage straight away.
+  function continueChain(r) {
+    if (!r.chainNext || !song) return false;
+    const [a, b] = r.chainNext;
+    setRange(a, b, {keep: true, quiet: true});
+    flash(`Now ${a === b ? measureName(song.measures[a]).toLowerCase() : barsText(song.measures, a, b)}.`);
+    startPractice();
+    return true;
+  }
+  const bestKey = () => `${range.first}-${range.last}${hands === 'both' ? '' : ':' + hands}`;
+
+  // Evenness (exercises), dynamics, balance and articulation (pieces), pedal.
+  // Up to two short observations for the results card.
+  function analyseTouch() {
+    const out = {evenness: null, dynamics: null, articulation: null, remarks: []};
+    const real = played.filter(p => p.id != null && p.source !== 'screen');
+    if (!song || real.length < 4) return out;
+    const id = String(current?.id ?? ''), measures = song.measures, marks = song.marks ?? {};
+    const exercise = id.startsWith('ex:') && !id.startsWith('ex:progression');
+    const remarks = [];
+    if (exercise) {
+      out.evenness = evenness(real);
+      remarks.push(evennessRemark(out.evenness, measures));
+    } else {
+      out.dynamics = dynamicsReport(real, {marks: marks.dynamics ?? [], hairpins: marks.hairpins ?? [], measures, hands});
+      remarks.push(...(out.dynamics?.remarks ?? []));
+    }
+    out.articulation = articulationReport(real, {slurs: marks.slurs ?? [], legato: exercise, measures});
+    remarks.push(...(out.articulation?.remarks ?? []));
+    if (pedalLog.length || marks.pedals?.length) {
+      const ped = pedalReport(pedalLog, marks.pedals ?? []);
+      if (out.articulation) out.articulation.pedal = {presses: ped.presses, marks: ped.marks, caught: ped.caught};
+      remarks.push(ped.remark);
+    }
+    out.remarks = [...new Set(remarks.filter(Boolean))].slice(0, 2);
+    return out;
+  }
+  // Link a played note to the score note it answered.
+  function linkPlayed(rec, e) {
+    if (!rec || !e) return;
+    Object.assign(rec, {id: e.id, t: e.t, d: e.d, hand: e.hand, staff: e.staff, stacc: !!e.stacc, measure: measureIndexAt(e.t), qms: quarterMs()});
   }
   const measureLabelAt = t => song.measures[measureIndexAt(t)].label;
 
@@ -530,14 +715,16 @@ export function createPlayer(root) {
     if (!g.notes.length) { setPrompt('Listen…'); return; }
     const remaining = g.notes.filter(n => !follow.collected.has(n));
     const hand = n => g.events.find(e => e.n === n)?.hand;
-    setPrompt(`Play ${remaining.map(n => `<b class="${handClass(hand(n))}">${name(n)}</b>`).join(' + ')}`);
+    // Memory check: no names, unless three slips in a row ask for a hint.
+    if (strategy === 'memory' && memoryHints < 3) setPrompt(follow.collected.size ? 'From memory · <b>and the rest of the chord</b>' : 'From memory · <b>keep going</b>');
+    else setPrompt(`Play ${remaining.map(n => `<b class="${handClass(hand(n))}">${name(n)}</b>`).join(' + ')}`);
     setStatus(`${measureName(song.measures[measureIndexAt(g.t)])} · ${follow.index + 1} / ${follow.groups.length}${hands !== 'both' ? ` · ${hands} hand` : ''}`);
   }
   function startPractice() {
     if (!song) return;
     hideResults(); stopAll();
     finished = false; matched.clear(); grades.clear(); rightCount = 0; wrongCount = 0;
-    misses = new MissLog(50);
+    misses = new MissLog(50); played = []; pedalLog = []; memoryHints = 0;
     const groups = handGroups(range, hands);
     if (!groups.some(g => g.notes.length)) {
       setPrompt(hands === 'both' ? 'This section has no notes' : `No ${hands}-hand notes in this section`); draw(); return;
@@ -574,7 +761,7 @@ export function createPlayer(root) {
     const wait = immediate ? 0 : Math.max(0, (follow.current.t - from) * quarterMs());
     autoTimer = setTimeout(step, wait);
   }
-  function practiceAttack(n) {
+  function practiceAttack(n, rec) {
     if (!practicing || practiceMode !== 'wait' || !follow?.active) return;
     // Played ahead while the app is still playing the other hand: catch up.
     if (!follow.current.notes.length) {
@@ -587,13 +774,17 @@ export function createPlayer(root) {
     }
     const group = follow.current, index = follow.index;
     if (group.notes.includes(n)) for (const e of group.events.filter(e => e.n === n)) matched.add(e.id);
+    if (group.notes.includes(n) && !follow.collected.has(n)) linkPlayed(rec, group.events.find(e => e.n === n));
     const result = follow.attack(n);
+    barTally.add(measureIndexAt(group.t), result !== 'wrong');
     if (result === 'wrong') {
       wrongCount++; flashKey(n, 'wrong'); flash('Not quite.', 'bad');
+      if (strategy === 'memory') { memoryHints++; practicePrompt(); }
       misses.add(group.t, measureLabelAt(group.t), {expected: group.notes.filter(x => !follow.collected.has(x)).map(name), played: [name(n)]});
       return;
     }
     rightCount++; flashKey(n, 'hit');
+    if (result === 'advanced' || result === 'finished') memoryHints = 0;
     playAuto(index); // the other hand comes in with the user's first note of the chord
     if (result === 'finished') return finishWait();
     if (result === 'advanced') {
@@ -609,6 +800,7 @@ export function createPlayer(root) {
     const total = rightCount + wrongCount;
     const r = {right: rightCount, wrong: wrongCount, accuracy: total ? Math.round(100 * rightCount / total) : 100, timing: null};
     emitResult(r);
+    if (continueChain(r)) return;
     if (loop) {
       flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : 'Once more.');
       follow.reset(); autoPlayed = new Set(); matched.clear(); rightCount = 0; wrongCount = 0;
@@ -638,8 +830,10 @@ export function createPlayer(root) {
   }
 
   // ───────── Practice: Play along (timed) ─────────
+  let eventById = new Map();
   function newGrader() {
     const want = handFilter(hands);
+    eventById = new Map(range.events.map(e => [e.id, e]));
     grader = new TimedGrader(range.events.filter(e => !e.carried && want(e)).map(e => ({id: e.id, n: e.n, t: e.t})));
   }
   function startTimed() {
@@ -652,12 +846,13 @@ export function createPlayer(root) {
   function gradeNote(note, grade) {
     grades.set(note.id, grade);
     if (grade !== 'miss') matched.add(note.id);
+    barTally.add(measureIndexAt(note.t), grade !== 'miss');
     highway.popup(note.n, GRADE_TEXT[grade], grade);
     if (grade === 'miss') misses.add(note.t, measureLabelAt(note.t), {expected: [name(note.n)]});
   }
-  function timedAttack(n, time) {
+  function timedAttack(n, time, rec) {
     if (!clock || clock.kind !== 'timed' || !grader) return;
-    const p = clockPos(time);
+    const p = clockPos(time - latencyMs); // calibrated input latency (Settings)
     if (p < range.start - TIMING.window / clock.qms) return; // still counting in
     const r = grader.attack(n, p, clock.qms);
     if (r.result === 'wrong') {
@@ -666,7 +861,8 @@ export function createPlayer(root) {
       const near = range.events.filter(e => !e.carried && wantHand(e)).reduce((b, e) => (!b || Math.abs(e.t - p) < Math.abs(b.t - p) ? e : b), null);
       const t = near && Math.abs(near.t - p) * clock.qms < 1000 ? near.t : p;
       misses.add(t, measureLabelAt(Math.max(range.start, t)), {played: [name(n)]});
-    } else { flashKey(n, 'hit'); gradeNote(r.note, r.result); }
+      barTally.add(measureIndexAt(Math.max(range.start, t)), false);
+    } else { flashKey(n, 'hit'); gradeNote(r.note, r.result); linkPlayed(rec, eventById.get(r.note.id)); }
     renderSheet(); timedPrompt();
   }
   function timedPrompt() {
@@ -679,8 +875,10 @@ export function createPlayer(root) {
     const s = grader.summary;
     const r = {...s, counts: {...grader.counts}};
     emitResult(r);
-    if (!loop) return;
+    if (r.chainNext) { stopAll(); setTimeout(() => continueChain(r), 300); return true; }
+    if (!loop) return false;
     flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : `${r.accuracy}% · once more.`);
+    return false;
   }
 
   // The results card reads like a programme note: one large figure, a fine table.
@@ -692,7 +890,10 @@ export function createPlayer(root) {
     q('#um-complete-kicker').textContent = `${sectionLabel()} · ${practiceMode === 'timed' ? 'Play along' : 'Wait'} · ${handsText}`;
     q('#um-acc').textContent = acc;
     q('#complete-title').textContent = VERDICTS.find(([min]) => acc >= min)[1];
-    const speed = r.tempoTo !== r.tempoFrom ? ` Tempo raised to ♩ = ${r.tempoTo}.` : ` At ♩ = ${r.tempoFrom}.`;
+    let speed = r.tempoTo !== r.tempoFrom ? ` Tempo raised to ♩ = ${r.tempoTo}.` : ` At ♩ = ${r.tempoFrom}.`;
+    if (r.newBest) speed += ' Your best clean tempo here.';
+    if (r.memory) speed += ` From memory: ${r.wrong ? `${r.wrong} slip${r.wrong === 1 ? '' : 's'}` : 'no slips'}.`;
+    if (r.chainDone) speed += ` Chained all of ${barsText(song.measures, ...r.chainDone)}.`;
     const timing = q('#um-complete-timing');
     if (r.counts) {
       q('#um-complete-text').textContent = `${r.right} notes played, ${r.missed} missed, ${r.extra} stray.${speed}`;
@@ -704,10 +905,30 @@ export function createPlayer(root) {
       q('#um-complete-text').textContent = `${r.right} notes found, ${r.wrong} wrong.${speed}`;
       timing.hidden = true;
     }
+    showTouch(r.touch);
     const last = range.last >= song.measures.length - 1;
     q('#um-complete-next').disabled = last;
     q('#um-complete').hidden = false;
     q('#um-again').focus({preventScroll: true});
+  }
+  // Evenness graph (fine lines: timing in ink, loudness in brass) and up to two remarks.
+  function showTouch(touch) {
+    const fig = q('#um-touch'), list = q('#um-remarks');
+    const ev = touch?.evenness;
+    fig.hidden = !ev;
+    if (ev) {
+      q('#um-even-score').textContent = ev.score;
+      const W = 300, H = 64, mid = H / 2, n = ev.points.length;
+      const x = i => (n > 1 ? i / (n - 1) : .5) * (W - 8) + 4;
+      const line = (key, range) => ev.points.map((p, i) => `${x(i).toFixed(1)},${(mid - Math.max(-1, Math.min(1, p[key] / range)) * (mid - 6)).toFixed(1)}`).join(' ');
+      q('#um-even-graph').innerHTML = `<line class="g-zero" x1="0" x2="${W}" y1="${mid}" y2="${mid}"/>` +
+        `<polyline class="g-vel" points="${line('dv', 30)}"/><polyline class="g-time" points="${line('dt', 60)}"/>` +
+        ev.points.map((p, i) => `<circle class="g-dot" cx="${x(i).toFixed(1)}" cy="${(mid - Math.max(-1, Math.min(1, p.dt / 60)) * (mid - 6)).toFixed(1)}" r="1.6"/>`).join('');
+      q('#um-even-detail').textContent = `· ±${Math.round(ev.timingSdMs)} ms · ±${Math.round(ev.velocitySd)} velocity`;
+    }
+    const remarks = touch?.remarks ?? [];
+    list.hidden = !remarks.length;
+    list.replaceChildren(...remarks.map(t => { const li = document.createElement('li'); li.textContent = t; return li; }));
   }
   function hideResults() { q('#um-complete').hidden = true; }
   q('#um-again').onclick = startPractice;
@@ -720,12 +941,26 @@ export function createPlayer(root) {
 
   // A key press from MIDI or the on-screen keyboard.
   // Every attack is announced as `piano:note`, whether or not the player is on screen.
+  // While practising, every press is kept (velocity, press and release times) for touch feedback.
   function userAttack(n, {source = 'screen', velocity = 96, time = performance.now()} = {}) {
+    if (calib) { if (source === 'screen') tone(n); calibTap(time); return; }
     emit('piano:note', {note: n, velocity, source, time});
     if (source === 'screen') tone(n);
     q('#um-midi-last').textContent = `Last note: ${name(n)} (MIDI ${n})`;
-    if (practicing && practiceMode === 'timed') timedAttack(n, time);
-    else practiceAttack(n);
+    let rec = null;
+    if (practicing && played.length < 2000) { rec = {n, source, velocity, at: time, off: null, id: null}; played.push(rec); }
+    if (practicing && practiceMode === 'timed') timedAttack(n, time, rec);
+    else practiceAttack(n, rec);
+  }
+  function userRelease(n, time = performance.now()) {
+    for (let i = played.length - 1; i >= 0; i--) if (played[i].n === n && played[i].off == null) { played[i].off = time; break; }
+  }
+  // Sustain pedal (CC 64): shown on the keybed's felt strip, logged against the score.
+  function setPedal(down) {
+    if (down === pedalDown) return;
+    pedalDown = down;
+    root.classList.toggle('pedal-down', down);
+    if (practicing && pedalLog.length < 500) pedalLog.push({pos: livePos() ?? pos, down});
   }
 
   // ───────── Navigation ─────────
@@ -761,9 +996,26 @@ export function createPlayer(root) {
     q('#tempo-term').textContent = tempoTerm(bpm);
     q('#tempo-btn').setAttribute('aria-label', `Tempo: ${bpm} beats per minute${metronome ? ', metronome on' : ''}`);
     const target = q('#um-target');
-    target.hidden = !speedUp || !song;
+    target.hidden = !(speedUp || strategy === 'ladder') || !song;
     if (song) target.textContent = `→ ${targetTempo()}`;
+    // Slow-practice ladder rungs, the current one marked.
+    const ladder = q('#tempo-ladder');
+    ladder.hidden = strategy !== 'ladder' || !song;
+    if (!ladder.hidden) ladder.innerHTML = 'Ladder ' + ladderRungs(targetTempo()).map(r => `<b class="${r === bpm ? 'on' : r < bpm ? 'past' : ''}">${r}</b>`).join(' · ');
+    // Best clean tempo for this section, with a suggested next step.
+    const bestEl = q('#tempo-best');
+    const best = song && range && current?.id != null ? (read(SONG_STORE(current.id)).best || {})[bestKey()] : null;
+    bestEl.hidden = !best;
+    if (best) {
+      const next = nextTempoStep(best, targetTempo());
+      q('#tempo-best-text').innerHTML = `Best clean <span class="tempo-note">♩</span> = ${best}`;
+      const tryBtn = q('#tempo-try');
+      tryBtn.hidden = !(next > best) || next === bpm;
+      tryBtn.textContent = `try ${next}`;
+      tryBtn.dataset.tempo = next;
+    }
   }
+  q('#tempo-try').onclick = () => setTempoValue(+q('#tempo-try').dataset.tempo);
   // Keep the music where it is when the tempo changes mid-flow.
   function setTempoValue(v) {
     const p = clock ? clockPos() : null;
@@ -853,11 +1105,94 @@ export function createPlayer(root) {
     setRange(Math.max(0, a), Math.min(n - 1, b));
   });
 
+  // ───────── Practise smarter (Bars ▾): weak bars, phrases, chaining ─────────
+  const rangeText = (a, b) => (a === b ? measureName(song.measures[a]) : `${shortName(song.measures[a])}–${shortName(song.measures[b])}`);
+  function showSmartMenu() {
+    if (!song || !range) return;
+    const weak = weakPassage(trouble, song.measures.length);
+    const weakBtn = q('#smart-weak');
+    weakBtn.disabled = !weak;
+    weakBtn.title = weak ? '' : 'Play a few passes first: your weakest bars appear here';
+    q('#smart-weak-meta').textContent = weak ? rangeText(weak.first, weak.last) : 'after a few passes';
+    const here = phraseAt(phrases, measureIndexAt(pos)), next = nextPhrase(phrases, range.last);
+    q('#smart-phrase-meta').textContent = here ? rangeText(here.first, here.last) : '';
+    q('#smart-next').disabled = !next;
+    q('#smart-next-meta').textContent = next ? rangeText(next.first, next.last) : 'the end';
+  }
+  function startChaining(dir) {
+    // A single bar chains over its phrase; otherwise over the chosen bars.
+    let [a, b] = [range.first, range.last];
+    if (a === b) { const ph = phraseAt(phrases, a); if (ph) [a, b] = [ph.first, ph.last]; }
+    if (a === b) { flash('Choose two bars or more to chain', 'bad'); return; }
+    const c = startChain(a, b, dir);
+    setRange(c.first, c.last, {keep: true, quiet: true});
+    chain = c;
+    setLoop(true);
+    setIntent('practice');
+    showStrategy();
+    setStatus(`Chaining ${barsText(song.measures, a, b)}`);
+    setPrompt(`Press <b class="glyph">▶</b> · ${dir === 'forward' ? 'from the first bar' : 'from the last bar'}, one more bar after each clean pass`);
+  }
+  root.querySelectorAll('[data-smart]').forEach(btn => btn.onclick = () => {
+    closePopovers();
+    if (!song || !range) return;
+    const act = btn.dataset.smart;
+    if (act === 'weak') {
+      const w = weakPassage(trouble, song.measures.length);
+      if (!w) return;
+      setRange(w.first, w.last); setLoop(true); setIntent('practice');
+      flash(`Looping the weak bars · ${rangeText(w.first, w.last)}`);
+    } else if (act === 'phrase' || act === 'next-phrase') {
+      const ph = act === 'phrase' ? phraseAt(phrases, measureIndexAt(pos)) : nextPhrase(phrases, range.last);
+      if (ph) setRange(ph.first, ph.last);
+    } else if (act === 'chain-forward') startChaining('forward');
+    else if (act === 'chain-backward') startChaining('backward');
+  });
+
+  // ───────── Strategies (⋯ → Strategy) ─────────
+  function setStrategy(v) {
+    v = v in STRATEGIES ? v : 'off';
+    const changed = v !== strategy;
+    strategy = v;
+    q('#menu-strategy').value = v;
+    root.dataset.strategy = v;
+    root.classList.toggle('memory', v === 'memory');
+    if (!changed) return;
+    if (v === 'ladder' && song) setTempoValue(ladderRungs(targetTempo())[0]);
+    // Rebuild the passage: rhythm variations and blocked chords alter its timing.
+    if (song && range) setRange(range.first, range.last, {keep: true, quiet: playing || practicing});
+    showStrategy(); showTempo();
+    if (v !== 'off') flash(STRATEGIES[v]);
+  }
+  q('#menu-strategy').onchange = () => setStrategy(q('#menu-strategy').value);
+  // A quiet tag on the stage names the strategy or chain in force; tap to end it.
+  function showStrategy() {
+    const tag = q('#um-strategy');
+    const parts = [];
+    if (strategy !== 'off') parts.push(STRATEGIES[strategy]);
+    if (chain && song) parts.push(`Chaining ${chain.dir === 'backward' ? '←' : '→'} ${rangeText(chain.first, chain.last)} of ${rangeText(...chain.goal)}`);
+    tag.hidden = !parts.length;
+    tag.textContent = parts.join(' · ');
+    tag.setAttribute('aria-label', parts.join(', ') + '. Turn off');
+  }
+  q('#um-strategy').onclick = () => {
+    if (chain) { const [a, b] = chain.goal; chain = null; setRange(a, b); }
+    if (strategy !== 'off') setStrategy('off');
+    showStrategy();
+  };
+
   // Keyboard shortcuts.
   window.addEventListener('keydown', e => {
+    if (calib && !e.repeat && e.key !== 'Escape' && !e.ctrlKey && !e.metaKey && !['Shift', 'Alt', 'Control', 'Meta', 'Tab'].includes(e.key)) {
+      e.preventDefault(); calibTap(performance.now()); return;
+    }
     if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target.closest?.('input,select,textarea,[contenteditable]')) return;
     if (!root.isConnected || !root.getClientRects().length) return; // player not on screen
+    // Pages view: arrows and PageUp/PageDown (Bluetooth page turners) turn the page.
+    const paged = root.dataset.view === 'pages' && song && !e.shiftKey;
+    if (paged && ['PageDown', 'ArrowRight', 'ArrowDown'].includes(e.key)) { e.preventDefault(); turnPage(1); return; }
+    if (paged && ['PageUp', 'ArrowLeft', 'ArrowUp'].includes(e.key)) { e.preventDefault(); turnPage(-1); return; }
     if (e.code === 'Space') { e.preventDefault(); q('#um-play').click(); }
     else if (e.key === 'p' || e.key === 'P') { setIntent('practice'); startPractice(); }
     else if (e.key === 'l' || e.key === 'L') { q('#sec-loop').click(); }
@@ -869,14 +1204,14 @@ export function createPlayer(root) {
     else if (e.key === '-' || e.key === '_') setZoom(zoom / 1.2);
     else if (e.key === 'ArrowRight') e.shiftKey ? q('#um-next-measure').click() : stepBy(1);
     else if (e.key === 'ArrowLeft') e.shiftKey ? q('#um-prev-measure').click() : stepBy(-1);
-    else if (e.key === 'Escape') { if (!closePopovers()) { hideResults(); settingsModal.hidden = true; } }
+    else if (e.key === 'Escape') { if (!closePopovers()) { hideResults(); settingsModal.hidden = true; cancelCalibration(); } }
   });
 
   // ───────── MIDI ─────────
   // Local Web MIDI inputs, plus notes relayed from a Mac over the dev server
   // (iPad Safari has no Web MIDI; see src/midi-relay.js).
   let midiAccess = null;
-  let relay = {bridge: false, devices: []};
+  let relay = {bridge: false, devices: [], state: '', label: ''}, relayLatency = null;
   const midiHeld = new Map();
   const localInputs = () => midiAccess ? [...midiAccess.inputs.values()].filter(p => p.state === 'connected') : [];
   function renderMidi() {
@@ -894,8 +1229,11 @@ export function createPlayer(root) {
   function refreshChip() {
     const inputs = localInputs();
     const relayName = relay.devices.length > 1 ? `${relay.devices.length} inputs` : relay.devices[0] || 'piano';
+    const fine = Number.isFinite(relayLatency) ? ` · ${Math.round(relayLatency)} ms` : '';
     if (inputs.length) setMidiChip((inputs.length === 1 ? (inputs[0].name || 'Piano') : `${inputs.length} inputs`) + (relay.bridge ? ' + Mac' : ''), 'on');
-    else if (relay.bridge) setMidiChip('Mac · ' + relayName, 'on');
+    else if (relay.bridge && (!relay.state || relay.state === 'connected')) setMidiChip('Mac · ' + relayName + fine, 'on');
+    // The Mac relay's own trouble states (src/midi-relay.js) with its ready-made label.
+    else if (['reconnecting', 'stale', 'no-piano', 'waiting'].includes(relay.state) && relay.label) setMidiChip(relay.label, relay.state === 'reconnecting' ? 'busy' : 'warn');
     else if (midiAccess) setMidiChip('No piano found', 'warn');
     else setMidiChip('Connect piano', '');
   }
@@ -910,15 +1248,23 @@ export function createPlayer(root) {
     if (command === 144 && velocity > 0) {
       const already = held.has(n); held.add(n);
       if (!already) userAttack(n, {source: source.startsWith('local:') ? 'midi' : 'relay', velocity, time});
-    } else if (command === 128 || command === 144) held.delete(n);
+    } else if (command === 128 || command === 144) { if (held.delete(n)) userRelease(n, time); }
+    else if (n === 64) setPedal(velocity >= 64);
     else if (n === 120 || n === 123) held.clear();
     renderMidi();
   }
   const clearHeld = (prefix = '') => { for (const k of [...midiHeld.keys()]) if (k.startsWith(prefix)) midiHeld.delete(k); };
   onRelayMidi(bytes => midiMessage('relay', bytes));
   onRelayStatus(status => {
-    relay = {bridge: !!status?.bridge, devices: Array.isArray(status?.devices) ? status.devices : []};
+    relay = {bridge: !!status?.bridge, devices: Array.isArray(status?.devices) ? status.devices : [], state: status?.state || '', label: status?.label || ''};
     clearHeld('relay:'); refreshChip(); renderMidi();
+  });
+  // Label-only updates (a new latency figure) arrive as a window event; held keys stay.
+  window.addEventListener('relay:status', e => {
+    const d = e.detail || {};
+    relayLatency = Number.isFinite(d.latencyMs) ? d.latencyMs : null;
+    if (d.state) { relay.state = d.state; relay.label = d.label || relay.label; }
+    refreshChip();
   });
   function wireMidi() {
     if (practicing) { stopAll(); setPrompt('MIDI devices changed · press <b class="glyph">▶</b> to begin again'); }
@@ -968,6 +1314,8 @@ export function createPlayer(root) {
     getMeasures: () => song && range ? song.measures.slice(range.first, range.last + 1) : [],
     position: () => (finished && song ? range.end + 1 : livePos()),
     handColors: () => !root.classList.contains('no-hands'),
+    hideNotes: () => strategy === 'memory',
+    barHeat: m => { const st = trouble.get(m.index); return st ? heatLevel(st.accuracy) : null; },
     noteLabel: e => (root.classList.contains('show-names') ? song?.noteNames?.get(e.id)?.name ?? NAMES[e.n % 12] : null),
     noteState(e) {
       if (grades.has(e.id)) return grades.get(e.id);
@@ -1218,6 +1566,7 @@ export function createPlayer(root) {
       const open = pop.hidden;
       closePopovers();
       if (!open) return;
+      if (pop.id === 'bars-pop') showSmartMenu();
       pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
       // Keep it on screen on narrow layouts.
       pop.style.removeProperty('--pop-shift');
@@ -1256,12 +1605,18 @@ export function createPlayer(root) {
   // ───────── Settings ─────────
   const settingsModal = q('#settings');
   function applySettings(st) {
-    const view = st.view === 'sheet' ? 'sheet' : 'falling';
+    const view = VIEWS.includes(st.view) ? st.view : 'falling';
     root.dataset.view = view;
     root.dataset.labels = ['none', 'c', 'all'].includes(st.labels) ? st.labels : 'c';
     root.classList.toggle('no-hands', st.hands === false);
     settingsModal.querySelector(`input[name="view"][value="${view}"]`).checked = true;
     q(`input[name="menu-view"][value="${view}"]`).checked = true;
+    q('#um-page').hidden = view !== 'pages';
+    // The strategy tag sits in the score card's head, or over the falling notes.
+    const tag = q('#um-strategy');
+    if (view === 'falling') q('#built-in-panel .view').append(tag); else q('#um-page').before(tag);
+    holdPagesAwake(view === 'pages');
+    page = -1; manualPage = null;
     settingsModal.querySelector(`input[name="labels"][value="${root.dataset.labels}"]`).checked = true;
     q('#set-hands').checked = st.hands !== false;
     root.classList.toggle('show-names', !!st.names);
@@ -1279,8 +1634,8 @@ export function createPlayer(root) {
     q('#sec-loop').checked = loop; q('#set-loop').checked = loop;
   }
   q('#settings-btn').onclick = () => { closePopovers(); settingsModal.hidden = false; };
-  q('#settings-close').onclick = () => { settingsModal.hidden = true; };
-  settingsModal.addEventListener('click', e => { if (e.target === settingsModal) settingsModal.hidden = true; });
+  q('#settings-close').onclick = () => { settingsModal.hidden = true; cancelCalibration(); };
+  settingsModal.addEventListener('click', e => { if (e.target === settingsModal) { settingsModal.hidden = true; cancelCalibration(); } });
   settingsModal.querySelectorAll('input[name="view"],input[name="labels"],input[name="playhead"]').forEach(input => input.onchange = () => {
     save({[input.name]: input.value}); applySettings(load()); if (input.name === 'view') draw();
   });
@@ -1291,6 +1646,55 @@ export function createPlayer(root) {
   q('#names-btn').onchange = () => setNames(q('#names-btn').checked);
   root.querySelectorAll('input[name="menu-view"]').forEach(input => input.onchange = () => { save({view: input.value}); applySettings(load()); draw(); });
   q('#set-pedal').onchange = () => { save({pedal: q('#set-pedal').checked}); applySettings(load()); };
+
+  // ───────── Latency calibration (Settings) ─────────
+  // Eight clicks at 100 BPM; the user taps along on the piano, the on-screen
+  // pad or any computer key. The median offset (after two run-in clicks) is
+  // the input + audio latency, taken off every play-along note.
+  let calib = null;
+  const CALIB_CLICKS = 8, CALIB_MS = 600;
+  function showLatency() {
+    q('#lat-value').textContent = `${latencyMs} ms`;
+  }
+  function setLatency(ms) { latencyMs = clampLatency(ms); save({latencyMs}); showLatency(); }
+  function startCalibration() {
+    stopAll();
+    piano.load();
+    const panel = q('#lat-panel');
+    panel.hidden = false;
+    const dots = q('#lat-dots');
+    dots.replaceChildren(...Array.from({length: CALIB_CLICKS}, () => document.createElement('i')));
+    const t0 = performance.now() + 700;
+    calib = {clicks: Array.from({length: CALIB_CLICKS}, (_, i) => t0 + i * CALIB_MS), taps: [], timers: []};
+    calib.clicks.forEach((t, i) => {
+      piano.click(Math.max(0, (t - performance.now()) / 1000), i % 4 === 0);
+      calib.timers.push(setTimeout(() => dots.children[i]?.classList.add('on'), t - performance.now()));
+    });
+    q('#lat-text').textContent = 'Listen for two clicks, then tap with each one…';
+    calib.timers.push(setTimeout(finishCalibration, calib.clicks.at(-1) - performance.now() + CALIB_MS));
+  }
+  function calibTap(time) {
+    if (!calib) return;
+    calib.taps.push(time);
+    const pad = q('#lat-pad');
+    pad.classList.remove('tap'); void pad.offsetWidth; pad.classList.add('tap');
+  }
+  function finishCalibration() {
+    if (!calib) return;
+    const res = measureLatency(calib.clicks, calib.taps);
+    calib.timers.forEach(clearTimeout);
+    calib = null;
+    if (!res) { q('#lat-text').textContent = 'Not enough taps to measure. Try again.'; return; }
+    setLatency(res.ms);
+    q('#lat-text').textContent = res.spread > 40 ? `About ${res.ms} ms, but the taps were uneven (±${res.spread} ms). Try again for a steadier figure.`
+      : `Measured ${res.ms} ms (±${res.spread} ms). Play along now allows for it.`;
+  }
+  function cancelCalibration() { if (calib) { calib.timers.forEach(clearTimeout); calib = null; piano.stopClicks(); } q('#lat-panel').hidden = true; }
+  q('#lat-calibrate').onclick = startCalibration;
+  q('#lat-again').onclick = startCalibration;
+  q('#lat-reset').onclick = () => { setLatency(0); q('#lat-text').textContent = 'Latency set to 0 ms.'; };
+  q('#lat-done').onclick = cancelCalibration;
+  q('#lat-pad').addEventListener('pointerdown', e => { e.preventDefault(); calibTap(e.timeStamp || performance.now()); });
 
   // ───────── Practice options ─────────
   function setHands(h, {persist = true} = {}) {
@@ -1385,6 +1789,7 @@ export function createPlayer(root) {
     q('#um-count').replaceChildren();
     q('#um-measure').textContent = ''; q('#um-detail').textContent = '';
     root.querySelectorAll('.pkey').forEach(b => b.classList.remove('held', 'attack'));
+    chain = null; phrases = []; barTally = new BarTally(); trouble = new Map(); showStrategy();
     setStatus(''); setPrompt('Opening the score…');
     root.classList.add('loading');
     root.classList.remove('load-error');
@@ -1395,7 +1800,10 @@ export function createPlayer(root) {
     const notes = song.events.map(e => e.n);
     defaultLow = whiteBelow(Math.max(21, Math.min(48, Math.min(...notes) - 1)));
     defaultHigh = whiteAbove(Math.min(108, Math.max(72, Math.max(...notes) + 1)));
-    q('#um-tempo').value = defaultTempo(entry); showTempo();
+    q('#um-tempo').value = defaultTempo(entry);
+    if (strategy === 'ladder') q('#um-tempo').value = ladderRungs(targetTempo())[0];
+    showTempo();
+    phrases = detectPhrases({measures: song.measures, events: song.events, slurs: song.marks?.slurs ?? []});
     const savedHands = read(SONG_STORE(entry.id)).hands;
     setHands(HANDS.includes(savedHands) ? savedHands : 'both', {persist: false});
     root.classList.remove('loading');
@@ -1403,6 +1811,8 @@ export function createPlayer(root) {
     mountSheet();
     const [first, last] = defaultSection(entry);
     setRange(first, last);
+    refreshTrouble();
+    holdPagesAwake(root.dataset.view === 'pages');
   }
 
   function showError(entry, err) {
@@ -1447,6 +1857,7 @@ export function createPlayer(root) {
   setMetronome(!!saved.metronome);
   setSpeedUp(!!saved.speedUp);
   setZoom(+saved.zoom || 1);
+  latencyMs = clampLatency(saved.latencyMs); showLatency();
   piano.load();
   applySettings(saved);
   showTheme(); showFullscreen();
@@ -1456,6 +1867,7 @@ export function createPlayer(root) {
   requestAnimationFrame(scrollSheet);
 
   function stopPublic() {
+    holdPagesAwake(false); // leaving the player; reacquired when a song opens in Pages view
     const busy = playing || practicing;
     stopAll(); hideResults();
     if (busy && song) { setStatus(sectionLabel()); setPrompt(promptIdle()); }
@@ -1469,6 +1881,7 @@ export function createPlayer(root) {
       section: range ? [range.first, range.last] : null, sectionLabel: song && range ? sectionLabel() : '',
       measureCount: song?.measures.length ?? 0, tempo: tempo(), targetTempo: song ? targetTempo() : null,
       mode, hands, view: root.dataset.view, playing, practicing, loop,
+      strategy, chain: chain ? {dir: chain.dir, section: [chain.first, chain.last], goal: [...chain.goal]} : null, latencyMs,
     };
   }
   const int = v => (v !== null && v !== '' && Number.isFinite(+v) ? Math.round(+v) : NaN);
@@ -1489,6 +1902,7 @@ export function createPlayer(root) {
     setHands(h) { setHands(String(h).toLowerCase()); return getState(); },
     setMode(m) { m = String(m).toLowerCase(); setMode(m === 'play-along' || m === 'playalong' || m === 'timed' ? 'timed' : m); return getState(); },
     setLoop(v) { setLoop(!!v); return getState(); },
+    setStrategy(v) { setStrategy(String(v).toLowerCase()); return getState(); },
     listen() { if (song && !playing) { if (practicing) stopAll(); intent = 'listen'; save({intent}); startListen(); } return getState(); },
     practice() { if (song) { intent = 'practice'; save({intent}); startPractice(); } return getState(); },
     stop() { stopPublic(); return getState(); },

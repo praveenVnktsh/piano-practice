@@ -5,6 +5,7 @@
       "title": "Twinkle Twinkle Little Star",
       "composer": "Traditional",
       "difficulty": "beginner",
+      "grade": 0,
       "file": "songs/twinkle-twinkle.musicxml",
       "license": "CC0-1.0",
       "source": "Piano Practice contributors – hand transcription (songs/twinkle-twinkle.notes)",
@@ -16,6 +17,7 @@
       "title": "Ode to Joy",
       "composer": "Ludwig van Beethoven",
       "difficulty": "beginner",
+      "grade": 0,
       "file": "songs/ode-to-joy.musicxml",
       "license": "CC0-1.0",
       "source": "Piano Practice contributors – simplified hand transcription (songs/ode-to-joy.notes)",
@@ -27,48 +29,574 @@
       "title": "Minuet in G, BWV Anh. 114",
       "composer": "Christian Petzold (attr.)",
       "difficulty": "easy",
+      "grade": 1,
       "file": "songs/minuet-in-g.musicxml",
       "license": "CC0-1.0",
       "source": "Piano Practice contributors – hand transcription (songs/minuet-in-g.notes), checked against the Mutopia edition by Allen Garvin",
       "sourceUrl": "https://github.com/praveenVnktsh/una-mattina-practice/blob/main/songs/minuet-in-g.notes",
       "tempo": 108,
-      "section": [0, 7]
+      "section": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": "bach-minuet-anh116",
+      "title": "Minuet in G, BWV Anh. 116",
+      "composer": "Johann Sebastian Bach (Notebook for Anna Magdalena Bach)",
+      "difficulty": "easy",
+      "grade": 1,
+      "file": "songs/bach-minuet-anh116.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Allen Garvin (Bach-Gesellschaft); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=77",
+      "typesetter": "Allen Garvin",
+      "tempo": 100,
+      "section": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": "bach-minuet-anh113",
+      "title": "Minuet in F, BWV Anh. 113",
+      "composer": "Johann Sebastian Bach (Notebook for Anna Magdalena Bach)",
+      "difficulty": "easy",
+      "grade": 1,
+      "file": "songs/bach-minuet-anh113.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Allen Garvin (Bach-Gesellschaft); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=74",
+      "typesetter": "Allen Garvin",
+      "tempo": 104,
+      "section": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": "schumann-melodie",
+      "title": "Melody, Op. 68 No. 1 (Album for the Young)",
+      "composer": "Robert Schumann",
+      "difficulty": "easy",
+      "grade": 1,
+      "file": "songs/schumann-melodie.musicxml",
+      "license": "CC BY-SA 2.5",
+      "source": "Mutopia Project – typeset by Philippe Hézaine (Peters); converted with tools/ly2musicxml.mjs, repeats unfolded. Adaptations shared under CC BY-SA 2.5",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=647",
+      "typesetter": "Philippe Hézaine",
+      "tempo": 80,
+      "section": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "bach-minuet-anh115",
+      "title": "Minuet in G minor, BWV Anh. 115",
+      "composer": "Johann Sebastian Bach (Notebook for Anna Magdalena Bach)",
+      "difficulty": "easy",
+      "grade": 2,
+      "file": "songs/bach-minuet-anh115.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Allen Garvin (Bach-Gesellschaft); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=76",
+      "typesetter": "Allen Garvin",
+      "tempo": 100,
+      "section": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": "bach-musette-anh126",
+      "title": "Musette in D, BWV Anh. 126",
+      "composer": "Johann Sebastian Bach (Notebook for Anna Magdalena Bach)",
+      "difficulty": "easy",
+      "grade": 2,
+      "file": "songs/bach-musette-anh126.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Allen Garvin (Bach-Gesellschaft); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=79",
+      "typesetter": "Allen Garvin",
+      "tempo": 100,
+      "section": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": "burgmuller-candeur",
+      "title": "La Candeur (Frankness), Op. 100 No. 1",
+      "composer": "Friedrich Burgmüller",
+      "difficulty": "easy",
+      "grade": 2,
+      "file": "songs/burgmuller-candeur.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Bas Wassink (Collection Litolff); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=202",
+      "typesetter": "Bas Wassink",
+      "tempo": 100,
+      "section": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "schumann-soldiers-march",
+      "title": "Soldiers' March, Op. 68 No. 2 (Album for the Young)",
+      "composer": "Robert Schumann",
+      "difficulty": "easy",
+      "grade": 2,
+      "file": "songs/schumann-soldiers-march.musicxml",
+      "license": "CC BY-SA 2.5",
+      "source": "Mutopia Project – typeset by Philippe Hézaine (Peters); converted with tools/ly2musicxml.mjs, repeats unfolded. Adaptations shared under CC BY-SA 2.5",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=687",
+      "typesetter": "Philippe Hézaine",
+      "tempo": 104,
+      "section": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": "schumann-poor-orphan",
+      "title": "Poor Orphan, Op. 68 No. 6 (Album for the Young)",
+      "composer": "Robert Schumann",
+      "difficulty": "easy",
+      "grade": 2,
+      "file": "songs/schumann-poor-orphan.musicxml",
+      "license": "CC BY-SA 2.5",
+      "source": "Mutopia Project – typeset by Philippe Hézaine (Peters); converted with tools/ly2musicxml.mjs, repeats unfolded. Adaptations shared under CC BY-SA 2.5",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=655",
+      "typesetter": "Philippe Hézaine",
+      "tempo": 66,
+      "section": [
+        0,
+        8
+      ]
+    },
+    {
+      "id": "schumann-wild-rider",
+      "title": "The Wild Rider, Op. 68 No. 8 (Album for the Young)",
+      "composer": "Robert Schumann",
+      "difficulty": "easy",
+      "grade": 2,
+      "file": "songs/schumann-wild-rider.musicxml",
+      "license": "CC BY-SA 2.5",
+      "source": "Mutopia Project – typeset by Philippe Hézaine (Peters); converted with tools/ly2musicxml.mjs, repeats unfolded. Adaptations shared under CC BY-SA 2.5",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=659",
+      "typesetter": "Philippe Hézaine",
+      "tempo": 126,
+      "section": [
+        0,
+        4
+      ]
+    },
+    {
+      "id": "tchaikovsky-morning-prayer",
+      "title": "Morning Prayer, Op. 39 No. 1 (Album for the Young)",
+      "composer": "Pyotr Ilyich Tchaikovsky",
+      "difficulty": "easy",
+      "grade": 2,
+      "file": "songs/tchaikovsky-morning-prayer.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Rem Zolotykh (Schirmer, 1904); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2032",
+      "typesetter": "Rem Zolotykh",
+      "tempo": 66,
+      "section": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "tchaikovsky-old-french-song",
+      "title": "Old French Song, Op. 39 No. 16 (Album for the Young)",
+      "composer": "Pyotr Ilyich Tchaikovsky",
+      "difficulty": "easy",
+      "grade": 2,
+      "file": "songs/tchaikovsky-old-french-song.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by David McNamara (Schirmer, 1904); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2080",
+      "typesetter": "David McNamara",
+      "tempo": 72,
+      "section": [
+        0,
+        8
+      ]
+    },
+    {
+      "id": "burgmuller-pastorale",
+      "title": "La Pastorale, Op. 100 No. 3",
+      "composer": "Friedrich Burgmüller",
+      "difficulty": "intermediate",
+      "grade": 3,
+      "file": "songs/burgmuller-pastorale.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Bas Wassink (Collection Litolff); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=218",
+      "typesetter": "Bas Wassink",
+      "tempo": 76,
+      "section": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "burgmuller-arabesque",
+      "title": "Arabesque, Op. 100 No. 2",
+      "composer": "Friedrich Burgmüller",
+      "difficulty": "intermediate",
+      "grade": 3,
+      "file": "songs/burgmuller-arabesque.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Bas Wassink (Collection Litolff); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=203",
+      "typesetter": "Bas Wassink",
+      "tempo": 112,
+      "section": [
+        0,
+        9
+      ]
+    },
+    {
+      "id": "schumann-happy-farmer",
+      "title": "The Happy Farmer, Op. 68 No. 10 (Album for the Young)",
+      "composer": "Robert Schumann",
+      "difficulty": "intermediate",
+      "grade": 3,
+      "file": "songs/schumann-happy-farmer.musicxml",
+      "license": "CC BY-SA 2.5",
+      "source": "Mutopia Project – typeset by Philippe Hézaine (Peters); converted with tools/ly2musicxml.mjs, repeats unfolded. Adaptations shared under CC BY-SA 2.5",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=650",
+      "typesetter": "Philippe Hézaine",
+      "tempo": 100,
+      "section": [
+        0,
+        4
+      ]
+    },
+    {
+      "id": "schumann-first-loss",
+      "title": "First Loss, Op. 68 No. 16 (Album for the Young)",
+      "composer": "Robert Schumann",
+      "difficulty": "intermediate",
+      "grade": 3,
+      "file": "songs/schumann-first-loss.musicxml",
+      "license": "CC BY-SA 2.5",
+      "source": "Mutopia Project – typeset by Philippe Hézaine (Peters); converted with tools/ly2musicxml.mjs, repeats unfolded. Adaptations shared under CC BY-SA 2.5",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=676",
+      "typesetter": "Philippe Hézaine",
+      "tempo": 76,
+      "section": [
+        0,
+        8
+      ]
+    },
+    {
+      "id": "tchaikovsky-wooden-soldiers",
+      "title": "March of the Wooden Soldiers, Op. 39 No. 5 (Album for the Young)",
+      "composer": "Pyotr Ilyich Tchaikovsky",
+      "difficulty": "intermediate",
+      "grade": 3,
+      "file": "songs/tchaikovsky-wooden-soldiers.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Anonymous (Schirmer, 1904); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1806",
+      "typesetter": "Anonymous",
+      "tempo": 96,
+      "section": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": "bach-little-prelude-bwv939",
+      "title": "Little Prelude in C, BWV 939",
+      "composer": "Johann Sebastian Bach",
+      "difficulty": "intermediate",
+      "grade": 3,
+      "file": "songs/bach-little-prelude-bwv939.musicxml",
+      "license": "CC BY-SA 3.0",
+      "source": "Mutopia Project – typeset by Hajo Dezelski (Bach-Gesellschaft, vol. 36 (Ernst Naumann, 1890)); converted with tools/ly2musicxml.mjs, repeats unfolded. Adaptations shared under CC BY-SA 3.0",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1593",
+      "typesetter": "Hajo Dezelski",
+      "tempo": 80,
+      "section": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "clementi-sonatina-op36-1",
+      "title": "Sonatina in C, Op. 36 No. 1 — 1st movement",
+      "composer": "Muzio Clementi",
+      "difficulty": "intermediate",
+      "grade": 3,
+      "file": "songs/clementi-sonatina-op36-1.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Brian D. Rude (Sonatina Album, G. Schirmer, 1893); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=804",
+      "typesetter": "Brian D. Rude",
+      "tempo": 108,
+      "section": [
+        0,
+        3
+      ]
     },
     {
       "id": "bach-prelude-in-c",
       "title": "Prelude in C, BWV 846",
       "composer": "Johann Sebastian Bach",
       "difficulty": "intermediate",
+      "grade": 4,
       "file": "songs/bach-prelude-in-c.musicxml",
       "license": "CC0-1.0",
       "source": "Piano Practice contributors – hand transcription (songs/bach-prelude-in-c.notes), checked against the Mutopia edition",
       "sourceUrl": "https://github.com/praveenVnktsh/una-mattina-practice/blob/main/songs/bach-prelude-in-c.notes",
       "tempo": 60,
-      "section": [0, 3]
+      "section": [
+        0,
+        3
+      ]
     },
     {
       "id": "fur-elise",
       "title": "Für Elise",
       "composer": "Ludwig van Beethoven",
       "difficulty": "intermediate",
+      "grade": 4,
       "file": "songs/fur-elise.musicxml",
       "license": "Public Domain",
       "source": "Mutopia Project – typeset by Stelios Samelis (Breitkopf & Härtel, 1888); converted with tools/ly2musicxml.mjs, repeats unfolded",
       "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931",
       "tempo": 72,
-      "section": [0, 8]
+      "section": [
+        0,
+        8
+      ]
+    },
+    {
+      "id": "czerny-op821-1",
+      "title": "Eight-Measure Exercise, Op. 821 No. 1",
+      "composer": "Carl Czerny",
+      "difficulty": "intermediate",
+      "grade": 4,
+      "file": "songs/czerny-op821-1.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Manuel Castejón Limas (Edition Peters, Leipzig [1888]); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2060",
+      "typesetter": "Manuel Castejón Limas",
+      "tempo": 92,
+      "section": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "burgmuller-ballade",
+      "title": "Ballade, Op. 100 No. 15",
+      "composer": "Friedrich Burgmüller",
+      "difficulty": "intermediate",
+      "grade": 4,
+      "file": "songs/burgmuller-ballade.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Bas Wassink (Collection Litolff); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=227",
+      "typesetter": "Bas Wassink",
+      "tempo": 112,
+      "section": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": "kuhlau-sonatina-op20-1",
+      "title": "Sonatina in C, Op. 20 No. 1 — 1st movement",
+      "composer": "Friedrich Kuhlau",
+      "difficulty": "intermediate",
+      "grade": 4,
+      "file": "songs/kuhlau-sonatina-op20-1.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Bas Wassink (B. Schott's Söhne); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=232",
+      "typesetter": "Bas Wassink",
+      "tempo": 112,
+      "section": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "chopin-prelude-op28-7",
+      "title": "Prelude in A, Op. 28 No. 7",
+      "composer": "Frédéric Chopin",
+      "difficulty": "intermediate",
+      "grade": 4,
+      "file": "songs/chopin-prelude-op28-7.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Magnus Lewis-Smith (Edition Peters); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=470",
+      "typesetter": "Magnus Lewis-Smith",
+      "tempo": 69,
+      "section": [
+        0,
+        8
+      ]
+    },
+    {
+      "id": "grieg-albumblatt-op12-7",
+      "title": "Album Leaf, Op. 12 No. 7 (Lyric Pieces)",
+      "composer": "Edvard Grieg",
+      "difficulty": "intermediate",
+      "grade": 4,
+      "file": "songs/grieg-albumblatt-op12-7.musicxml",
+      "license": "CC BY-SA 4.0",
+      "source": "Mutopia Project – typeset by Knute Snortum (G. Schirmer, 1902); converted with tools/ly2musicxml.mjs, repeats unfolded. Adaptations shared under CC BY-SA 4.0",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2194",
+      "typesetter": "Knute Snortum",
+      "tempo": 80,
+      "section": [
+        0,
+        8
+      ]
+    },
+    {
+      "id": "satie-gymnopedie-1",
+      "title": "Gymnopédie No. 1",
+      "composer": "Erik Satie",
+      "difficulty": "intermediate",
+      "grade": 4,
+      "file": "songs/satie-gymnopedie-1.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Evin Robertson (Dover (reprint of the original edition)); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=37",
+      "typesetter": "Evin Robertson",
+      "tempo": 76,
+      "section": [
+        0,
+        12
+      ]
     },
     {
       "id": "moonlight-sonata-1",
       "title": "Moonlight Sonata, 1st movement",
       "composer": "Ludwig van Beethoven",
       "difficulty": "advanced",
+      "grade": 5,
       "file": "songs/moonlight-sonata-1.musicxml",
       "license": "CC BY-SA 2.5",
       "source": "Mutopia Project – typeset by Stewart Holmes (Berners, 1908); converted with tools/ly2musicxml.mjs. Adaptations shared under CC BY-SA 2.5",
       "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=276",
       "tempo": 52,
-      "section": [0, 4]
+      "section": [
+        0,
+        4
+      ]
+    },
+    {
+      "id": "chopin-prelude-op28-4",
+      "title": "Prelude in E minor, Op. 28 No. 4",
+      "composer": "Frédéric Chopin",
+      "difficulty": "advanced",
+      "grade": 5,
+      "file": "songs/chopin-prelude-op28-4.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Magnus Lewis-Smith (Peters, 1879); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=468",
+      "typesetter": "Magnus Lewis-Smith",
+      "tempo": 56,
+      "section": [
+        0,
+        4
+      ]
+    },
+    {
+      "id": "chopin-prelude-op28-20",
+      "title": "Prelude in C minor, Op. 28 No. 20",
+      "composer": "Frédéric Chopin",
+      "difficulty": "advanced",
+      "grade": 5,
+      "file": "songs/chopin-prelude-op28-20.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Magnus Lewis-Smith (Edition Peters); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=472",
+      "typesetter": "Magnus Lewis-Smith",
+      "tempo": 48,
+      "section": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "bach-invention-1",
+      "title": "Invention No. 1 in C, BWV 772",
+      "composer": "Johann Sebastian Bach",
+      "difficulty": "advanced",
+      "grade": 5,
+      "file": "songs/bach-invention-1.musicxml",
+      "license": "CC BY-SA 3.0",
+      "source": "Mutopia Project – typeset by Jeff Covey (Bach-Gesellschaft); converted with tools/ly2musicxml.mjs, repeats unfolded. Adaptations shared under CC BY-SA 3.0",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=40",
+      "typesetter": "Jeff Covey",
+      "tempo": 66,
+      "section": [
+        0,
+        1
+      ]
+    },
+    {
+      "id": "bach-invention-8",
+      "title": "Invention No. 8 in F, BWV 779",
+      "composer": "Johann Sebastian Bach",
+      "difficulty": "advanced",
+      "grade": 5,
+      "file": "songs/bach-invention-8.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Allen Garvin (Bach-Gesellschaft); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=61",
+      "typesetter": "Allen Garvin",
+      "tempo": 96,
+      "section": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "beethoven-sonata-op49-2-1",
+      "title": "Sonata in G, Op. 49 No. 2 — 1st movement",
+      "composer": "Ludwig van Beethoven",
+      "difficulty": "advanced",
+      "grade": 5,
+      "file": "songs/beethoven-sonata-op49-2-1.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Stelios Samelis (Breitkopf & Härtel (1862–1865)); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=776",
+      "typesetter": "Stelios Samelis",
+      "tempo": 120,
+      "section": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": "mozart-sonata-k545-1",
+      "title": "Sonata in C, K. 545 — 1st movement",
+      "composer": "Wolfgang Amadeus Mozart",
+      "difficulty": "advanced",
+      "grade": 5,
+      "file": "songs/mozart-sonata-k545-1.musicxml",
+      "license": "CC BY-SA 3.0",
+      "source": "Mutopia Project – typeset by Alejandro Sierra (after a score on IMSLP); converted with tools/ly2musicxml.mjs, repeats unfolded. Adaptations shared under CC BY-SA 3.0",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=998",
+      "typesetter": "Alejandro Sierra",
+      "tempo": 116,
+      "section": [
+        0,
+        3
+      ]
     }
   ]
 }

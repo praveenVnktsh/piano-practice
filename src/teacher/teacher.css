@@ -496,3 +496,13 @@ html[data-view='train-reading'] .tch-fab {
 body:has(> .__ann-bar) .tch-compose {
   padding-bottom: 64px;
 }
+
+/* Step aside while a dialog or popover is open (it would cover their buttons on phones). */
+body:has(.modal:not([hidden])) .tch-fab,
+body:has(.popover:not([hidden])) .tch-fab,
+body:has(dialog[open]) .tch-fab {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+}
+.tch-fab { transition: opacity var(--dur, 200ms) var(--ease, ease), transform var(--dur, 200ms) var(--ease, ease); }

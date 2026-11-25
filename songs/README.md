@@ -40,14 +40,45 @@ node tools/ly2musicxml.mjs piece.ly \
 ```
 
 `ly2musicxml` understands the subset of LilyPond typical piano scores use
-(see the comment at the top of the file). Repeats are written out, since the
-app plays scores straight through. It skips grace notes, ornaments, dynamics,
-fingerings, pedal marks and anything else that only affects appearance, and
-prints a warning for what it could not read. Things it does **not** handle:
-`\transpose`, Scheme music functions that produce notes, lyrics, chord names,
-tremolos (a tremolo plays once), and mid-piece key/time signature changes
-(only the first key and time are used).
-Always check the result (step 4).
+(see the comment at the top of `tools/ly2musicxml-core.mjs`): `\relative`,
+`\fixed`, `\transpose`, note-name languages (`\language`, `\include
+"english.ly"`), `\include` files, chord repetition `q`, variables, voices,
+`\tag`/`\keepWithTag`, mid-piece `\key`, `\time` and `\partial`, cadenzas,
+grace notes (written as MusicXML grace notes), trills, mordents, turns,
+fermatas and arpeggios (as notations) and tremolos. Repeats are written out,
+since the app plays scores straight through: `\repeat volta` with
+`\alternative`, and repeats drawn with `\bar ".|:"` / `":|."` or
+`\set Score.repeatCommands` (first and second endings included). Dynamics,
+fingerings, slurs, pedal marks and other appearance-only markup are skipped.
+Not supported: lyrics, chord names, Scheme music functions that generate
+notes, and tuplets other than triplets are notated approximately (their timing
+is exact). It prints a warning for what it could not read. Always check the
+result (step 4).
+
+The core (`tools/ly2musicxml-core.mjs`) has no Node imports, so the browser
+uses it too (the experimental *Browse Mutopia* page, `src/mutopia/`).
+
+#### The bundled Mutopia repertoire
+
+`songs/repertoire.json` lists every bundled Mutopia piece: its `.ly` path in
+the Mutopia GitHub repository (pinned to one commit), typesetter, licence,
+grade, default tempo and section, and any `fixes` (plain engraving errors
+corrected before conversion, each with its reason). Rebuild them with
+
+```sh
+node tools/build-repertoire.mjs [--cache DIR] [--only id,id]
+```
+
+which downloads the sources, converts them, writes `public/songs/<id>.musicxml`
+and updates their entries in `catalog.json`. Credit new pieces in
+`public/THIRD-PARTY-NOTICES.txt`.
+
+#### The Mutopia catalogue (experimental)
+
+`node tools/mutopia-index.mjs` rebuilds `public/songs/mutopia-index.json`, the
+solo keyboard pieces of the Mutopia repository with an accepted licence
+(Public Domain, CC0, CC BY, CC BY-SA). The *Browse Mutopia* page converts them
+on demand and labels every one as an unverified conversion.
 
 ### b) Hand transcription (`.notes`)
 
@@ -113,6 +144,7 @@ beginner to advanced:
   "title": "Minuet in G, BWV Anh. 114",
   "composer": "Christian Petzold (attr.)",
   "difficulty": "easy",
+  "grade": 1,
   "file": "songs/minuet-in-g.musicxml",
   "license": "CC0-1.0",
   "source": "Piano Practice contributors – hand transcription",
@@ -122,7 +154,9 @@ beginner to advanced:
 }
 ```
 
-`difficulty` is one of `beginner`, `easy`, `intermediate`, `advanced`.
+`difficulty` is one of `beginner`, `easy`, `intermediate`, `advanced`, and
+`grade` (0–5) places the piece more precisely: 0 = beginner, 1–2 = easy,
+3–4 = intermediate, 5 = advanced (roughly the exam grades of the same number).
 `tempo` is the default quarter-note BPM. `section` is the default practice
 range as **measure indices** (0-based, a pickup bar counts as index 0).
 `file` is relative to `public/`.
@@ -136,3 +170,11 @@ range as **measure indices** (0-based, a pickup bar counts as index 0).
    first page and anywhere the converter printed a warning.
 3. Check that the default `section` starts and ends where you meant.
 4. Run `npm test` so the converters still pass their tests.
+
+For converted LilyPond, also check the source's own bar checks: convert with
+`lilypondToEvents(src, {unfold: false})` and compare `score.checks.bars`
+(every `|` in the source) and `score.checks.numbers` (`\barNumberCheck`) with
+`measureGrid(score)` — every bar check must fall on a bar line. Count the
+pitches in the source against the converted notes, so nothing was dropped.
+Where an independent encoding of the piece exists, compare the pitches bar by
+bar (read it only; don't add it to the project unless its licence allows).

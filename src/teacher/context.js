@@ -1,5 +1,10 @@
 // What a message to the teacher carries along: the player's state, the current route, the
-// last few practice results (with their misses) and a short progress summary.
+// last few practice results (with their misses) and a short progress summary — now with
+// mastery per piece, the open piece's weakest bars, due reviews, plateaus, the graded-path
+// step, goals, the practice journal and open assignments.
+import {loadCatalogs} from '../app/catalog.js';
+import {barStatsFrom, dueReviews, goalProgress, plateaus, repertoire, troubleSpots} from '../progress/mastery.js';
+import {curriculum} from '../curriculum/levels.js';
 
 const RESULTS_KEY = 'piano-practice.teacher.results';
 const TRAINER_KEY = 'piano-practice.teacher.trainer';
@@ -80,9 +85,61 @@ export async function progressSummary() {
       recentSongs: stats.songStats ? stats.songStats(doc).slice(0, 6).map(row) : undefined,
       recentExercises: stats.exerciseStats ? stats.exerciseStats(doc).slice(0, 6).map(row) : undefined,
       reading: stats.readingSummary ? stats.readingSummary(doc) : undefined,
+      ...(await learningSummary(doc)),
     };
   } catch {
     return null;
+  }
+}
+
+let catalogPromise = null;
+const catalog = () => (catalogPromise ||= loadCatalogs().then(c => [...c.bundled, ...c.local]).catch(() => []));
+const iso = at => (at ? new Date(at).toISOString() : undefined);
+
+/** Mastery, trouble bars, reviews, plateaus, path, goals and journal from a progress document. */
+export async function learningSummary(doc, {library, now = Date.now(), player = playerState()} = {}) {
+  try {
+    const lib = library ?? (await catalog());
+    const targets = Object.fromEntries(lib.filter(e => e.tempo).map(e => [e.id, e.tempo]));
+    const mastery = repertoire(doc, {targets, now}).slice(0, 8).map(m => ({
+      id: m.songId, title: m.title, status: m.status, attempts: m.attempts, best: m.best,
+      bestCleanTempo: m.bestCleanTempo || undefined, targetTempo: m.target || undefined,
+      coverage: m.measureCount ? Math.round(m.coverage * 100) : undefined, measureCount: m.measureCount || undefined,
+      reviewDue: m.review ? m.review.due : undefined,
+    }));
+    const songId = player?.songId && !String(player.songId).startsWith('ex:') ? player.songId : mastery[0]?.id;
+    const bars = songId ? {songId, weakest: troubleSpots(doc, songId, {n: 6}), practised: barStatsFrom(doc, songId).length} : undefined;
+    const path = curriculum(doc, {library: lib, targets, now});
+    const cur = path.current;
+    return {
+      mastery,
+      bars,
+      dueReviews: dueReviews(doc, {targets, now}).map(m => ({id: m.songId, title: m.title, due: m.review.due})),
+      plateaus: plateaus(doc, {now, targets}).slice(0, 5),
+      path: {
+        level: cur.level.name, done: Math.round(cur.fraction * 100),
+        pieces: cur.repertoire.items.map(p => ({id: p.id, title: p.title, status: p.status || 'not started'})),
+        techniqueLeft: cur.technique.items.filter(t => !t.done).slice(0, 6).map(t => t.id),
+        readingLeft: cur.reading.items.filter(r => !r.done).map(r => r.id),
+      },
+      goals: (doc.goals || []).map(g => ({...g, ...goalProgress(g, doc, {now})})),
+      journal: (doc.journal || []).slice(-5).map(e => ({at: iso(e.at), text: e.text, mood: e.mood, title: e.title, minutes: e.minutes})),
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** Open assignments from the dev server (the teacher wrote them), or undefined. */
+async function openAssignments() {
+  try {
+    const res = await fetch('/__teacher', {cache: 'no-store'});
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    const list = (data?.assignments || []).filter(a => !a.done).map(({id, task, due, action}) => ({id, task, due, action}));
+    return list.length ? list : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -94,12 +151,17 @@ export async function collectContext() {
     recentResults: recentResults().slice(0, 3),
     trainer: load(TRAINER_KEY, null),
     progress: await progressSummary(),
+    assignments: await openAssignments(),
     screen: {width: innerWidth, height: innerHeight},
     at: new Date().toISOString(),
   };
   // Trim the biggest parts until it fits.
   while (JSON.stringify(context).length > MAX_CONTEXT_CHARS && context.recentResults.length)
     context.recentResults.pop();
+  if (JSON.stringify(context).length > MAX_CONTEXT_CHARS && context.progress) {
+    delete context.progress.journal;
+    delete context.progress.plateaus;
+  }
   if (JSON.stringify(context).length > MAX_CONTEXT_CHARS) context.progress = null;
   return context;
 }

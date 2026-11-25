@@ -4,6 +4,8 @@ import {midiRelay} from './midi-relay/plugin.js';
 import {songStore} from './song-store/plugin.js';
 import {progressStore} from './progress-store/plugin.js';
 import {teacher} from './teacher/plugin.js';
+import {backup} from './backup/plugin.js';
+import {pwa} from './src/pwa/plugin.js';
 import {rmSync} from 'node:fs';
 import {resolve} from 'node:path';
 
@@ -23,7 +25,9 @@ export default defineConfig({
   // songStore saves imported scores to public/songs/local/imports (dev server only).
   // progressStore saves practice progress to .data/progress.json (dev server only).
   // teacher keeps the Teacher panel's conversation in .teacher/ (dev server only; teacher/cli.js answers).
-  plugins: [midiRelay(), songStore(), progressStore(), teacher(), excludeLocalSongs(), ...(process.env.ANNOTATE ? [annotate()] : [])],
+  // backup exports/restores .data, .teacher and imported scores at /__backup (dev server only).
+  // pwa writes the offline cache's service worker (dist/sw.js; /sw.js in dev, see src/pwa/sw-register.js).
+  plugins: [midiRelay(), songStore(), progressStore(), teacher(), backup(), pwa(), excludeLocalSongs(), ...(process.env.ANNOTATE ? [annotate()] : [])],
   build: {
     outDir: 'dist',
     emptyOutDir: true,

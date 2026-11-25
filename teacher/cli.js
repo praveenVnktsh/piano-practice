@@ -8,16 +8,28 @@
 //   node teacher/cli.js reply <id> "<markdown>" [--actions '<json array>']
 //   node teacher/cli.js profile                print .teacher/student.md (edit that file directly)
 //   node teacher/cli.js actions                describe the action types a reply can carry
+//   node teacher/cli.js assign "<task>" [--action '<json>'] [--due YYYY-MM-DD]   homework shown on Today
+//   node teacher/cli.js assignments [--all]    open assignments (with --all: done ones too)
+//   node teacher/cli.js done <id> [--undo]     mark an assignment done (or open again)
+//   node teacher/cli.js letter "<markdown>"    a (weekly) review letter, shown on Progress
+//   node teacher/cli.js letters                letters written so far, newest first
+//   node teacher/cli.js progress [--days N]    mastery, trouble bars, reviews, plateaus, path, goals, journal
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ACTION_TYPES} from './actions.js';
+import {progressReport, readCatalog, readProgressDoc} from './report.js';
 import {
+  addAssignment,
+  addLetter,
   addReply,
   openMessages,
   PROFILE_TEMPLATE,
   readMessages,
+  readAssignments,
+  readLetters,
   readProfile,
   readReplies,
+  setAssignmentDone,
   setThinking,
   TEACHER_DIR,
 } from './store.js';
@@ -27,7 +39,13 @@ export const USAGE = `usage: node teacher/cli.js list [--open]
        node teacher/cli.js thinking <id> [--off]
        node teacher/cli.js reply <id> "<markdown text>" [--actions '<json array>']
        node teacher/cli.js profile
-       node teacher/cli.js actions`;
+       node teacher/cli.js actions
+       node teacher/cli.js assign "<task>" [--action '<json>'] [--due YYYY-MM-DD]
+       node teacher/cli.js assignments [--all]
+       node teacher/cli.js done <id> [--undo]
+       node teacher/cli.js letter "<markdown text>"
+       node teacher/cli.js letters
+       node teacher/cli.js progress [--days N]`;
 
 export const ACTIONS_HELP = `Actions are buttons the student taps to apply (never run automatically). Types:
   {"type":"open_song","id":"fur-elise"}                 a library id (see context.player.songId / progress.recentSongs)
@@ -105,7 +123,34 @@ export function formatContext(context, {full = false} = {}) {
       out.push(
         `      note reading: ${g.reading.drills} drills, ${pct(g.reading.accuracy)}, avg ${Math.round(g.reading.avgMs || 0)} ms`,
       );
+    for (const m of (g.mastery || []).slice(0, full ? 8 : 5)) {
+      out.push(
+        `      mastery ${m.title} [${m.id}]: ${m.status}${m.bestCleanTempo ? `, clean up to ${m.bestCleanTempo} BPM` : ''}${m.targetTempo ? ` (target ${m.targetTempo})` : ''}` +
+          `${m.coverage != null ? `, ${m.coverage}% of ${m.measureCount} bars secure` : ''}${m.reviewDue ? `, review due ${m.reviewDue}` : ''}`,
+      );
+    }
+    if (g.bars?.weakest?.length)
+      out.push(
+        `      weakest bars in ${g.bars.songId}: ${g.bars.weakest.map(b => `${b.label} ${b.accuracy}% (${b.attempts} passes)`).join(', ')}`,
+      );
+    if (g.dueReviews?.length) out.push(`      due for review: ${g.dueReviews.map(r => `${r.title} [${r.id}]`).join(', ')}`);
+    for (const p of g.plateaus || [])
+      out.push(
+        `      PLATEAU ${p.title} [${p.songId}] section [${p.section}]: ${p.days} days, best ${pct(p.firstBest)} → ${pct(p.lastBest)}`,
+      );
+    if (g.path)
+      out.push(
+        `      path: ${g.path.level} ${g.path.done}% · technique left ${(g.path.techniqueLeft || []).join(', ') || 'none'} · reading left ${(g.path.readingLeft || []).join(', ') || 'none'}`,
+      );
+    for (const goal of g.goals || [])
+      out.push(
+        `      goal ${goal.title || goal.songId} ${goal.bpm} BPM by ${goal.by}: ${goal.met ? 'met' : `best ${goal.bestTempo ?? '–'} BPM, ${goal.daysLeft} days left`}`,
+      );
+    for (const j of (g.journal || []).slice(full ? 0 : -3))
+      out.push(`      journal ${j.at ? j.at.slice(0, 10) : ''}${j.title ? ` ${j.title}` : ''}${j.mood ? ` (${j.mood})` : ''}: ${j.text || ''}`);
   }
+  for (const a of context.assignments || [])
+    out.push(`  assignment #${a.id}: ${a.task}${a.due ? ` (due ${a.due})` : ''}`);
   if (full)
     out.push(
       '  raw context:',
@@ -114,6 +159,30 @@ export function formatContext(context, {full = false} = {}) {
         .map(l => '    ' + l),
     );
   return out.join('\n');
+}
+
+/** Removes `--name value` from args → value (undefined when absent). */
+function option(args, name) {
+  const at = args.indexOf(name);
+  if (at === -1) return undefined;
+  const value = args[at + 1];
+  if (value === undefined || value.startsWith('--')) throw new Error(`${name} needs a value`);
+  args.splice(at, 2);
+  return value;
+}
+
+function parseJson(raw, name) {
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`${name} is not valid JSON: ${e.message}`, {cause: e});
+  }
+}
+
+export function formatAssignment(a, today = new Date().toISOString().slice(0, 10)) {
+  const due = a.due ? ` · due ${a.due}${!a.done && a.due < today ? ' (overdue)' : ''}` : '';
+  const act = a.action ? ` · action ${JSON.stringify(a.action)}` : '';
+  return `#${a.id} ${a.done ? '[done]' : '[ ]'} ${a.task}${due}${act}${a.done && a.doneAt ? ` · done ${a.doneAt.slice(0, 10)}` : ''}`;
 }
 
 function formatMessage(m, replies, {context = false, full = false} = {}) {
@@ -128,7 +197,7 @@ function formatMessage(m, replies, {context = false, full = false} = {}) {
   return lines.join('\n');
 }
 
-export function main(argv, dir = TEACHER_DIR, out = console.log, err = console.error) {
+export function main(argv, dir = TEACHER_DIR, out = console.log, err = console.error, opts = {}) {
   const [command, ...args] = argv;
   const repliesTo = id => readReplies(dir).filter(r => r.replyTo === id);
   try {
@@ -178,9 +247,44 @@ export function main(argv, dir = TEACHER_DIR, out = console.log, err = console.e
       out(ACTIONS_HELP);
       return 0;
     }
+    if (command === 'assign' && args.length >= 1) {
+      const rawAction = option(args, '--action');
+      const due = option(args, '--due');
+      const action = rawAction === undefined ? undefined : parseJson(rawAction, '--action');
+      if (action?.type === 'plan') throw new Error('an assignment action is one step (not a plan); make several assignments instead');
+      const a = addAssignment(dir, {task: args.join(' '), action, due});
+      out(`Assigned #${a.id}: ${a.task}${a.due ? ` (due ${a.due})` : ''}.`);
+      return 0;
+    }
+    if (command === 'assignments') {
+      const all = args.includes('--all');
+      const list = readAssignments(dir).filter(a => all || !a.done);
+      out(list.length ? list.map(a => formatAssignment(a)).join('\n') : all ? 'No assignments yet.' : 'No open assignments.');
+      return 0;
+    }
+    if (command === 'done' && args.length >= 1) {
+      const a = setAssignmentDone(dir, args[0], !args.includes('--undo'));
+      out(`${a.done ? 'Done' : 'Open again'}: #${a.id} ${a.task}`);
+      return 0;
+    }
+    if (command === 'letter' && args.length >= 1) {
+      const letter = addLetter(dir, args.join(' '));
+      out(`Letter ${letter.id} written; it appears on the Progress page.`);
+      return 0;
+    }
+    if (command === 'letters') {
+      const list = readLetters(dir).slice().reverse();
+      out(list.length ? list.map(l => `#${l.id} · ${l.at.slice(0, 10)} · ${l.readAt ? 'read' : 'unread'}\n  ${l.text.split('\n')[0].slice(0, 120)}`).join('\n') : 'No letters yet.');
+      return 0;
+    }
+    if (command === 'progress') {
+      const days = Number(option(args, '--days') ?? 7);
+      out(progressReport(opts.progress ?? readProgressDoc(), opts.catalog ?? readCatalog(), {days: days > 0 && days <= 90 ? days : 7}));
+      return 0;
+    }
   } catch (e) {
     err(e.message);
-    if (command === 'reply' && /action/.test(e.message)) err('\n' + ACTIONS_HELP);
+    if ((command === 'reply' || command === 'assign') && /action/.test(e.message)) err('\n' + ACTIONS_HELP);
     return 1;
   }
   err(USAGE);

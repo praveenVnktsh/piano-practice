@@ -85,6 +85,8 @@ describe('the teacher endpoints', () => {
       messages: [{id: 1, at: shown.at, text: 'How do I practise this?'}],
       replies: [],
       status: {thinking: null, at: null},
+      assignments: [],
+      letters: [],
     });
   });
 

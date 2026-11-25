@@ -41,6 +41,7 @@ export async function loadSong(source = {}) {
     measures: score.measures,
     events: score.events,
     segments: score.segments,
+    marks: score.marks, // {dynamics, hairpins, pedals, slurs} from the score, timed in quarter notes
     noteNames: noteNames(score.mei, score.segments),
     fullSvg: () => svg,
   };

@@ -35,6 +35,8 @@ export async function loadCatalogs() {
  * → {entry (kind: 'exercise'), source: {data}} or null for unknown / invalid ids.
  */
 export function resolveEntry(id) {
+  // Unverified pieces from the Mutopia library, converted in the browser on demand.
+  if (id.startsWith('mutopia:')) return import('../mutopia/convert.js').then(m => m.resolveMutopiaEntry(id));
   if (!isExerciseId(id)) return null;
   const r = resolveExercise(id);
   return r && {entry: {...r.entry, kind: 'exercise', source: r.source}, source: r.source};

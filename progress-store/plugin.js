@@ -8,13 +8,16 @@
 //                                 payloads (docs/ARCHITECTURE.md) tagged with `type`, plus
 //                                 optional `id` (dedupe key) and `tz` (getTimezoneOffset()).
 //   PUT  /__progress/settings   ← {dailyGoalMin} → {ok: true, settings}
+//   POST /__progress/journal    ← [entry, ...] or {entries: [...]} or one entry
+//                               → {ok: true, added, rejected, total}   (practice-journal notes)
+//   PUT  /__progress/goals      ← {goals: [goal, ...]} (replaces the list) → {ok: true, goals}
 //
 // Stored in .data/progress.json (gitignored), written atomically. The file name
 // is fixed here; nothing the client sends ends up in a path.
 import {randomBytes} from 'node:crypto';
 import {existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
-import {MAX_EVENTS, MAX_EVENTS_PER_REQUEST, appendEvents, emptyDoc, normalizeDoc, sanitizeEvent, sanitizeSettings} from '../src/progress/model.js';
+import {MAX_EVENTS, MAX_EVENTS_PER_REQUEST, MAX_GOALS, appendEvents, appendJournal, emptyDoc, normalizeDoc, sanitizeEvent, sanitizeGoals, sanitizeJournalEntry, sanitizeSettings} from '../src/progress/model.js';
 
 export const DATA_DIR = resolve('.data');
 export const FILE = 'progress.json';
@@ -73,6 +76,30 @@ export function setSettings(dir, body) {
   return doc.settings;
 }
 
+/** Validates and appends practice-journal notes. */
+export function addJournal(dir, body, {now = Date.now()} = {}) {
+  const list = Array.isArray(body) ? body : Array.isArray(body?.entries) ? body.entries : body && typeof body === 'object' ? [body] : null;
+  if (!list) throw new HttpError(400, 'expected a journal entry or a JSON array of them');
+  if (list.length > 200) throw new HttpError(413, 'send at most 200 journal entries per request');
+  const clean = list.map(e => sanitizeJournalEntry(e, now)).filter(Boolean);
+  const doc = readDoc(dir);
+  const added = appendJournal(doc, clean, {now});
+  if (added) writeDoc(dir, doc);
+  return {added, rejected: list.length - clean.length, total: doc.journal.length};
+}
+
+/** Replaces the goals list (invalid goals are dropped). */
+export function setGoals(dir, body, {now = Date.now()} = {}) {
+  const list = Array.isArray(body) ? body : Array.isArray(body?.goals) ? body.goals : null;
+  if (!list) throw new HttpError(400, 'expected {goals: [...]}');
+  if (list.length > MAX_GOALS) throw new HttpError(400, `at most ${MAX_GOALS} goals`);
+  const doc = readDoc(dir);
+  doc.goals = sanitizeGoals(list, now);
+  doc.updatedAt = now;
+  writeDoc(dir, doc);
+  return doc.goals;
+}
+
 function readBody(req, limit) {
   return new Promise((done, fail) => {
     if (Number(req.headers['content-length']) > limit) return fail(new HttpError(413, 'request too large'));
@@ -108,6 +135,14 @@ export function progressHandler(dir = DATA_DIR, {maxBody = MAX_BODY, maxEvents =
       if (path === '/settings' && (req.method === 'PUT' || req.method === 'POST')) {
         const body = await readJson(req, 4096);
         return send(res, 200, {ok: true, settings: setSettings(dir, body)});
+      }
+      if (path === '/journal' && req.method === 'POST') {
+        const body = await readJson(req, 128 * 1024);
+        return send(res, 200, {ok: true, ...addJournal(dir, body)});
+      }
+      if (path === '/goals' && (req.method === 'PUT' || req.method === 'POST')) {
+        const body = await readJson(req, 32 * 1024);
+        return send(res, 200, {ok: true, goals: setGoals(dir, body)});
       }
       return next();
     } catch (e) {

@@ -10,7 +10,9 @@ const POPUP_MS = 900;
 const LOOKAHEAD = 5; // quarter notes visible above the keys
 const TOKENS = ['ink', 'ink-soft', 'ink-faint', 'rule', 'rule-strong', 'brass', 'sage', 'oxblood', 'right-hand', 'left-hand', 'paper-raised', 'font-text', 'font-ui'];
 
-export function createHighway({canvas, keys, getEvents, getMeasures, position, noteState, handColors = () => true, noteLabel = () => null}) {
+// Options: hideNotes() → true draws only the bar lines (memory check);
+// barHeat(measure) → 'good' | 'fair' | 'weak' | null marks the bar at the left edge (trouble spots).
+export function createHighway({canvas, keys, getEvents, getMeasures, position, noteState, handColors = () => true, noteLabel = () => null, hideNotes = () => false, barHeat = () => null}) {
   const ctx = canvas.getContext('2d');
   let lanes = new Map(), width = 0, height = 0, dpr = 1, shown = 0, raf = 0;
   let c = {}; // resolved token colours
@@ -78,8 +80,15 @@ export function createHighway({canvas, keys, getEvents, getMeasures, position, n
     // Bar lines (hairline) and beats (fainter), bar numbers in italic.
     ctx.font = `italic 13px ${c.text}`;
     ctx.textBaseline = 'bottom'; ctx.textAlign = 'left';
+    const HEAT = {good: c.sage, fair: c.brass, weak: c.oxblood};
     for (const m of getMeasures()) {
       if (m.end < shown || m.start > shown + LOOKAHEAD) continue;
+      // Trouble spots: a faint mark down the left edge, the length of the bar.
+      const heat = HEAT[barHeat(m)];
+      if (heat) {
+        const top = Math.max(0, y(m.end) + 2), bottom = Math.min(height, y(m.start) - 2);
+        if (bottom > top) { ctx.globalAlpha = .5; ctx.fillStyle = heat; ctx.fillRect(0, top, 3, bottom - top); ctx.globalAlpha = 1; }
+      }
       for (let t = m.start; t < m.end - 1e-6; t++) {
         const yy = Math.round(y(t)) + .5, bar = t === m.start;
         if (yy < 0 || yy > height) continue;
@@ -92,7 +101,7 @@ export function createHighway({canvas, keys, getEvents, getMeasures, position, n
     }
 
     // Notes (white-key lanes first so black-key notes sit on top).
-    const visible = getEvents().filter(e => e.t < shown + LOOKAHEAD && e.t + e.d > shown - .01 && lanes.has(e.n));
+    const visible = hideNotes() ? [] : getEvents().filter(e => e.t < shown + LOOKAHEAD && e.t + e.d > shown - .01 && lanes.has(e.n));
     visible.sort((a, b) => (lanes.get(a.n).black ? 1 : 0) - (lanes.get(b.n).black ? 1 : 0));
     for (const e of visible) {
       const lane = lanes.get(e.n);

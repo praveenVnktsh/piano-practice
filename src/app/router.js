@@ -15,6 +15,7 @@ export const VIEW_ROUTES = {
   '/progress': 'progress',
   '/technique': 'technique',
   '/train/reading': 'train-reading',
+  '/pieces/mutopia': 'mutopia',
 };
 
 export function parseRoute(hash = location.hash) {
