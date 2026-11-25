@@ -8,6 +8,7 @@ import {pieceMastery, STATUS_LABEL} from './mastery.js';
 import {curriculum} from '../curriculum/levels.js';
 import {loadCatalogs} from '../app/catalog.js';
 import {mountBackupControls} from '../pwa/backup.js';
+import {MAC_ONLY, onMac} from '../app/mac.js';
 import {mountRecordingsSection} from '../record/section.js';
 import {getTheme, setTheme, THEMES, THEME_EVENT} from '../app/theme.js';
 import {DEFAULT_GOAL_MIN} from './model.js';
@@ -85,6 +86,7 @@ export function mountProgress(container) {
     return (libraryPromise ||= loadCatalogs().then(c => [...c.bundled, ...c.local]).catch(() => { libraryPromise = null; return []; }));
   }
   async function loadLetters() {
+    if (!onMac()) return [];
     try {
       const res = await fetch('/__teacher', {cache: 'no-store'});
       if (!res.ok || !(res.headers.get('content-type') || '').includes('json')) return [];
@@ -116,6 +118,10 @@ export function mountProgress(container) {
     const now = Date.now();
     const goal = doc.settings?.dailyGoalMin || DEFAULT_GOAL_MIN;
     const hasAny = Object.keys(doc.totals.days).length || Object.keys(doc.totals.songs).length;
+    // A refresh redraws everything: keep the keyboard focus on the same control (e.g. after a dialog
+    // hands focus back to the button that opened it).
+    const was = root.contains(document.activeElement) && document.activeElement.matches('button, a') ? document.activeElement : null;
+    const same = was && (e => e.tagName === was.tagName && e.className === was.className && e.textContent === was.textContent);
     root.replaceChildren(...[
       hasAny ? null : welcome(),
       el('div', {class: 'pg-grid pg-top'}, todayCard(now, goal), streakCard(now), weekCard(now)),
@@ -126,6 +132,7 @@ export function mountProgress(container) {
       el('div', {class: 'pg-grid pg-bottom'}, songsCard(now), keysCard(now), readingCard()),
       settingsCard(goal),
     ].filter(Boolean));
+    if (was && !was.isConnected) [...root.querySelectorAll(was.tagName)].find(same)?.focus({preventScroll: true});
   }
 
   function settingsCard(goal) {
@@ -149,7 +156,7 @@ export function mountProgress(container) {
             el('button', {class: 'text-btn', type: 'button', 'aria-haspopup': 'dialog', text: 'Help & shortcuts', onclick: () => openHelp()}),
             el('button', {class: 'text-btn', type: 'button', 'aria-haspopup': 'dialog', text: 'Show the introduction again', onclick: () => openOnboarding()})))),
       backupHost,
-      el('p', {class: 'pg-fine', text: where === 'disk' ? 'Your progress is kept on your Mac (.data/progress.json) and shared by every device using this dev server.' : 'Your progress is kept in this browser.'}),
+      el('p', {class: 'pg-fine', text: where === 'disk' ? 'Your progress is kept on your Mac (.data/progress.json) and shared by every device using this dev server.' : onMac() ? 'Your progress is kept in this browser.' : `Your progress is kept in this browser. ${MAC_ONLY}`}),
     );
   }
 

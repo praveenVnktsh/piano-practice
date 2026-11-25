@@ -118,7 +118,20 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
 
 ### Progress storage (src/progress/)
 `progress-store/plugin.js` (dev server, like song-store) persists to `.data/progress.json`
-(gitignored); falls back to localStorage in a production build.
+(gitignored); falls back to localStorage in a production build. `src/progress/merge.js` merges
+another device's progress (a backup from the public site) without duplicates: an event is already
+there when its id is, or an event with the same identity (type, time, piece/level, result) is;
+`mergeProgress(doc)` in the store posts what's missing to the Mac or writes it to localStorage.
+
+### The Mac or a static site (src/app/mac.js)
+Every `/__` endpoint is a dev-server plugin (`apply: 'serve'`), so `onMac()` is decided once,
+without a request: an https page on a public host, or any built copy (`import.meta.env.DEV` false:
+GitHub Pages, `vite preview`), is static. Mac-only features check it before fetching (progress,
+collections, imports, recordings, backup, error log, iPad link, and the teacher, which isn't even
+mounted) and the public site shows one quiet line in Progress instead. sessionStorage
+`piano-practice.where` = `mac` | `static` overrides it for a tab (e2e tests of the teacher's side).
+`tools/site-guard.mjs` holds the publish checks shared by `tools/publish-site.mjs` and
+`.github/workflows/publish-site.yml`.
 
 ### Teacher hooks (v2.1)
 - `window.pianoPlayer` (set by src/player.js once created) — a small control API the AI teacher's tools call:

@@ -1,6 +1,8 @@
 // The teacher's bar comments in the player (Phase 14). vite preview has no /__teacher endpoints,
 // so the comments arrive the way the Teacher panel hands them on: a `teacher:thread` window event.
 // Read / dismiss posts fail quietly here (nothing can reach .teacher/).
+// A built copy counts as a static site (src/app/mac.js), where the teacher stays quiet; these pages
+// are told they are on the Mac so the teacher's side is there to test.
 import {VIEWPORTS, overflow, waitForSong} from './helpers.mjs';
 
 const COMMENTS = songId => JSON.stringify([
@@ -14,6 +16,7 @@ const send = (page, songId) => page.eval(`window.dispatchEvent(new CustomEvent('
 const stub = page => page.eval(`(() => { window.__posts = []; const f = window.fetch;
   window.fetch = (u, o) => String(u).startsWith('/__teacher/comments/') ? (window.__posts.push(String(u)), Promise.resolve(new Response('{}', {headers: {'content-type': 'application/json'}}))) : f(u, o);
   return true; })()`);
+const onMac = page => page.send('Page.addScriptToEvaluateOnNewDocument', {source: `sessionStorage.setItem('piano-practice.where', 'mac')`});
 // A click where the element is, without scrolling anything into view (the score's track must stay put).
 async function clickAt(page, selector) {
   const box = await page.eval(`(() => { const r = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect(); return r && r.width ? {x: r.left + r.width / 2, y: r.top + r.height / 2} : null; })()`);
@@ -27,6 +30,7 @@ export const tests = [
     name: 'bar comments: markers on the score, the note, practise these bars, dismiss, ask',
     async run({base, page: open, assert, catalog, sleep}) {
       const page = await open(VIEWPORTS.desktop);
+      await onMac(page);
       const song = catalog.songs.find(s => s.id === 'ode-to-joy') || catalog.songs[0];
       await page.goto(base + '#/play/' + encodeURIComponent(song.id));
       await waitForSong(page);
@@ -96,6 +100,7 @@ export const tests = [
     async run({base, page: open, assert, catalog}) {
       for (const vp of [VIEWPORTS.phone, VIEWPORTS.portrait]) {
         const page = await open(vp);
+        await onMac(page);
         const song = catalog.songs.find(s => s.id === 'ode-to-joy') || catalog.songs[0];
         await page.goto(base + '#/play/' + encodeURIComponent(song.id));
         await waitForSong(page);

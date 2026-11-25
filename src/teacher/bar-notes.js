@@ -19,6 +19,8 @@ import {barsLabel, commentsFor, commentsOver} from './comments.mjs';
 import {renderMarkdown} from './markdown.js';
 import './bar-notes.css';
 
+import {onMac} from '../app/mac.js';
+
 const API = '/__teacher';
 const QUILL = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 3.5c-7 1.2-11.5 6.5-13.6 14.6L5 20.5"/><path d="M8.2 14.5c4.2.2 7.6-2.3 9.3-6.4M11 10.5h4.6"/></svg>`;
 const NOOP = {layout() {}, loaded() {}, destroy() {}};
@@ -90,6 +92,7 @@ export function attachBarNotes({root, highway, song, range, entry, label = i => 
   window.addEventListener('teacher:thread', onThread);
   let fetched = null;
   function fetchOnce() {
+    if (!onMac()) return Promise.resolve(); // no teacher on a static site
     fetched ||= fetch(`${api}/comments`, {cache: 'no-store'})
       .then(res => (res.ok && (res.headers.get('content-type') || '').includes('json') ? res.json() : null))
       .then(data => {
@@ -100,7 +103,7 @@ export function attachBarNotes({root, highway, song, range, entry, label = i => 
       .catch(() => {});
     return fetched;
   }
-  const post = (id, what) => fetch(`${api}/comments/${id}/${what}`, {method: 'POST'}).catch(() => {});
+  const post = (id, what) => !onMac() ? Promise.resolve() : fetch(`${api}/comments/${id}/${what}`, {method: 'POST'}).catch(() => {});
 
   // ───────── Drawing ─────────
   function render() {

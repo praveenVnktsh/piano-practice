@@ -3,8 +3,10 @@
 // teacher can run `node teacher/cli.js review <takeId>` for the full report.
 import {compactSummary, sendText} from './text.mjs';
 import * as store from './store.js';
+import {MAC_ONLY, onMac} from '../app/mac.js';
 
 export async function sendTake(take, {text = sendText(take)} = {}) {
+  if (!onMac()) throw new Error(MAC_ONLY);
   let context = {recording: compactSummary(take)};
   try {
     const m = await import('../teacher/context.js');

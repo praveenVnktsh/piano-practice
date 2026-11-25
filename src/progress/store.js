@@ -9,6 +9,9 @@
 // events recorded while the server was down. The server ignores ids it already has.
 import {EVENT_TYPES, appendEvents, appendJournal, emptyDoc, normalizeDoc, sanitizeEvent, sanitizeGoals, sanitizeJournalEntry, sanitizeSettings} from './model.js';
 import {setMasteryDoc} from './mastery.js';
+import {onMac} from '../app/mac.js';
+import {mergeDocs, missingFrom} from './merge.js';
+import {MAX_EVENTS_PER_REQUEST} from './model.js';
 
 const BASE = (import.meta.env?.BASE_URL || '/').replace(/\/?$/, '/');
 const API = BASE + '__progress';
@@ -77,6 +80,7 @@ async function fetchServerDoc() {
 }
 
 async function probe() {
+  if (server === null && !onMac()) server = false; // a static site: this browser is the store
   if (server !== null) return server;
   return (probing ||= (async () => {
     try { server = !!(await fetchServerDoc()); }
@@ -236,6 +240,35 @@ export async function saveSettings(next) {
   }
   changed();
   return local.settings;
+}
+
+/**
+ * Adds another device's progress (a backup's progress document) to this one: practice events,
+ * journal notes and goals it lacks, nothing twice (src/progress/merge.js). Into the Mac's store when
+ * the dev server is there, else into this browser. → {events, journal, goals} added.
+ */
+export async function mergeProgress(incoming) {
+  if (await probe()) {
+    try { await fetchServerDoc(); } catch {}
+    const todo = missingFrom(mergedDoc(), incoming);
+    const post = async (path, list, size) => {
+      for (let i = 0; i < list.length; i += size) {
+        const res = await fetch(API + path, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(list.slice(i, i + size))});
+        if (!res.ok) throw new Error(`The Mac could not add the progress (${res.status}).`);
+      }
+    };
+    await post('/events', todo.events, MAX_EVENTS_PER_REQUEST);
+    await post('/journal', todo.journal, 200);
+    if (todo.goals.length) await saveGoals([...(mergedDoc().goals || []), ...todo.goals]);
+    try { await fetchServerDoc(); } catch {}
+    changed();
+    return {events: todo.events.length, journal: todo.journal.length, goals: todo.goals.length};
+  }
+  const {doc, added} = mergeDocs(loadLocal(), incoming, {maxEvents: LOCAL_MAX_EVENTS});
+  if (!lsSet(LOCAL_KEY, doc)) throw new Error('This browser’s storage is full; the progress could not be added.');
+  setMasteryDoc(mergedDoc(doc));
+  changed();
+  return added;
 }
 
 export {emptyDoc};

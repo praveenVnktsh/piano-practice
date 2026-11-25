@@ -1,10 +1,13 @@
 // Exercises the teacher composed (teacher/exercises.js, `node teacher/cli.js exercise …`), served by
 // the dev server. Ids are `tex:<n>`; src/app/catalog.js resolves them here. Without the dev server
 // there are none.
+import {onMac} from '../app/mac.js';
+
 const API = '/__teacher';
 
 /** The teacher's exercises → [{id: 'tex:<n>', title, about?, songId?, first?, last?, at}] ([] without a teacher). */
 export async function teacherExercises({api = API} = {}) {
+  if (!onMac()) return [];
   try {
     const res = await fetch(`${api}/exercises`, {cache: 'no-store'});
     if (!res.ok || !(res.headers.get('content-type') || '').includes('json')) return [];

@@ -15,6 +15,7 @@
 // Setlists in play (sessionStorage, this tab only):
 //   startSetlist({id, name, items: [{id, title}]}) · activeSetlist() · setlistNext(pieceId) · endSetlist()
 import {emptyDoc, newer, normalizeDoc} from './model.js';
+import {onMac} from '../app/mac.js';
 
 const BASE = (import.meta.env?.BASE_URL || '/').replace(/\/?$/, '/');
 const API = BASE + '__collections';
@@ -35,7 +36,7 @@ const changed = () => { try { window.dispatchEvent(new CustomEvent(CHANGE_EVENT,
 const keepLocal = () => lsSet(LOCAL_KEY, JSON.stringify(doc));
 
 async function fetchServer() {
-  if (!import.meta.env?.DEV) return null;
+  if (!onMac()) return null;
   try {
     const res = await fetch(API, {cache: 'no-store', signal: AbortSignal.timeout?.(6000)});
     const json = res.ok && (res.headers.get('content-type') || '').includes('application/json') ? await res.json() : null;
@@ -76,7 +77,7 @@ export const collections = () => doc;
 export const collectionsWhere = () => where;
 
 async function sync() {
-  if (!import.meta.env?.DEV) return;
+  if (!onMac()) return;
   const body = doc;
   try {
     const out = await putServer(body);
