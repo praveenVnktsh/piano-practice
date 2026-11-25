@@ -370,11 +370,12 @@ button.menu-row:hover > span:first-child { color: var(--brass); }
   box-shadow: var(--shadow-paper), 0 0 0 1px var(--rule);
   display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 6px;
 }
-.sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 22px; }
+/* A fixed height: the bar label and the notes beside it change on every step, and the score must not move. */
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 28px; flex: none; }
 .page-num { margin-left: auto; font-size: 13px; font-variant: all-small-caps; letter-spacing: .08em; font-weight: 600; color: var(--ink-faint); white-space: nowrap; font-variant-numeric: lining-nums; }
 .page-num:empty { display: none; }
 .measure-pill { font-size: 13px; font-variant: all-small-caps; letter-spacing: .08em; font-weight: 600; color: var(--ink-soft); white-space: nowrap; }
-.sheet-detail { font-family: var(--font-text); font-style: italic; font-size: 16px; color: var(--brass-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-detail { font-family: var(--font-text); font-style: italic; font-size: 16px; line-height: 28px; color: var(--brass-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sheet { position: relative; min-height: 0; overflow: hidden; display: flex; align-items: center; cursor: default; }
 .sheet::before, .sheet::after { content: ""; position: absolute; top: 0; bottom: 0; width: 36px; z-index: 2; pointer-events: none; }
 .sheet::before { left: 0; background: linear-gradient(90deg, var(--paper-raised), transparent); }
@@ -786,9 +787,15 @@ button.menu-row:hover > span:first-child { color: var(--brass); }
 .prompt-link i { font-style: italic; }
 /* Stuck → "Loop bar 7 slowly?": a quiet offer after the hint (src/practice/repair.mjs). */
 .repair-offer { color: var(--ink-soft); font-style: italic; margin-left: 6px; }
-/* The offer gets its own line, so it's never cut off (phones especially). */
-.prompt:has(.repair-offer) { white-space: normal; line-height: 22px; }
-.prompt .repair-offer { display: block; margin: 2px auto 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* The offer floats just above the prompt (over the foot of the score card), so it's never cut off on a
+   phone and never changes the layout: the score must not move while you play. */
+.prompt .repair-offer {
+  position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%); z-index: 3;
+  margin: 0; padding: 2px 12px; border-radius: 4px; font-size: 15px; line-height: 22px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 24px);
+  background: color-mix(in srgb, var(--paper-raised) 92%, transparent);
+}
+.cue:has(.repair-offer) .feedback { display: none; }
 @media (max-width: 600px) { .prompt .stuck-hint { display: none; } }
 .repair-offer:hover { color: var(--ink); }
 /* The repair loop's tag reads "… · End loop": no × as well. */
