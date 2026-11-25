@@ -8,6 +8,18 @@ and answers in letters.
 
 No account, no server in the cloud, no tracking. Everything stays on your Mac and iPad.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/today-dark.png">
+    <img src="docs/screenshots/today.png" width="880" alt="Today: the date, a daily goal ring, the streak and three movements for the day: a warm-up scale, the piece being learnt step by step, and a reading drill">
+  </picture>
+</p>
+<p align="center">
+  <img src="docs/screenshots/player.png" width="436" alt="The player on Für Elise: the score scrolls under a brass playhead above an on-screen keyboard">
+  <img src="docs/screenshots/falling-notes-dark.png" width="436" alt="Falling notes in the dark Concert hall theme">
+</p>
+<p align="center"><sub><i>Today, in the Paper theme (or Concert hall, if your system is dark) · a piece in notation · the same piece as falling notes.<br>Screenshots use made-up demo practice on bundled public-domain pieces; <a href="#screenshots">more below</a>.</i></sub></p>
+
 The first part of this file is the **guide for the student**; the [developer section](#for-developers)
 follows. Inside the app, press **?** at any time for help and keyboard shortcuts.
 
@@ -51,6 +63,12 @@ the Mac relays your keyboard over Wi-Fi (the "bridge").
 4. To keep it as an app: **Share → Add to Home Screen → Add**. It opens full screen, on the paper
    background, without Safari's bars.
 
+<p align="center">
+  <img src="docs/screenshots/ipad-portrait.png" width="300" alt="The player on an iPad in portrait">
+  <img src="docs/screenshots/ipad-landscape.png" width="432" alt="The player on an iPad in landscape">
+</p>
+<p align="center"><sub><i>On the music stand: iPad portrait and landscape.</i></sub></p>
+
 The bridge looks after itself: it sends a heartbeat every 3 seconds, the iPad tells *connected*
 from *no signal* and *reconnecting…* (shown in the player's ⋯ menu), and when the Wi-Fi drops or the dev server restarts, both
 pages reload once the Mac is reachable again and the piano reconnects by itself.
@@ -84,6 +102,24 @@ them and leads back with **←**.
 | **Pieces** | The repertoire: bundled public-domain pieces with a grade, grouped by composer like a concert programme, your own songs and imported scores, each with its status (learning, secure, polished, maintained). **Browse Mutopia** searches the whole Mutopia piano archive and converts a piece on the spot (marked *unverified*). **Import a score** takes MusicXML (`.musicxml`, `.xml`, `.mxl`), MEI or a MIDI file (`.mid`), which is quantised into a two-staff score (marked *unverified*; a loosely timed file opens in falling notes). |
 | **Exercises** | Technique (scales, arpeggios, five-finger positions, chromatic scales and cadences in every key, with fingering), note reading, sight-reading, rhythm, theory lessons and ear training. |
 | **Progress** | Your practice diary: today against your goal, streak, the week, bars mastered, your path through the grades (Beginner to Grade 5), goals with dates, the journal, recordings, letters from your teacher, and the settings (daily goal, where your path starts, appearance, backup, help). |
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/pieces.png" alt="Pieces: the repertoire grouped by composer, with grade and status"></td>
+    <td width="33%"><img src="docs/screenshots/exercises.png" alt="Exercises: first lessons, technique, note reading and more"></td>
+    <td width="33%"><img src="docs/screenshots/progress.png" alt="Progress: today against the goal, streak, the week, your path and goals"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Pieces</b>: grade and status at a glance</sub></td>
+    <td align="center"><sub><b>Exercises</b>: everything that isn't a piece</sub></td>
+    <td align="center"><sub><b>Progress</b>: goal, streak, path, goals, journal</sub></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/phone-today.png" width="240" alt="Today on a phone, with the four places in a tab bar">
+</p>
+<p align="center"><sub><i>On a phone the four places move to a tab bar at the bottom.</i></sub></p>
 
 The **teacher** is a companion, not a place: the quiet *Teacher* button opens a panel of letters
 in the margin from anywhere (it needs the dev server; see [The teacher](#the-teacher)).
@@ -128,9 +164,31 @@ The player has one main choice at the top, **Listen | Practise**, and a play but
   a time, turned for you; arrow keys or a Bluetooth page-turner pedal turn it by hand) or
   *Falling notes*. Note names, zoom, theme and full screen are in ⋯ too.
 
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/first-look.png" alt="The first-look card: key, time, tempo, each hand's range and the bars to watch"></td>
+    <td width="50%"><img src="docs/screenshots/learn-step.png" alt="Learning a piece step by step: Step 1 of 42, passage 1 of 7, listen"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Before the first play, a <b>first look</b>: key, time, range of each hand, bars to watch</sub></td>
+    <td align="center"><sub><b>Learn it step by step</b>: one <i>Next step</i> button through the passages</sub></td>
+  </tr>
+</table>
+
 After each pass a **results card** gives your accuracy, the bars and notes that went wrong, and,
 with a real piano, your evenness, dynamics against the score's marks, legato and pedalling. A
 quiet heat strip above the score shows how each bar is going over the days.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/results.png" alt="Results card after a pass of Für Elise: 97 % accuracy and the phrasing contour"></td>
+    <td width="50%"><img src="docs/screenshots/results-evenness.png" alt="Results card after a G major scale: 100 % and an evenness graph of timing and loudness"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>A piece: accuracy, notes found, and the <b>phrasing</b> of the line</sub></td>
+    <td align="center"><sub>A scale: <b>evenness</b> of timing and loudness, note by note</sub></td>
+  </tr>
+</table>
 
 ### Keyboard shortcuts
 
@@ -159,6 +217,25 @@ quiet heat strip above the score shows how each bar is going over the days.
   triads and inversions, cadences, and a circle-of-fifths explorer.
 - **Ear training**: intervals, chord qualities, cadences and melodic dictation.
 
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/technique-scale.png" alt="D major scale, hands together, two octaves, with fingering above and below the staves"></td>
+    <td width="50%"><img src="docs/screenshots/reading.png" alt="Note reading: a note on the grand staff and a keyboard to answer on"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Technique</b>: any scale in any key, with fingering</sub></td>
+    <td align="center"><sub><b>Note reading</b>: find the note on the keys</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/lessons.png" alt="First lessons: finding your way around the black-key groups"></td>
+    <td><img src="docs/screenshots/theory.png" alt="Theory lesson on intervals, with the score and a Hear it button"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>First lessons</b>: keyboard geography for beginners</sub></td>
+    <td align="center"><sub><b>Theory</b>: short lessons with checks</sub></td>
+  </tr>
+</table>
+
 ## Recordings and mock exams
 
 Press **Rec** (**R**) in the player to record a take from your piano. **⋯ → Recordings…** lists
@@ -166,6 +243,21 @@ your takes per piece: play one back on the sampled piano with the score followin
 the score (timing per beat, wrong and missed notes, dynamics), print the report, export MIDI, or
 **Send to teacher**. A **mock exam** strings two or three pieces, a scale and a short
 sight-reading piece together and gives you a results sheet.
+
+<p align="center">
+  <img src="docs/screenshots/recording-review.png" width="720" alt="A recorded take of Für Elise compared with the score: notes, tempo, timing, a beat-by-beat tempo graph and phrasing">
+</p>
+<p align="center"><sub><i>A take compared with the score: notes, tempo, timing beat by beat, phrasing.</i></sub></p>
+
+## Progress
+
+**Progress** is the diary: today against your daily goal, the streak, the last 14 days and 12
+weeks, every piece with its status and best accuracy, the keys your technique has covered, note
+reading over time, your path through the grades, goals with dates and the journal.
+
+<p align="center">
+  <img src="docs/screenshots/progress-charts.png" width="720" alt="Progress: the last 14 days as bars against the goal, a 12-week grid, recordings, songs with best accuracy, technique keys on the circle of fifths and note-reading trends">
+</p>
 
 ## The teacher
 
@@ -176,6 +268,11 @@ section, your last results), suggests concrete next steps as buttons (open a sec
 loop the weak bars…), sets homework that appears on Today, writes a weekly letter shown on
 Progress and can review a recording bar by bar. The panel only appears with the dev server; a
 static build has no teacher.
+
+<p align="center">
+  <img src="docs/screenshots/teacher.png" width="720" alt="The Teacher panel beside the score, with a letter suggesting slow practice and a three-item practice plan">
+</p>
+<p align="center"><sub><i>Letters in the margin (a generic sample conversation): advice, and a plan to tick off.</i></sub></p>
 
 ## Your data and backup
 
@@ -212,6 +309,15 @@ shows what a file contains and asks before replacing anything; the previous stat
   `bridge.html` shows now.
 - A long delay: check the latency shown on `bridge.html`, and calibrate (below).
 
+**Something else is wrong.** In a piece, **⋯ → Settings…** holds the view, note names,
+fingering, sound and input latency; **Diagnostics** in it lists the app version, MIDI inputs,
+the Mac relay, audio, loaded samples and storage, with **Copy report** to paste into a bug report.
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" width="436" alt="The player's Settings sheet: the stage (Notation, Falling notes, Pages), playhead, note names, fingering, key names, practice and sound">
+  <img src="docs/screenshots/diagnostics.png" width="436" alt="The Diagnostics sheet: app, MIDI, Mac relay, audio and samples">
+</p>
+
 **Play along says I'm late (or early) when I'm not.** Open a piece's **⋯ → Settings… → Input
 latency → Calibrate…** and tap with the clicks; the measured delay (Bluetooth headphones, the
 relay) is taken off every note.
@@ -225,6 +331,24 @@ relay) is taken off every note.
 
 **The app looks out of date after an update.** Reload the page. A production build with the
 offline cache fetches the new version in the background; reload once more if it still looks old.
+
+---
+
+## Screenshots
+
+| | | |
+| --- | --- | --- |
+| [<img src="docs/screenshots/today.png" width="260" alt="Today">](docs/screenshots/today.png)<br><sub>Today</sub> | [<img src="docs/screenshots/pieces.png" width="260" alt="Pieces">](docs/screenshots/pieces.png)<br><sub>Pieces</sub> | [<img src="docs/screenshots/player.png" width="260" alt="Player, notation">](docs/screenshots/player.png)<br><sub>Player, notation</sub> |
+| [<img src="docs/screenshots/player-dark.png" width="260" alt="Player, Concert hall">](docs/screenshots/player-dark.png)<br><sub>Player, Concert hall</sub> | [<img src="docs/screenshots/falling-notes.png" width="260" alt="Falling notes">](docs/screenshots/falling-notes.png)<br><sub>Falling notes</sub> | [<img src="docs/screenshots/first-look.png" width="260" alt="First look">](docs/screenshots/first-look.png)<br><sub>First look</sub> |
+| [<img src="docs/screenshots/learn-step.png" width="260" alt="Learn step by step">](docs/screenshots/learn-step.png)<br><sub>Learn step by step</sub> | [<img src="docs/screenshots/results.png" width="260" alt="Results: phrasing">](docs/screenshots/results.png)<br><sub>Results: phrasing</sub> | [<img src="docs/screenshots/results-evenness.png" width="260" alt="Results: evenness">](docs/screenshots/results-evenness.png)<br><sub>Results: evenness</sub> |
+| [<img src="docs/screenshots/exercises.png" width="260" alt="Exercises">](docs/screenshots/exercises.png)<br><sub>Exercises</sub> | [<img src="docs/screenshots/technique-scale.png" width="260" alt="Technique">](docs/screenshots/technique-scale.png)<br><sub>Technique</sub> | [<img src="docs/screenshots/reading.png" width="260" alt="Note reading">](docs/screenshots/reading.png)<br><sub>Note reading</sub> |
+| [<img src="docs/screenshots/lessons.png" width="260" alt="First lessons">](docs/screenshots/lessons.png)<br><sub>First lessons</sub> | [<img src="docs/screenshots/theory.png" width="260" alt="Theory">](docs/screenshots/theory.png)<br><sub>Theory</sub> | [<img src="docs/screenshots/ear.png" width="260" alt="Ear training">](docs/screenshots/ear.png)<br><sub>Ear training</sub> |
+| [<img src="docs/screenshots/progress.png" width="260" alt="Progress">](docs/screenshots/progress.png)<br><sub>Progress</sub> | [<img src="docs/screenshots/progress-charts.png" width="260" alt="Progress: the weeks">](docs/screenshots/progress-charts.png)<br><sub>Progress: the weeks</sub> | [<img src="docs/screenshots/recording-review.png" width="260" alt="Recording review">](docs/screenshots/recording-review.png)<br><sub>Recording review</sub> |
+| [<img src="docs/screenshots/teacher.png" width="260" alt="Teacher (sample)">](docs/screenshots/teacher.png)<br><sub>Teacher (sample)</sub> | [<img src="docs/screenshots/settings.png" width="260" alt="Settings">](docs/screenshots/settings.png)<br><sub>Settings</sub> | [<img src="docs/screenshots/diagnostics.png" width="260" alt="Diagnostics">](docs/screenshots/diagnostics.png)<br><sub>Diagnostics</sub> |
+| [<img src="docs/screenshots/today-dark.png" width="260" alt="Today, Concert hall">](docs/screenshots/today-dark.png)<br><sub>Today, Concert hall</sub> | [<img src="docs/screenshots/ipad-landscape.png" width="260" alt="iPad, landscape">](docs/screenshots/ipad-landscape.png)<br><sub>iPad, landscape</sub> | [<img src="docs/screenshots/ipad-portrait.png" width="150" alt="iPad, portrait">](docs/screenshots/ipad-portrait.png) [<img src="docs/screenshots/phone-today.png" width="90" alt="Phone">](docs/screenshots/phone-today.png)<br><sub>iPad portrait · phone</sub> |
+
+All of these are regenerated by `npm run screenshots` (see [Scripts](#scripts)) from a production
+build with made-up demo practice; none show real progress, private songs or real teacher messages.
 
 ---
 
@@ -251,6 +375,7 @@ Requires Node.js 20 or newer (CI uses Node 22).
 | `npm run lint` | ESLint |
 | `npm run format` | Prettier |
 | `npm run songs` | Compile every `songs/*.notes` to `public/songs/*.musicxml` |
+| `npm run screenshots` | Regenerate the README's `docs/screenshots/*.png`: a production build served by `vite preview`, headless muted Chrome at 2× scale, demo data seeded into a throwaway profile (`-- <name>` for some, `-- --list` lists them) |
 
 ### Architecture
 
