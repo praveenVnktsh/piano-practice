@@ -29,7 +29,7 @@ export async function registerServiceWorker({prod = import.meta.env.PROD} = {}) 
   }
   if (!prod && flag() !== 'dev') return null;
   try {
-    return await navigator.serviceWorker.register('/sw.js', {scope: '/', updateViaCache: 'none'});
+    return await navigator.serviceWorker.register(new URL('sw.js', document.baseURI).href, {scope: new URL('./', document.baseURI).href, updateViaCache: 'none'});
   } catch (e) {
     console.warn('[pwa] service worker not registered:', e?.message || e);
     return null;

@@ -6,6 +6,7 @@
 import {collectInfo} from './collect.js';
 import {buildReport, formatReport} from './report.js';
 import './diagnostics.css';
+import {mountIpadLink} from '../app/ipad-link.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 
@@ -19,6 +20,7 @@ export function mountDiagnostics(root, {piano, midiAccess, latencyMs, openSettin
   group.innerHTML = `<h3 class="set-heading">This device</h3>
     <div class="set-row"><span>Diagnostics <small>MIDI, audio, memory</small></span><button class="link-btn" id="diag-open" type="button">Open…</button></div>`;
   if (anchor) anchor.before(group); else settings.querySelector('.settings-card')?.append(group);
+  mountIpadLink(group, {compact: true});
 
   const modal = document.createElement('div');
   modal.className = 'modal';
