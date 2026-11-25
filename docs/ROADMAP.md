@@ -132,11 +132,11 @@ New capability arrives inside an existing place or behind progressive disclosure
 - [ ] P1 Voicing: melody-over-accompaniment check within one hand (top voice louder)
 - [ ] P2 Listen and compare: play the reference, then your recording, aligned bar by bar
 
-## Phase 16: Real hardware confidence ⏳
-- [ ] P0 Diagnostics sheet (in ⋯ → Settings): MIDI devices, relay status and round-trip latency, audio context state and output latency, sample-load status, storage use; a "copy report" button
-- [ ] P1 iPad memory budget: measure decoded-sample memory, load velocity layers lazily on small devices, and degrade to fewer layers gracefully
-- [ ] P1 Client error log: uncaught errors are posted to the dev server (`.data/errors.log`) so issues on the iPad are visible on the Mac
-- [ ] P2 Sustained-use test: an e2e that plays a long piece end to end for 10 minutes of virtual time and checks for leaks and drift
+## Phase 16: Real hardware confidence ✅
+- [x] P0 Diagnostics sheet (Settings → This device → Diagnostics): Web MIDI and inputs, Mac relay state + measured round trip, AudioContext state / sample rate / latencies, grand layers loaded, decoded sample memory, storage estimate, version + commit, user agent; "Copy report" (clipboard, or a text box to copy by hand)
+- [x] P1 iPad memory budget: decoded sample memory measured and shown; "Lighter piano" (Auto · On · Off) keeps 3 of the 5 grand layers, loaded nearest-to-mezzo-forte first, the rest in the background; Auto turns it on for navigator.deviceMemory ≤ 4 or iPad / iPhone; desktop unchanged
+- [x] P1 Client error log: window error / unhandledrejection → `/__errors` (dev server) → `.data/errors.log`, deduped and rate-limited; `node tools/errors.mjs` lists / follows them
+- [ ] P2 Sustained-use e2e (long play under virtual time)
 
 ## Phase 17: Library breadth ⏳
 - [ ] P1 MIDI file import: a .mid becomes a playable piece (quantised, hands split by pitch or track) for falling notes; the sheet is engraved when quantisation is clean

@@ -2,6 +2,10 @@ import './styles/tokens.css';
 import './styles/app.css';
 import './styles/shell.css';
 import {startApp} from './app/index.js';
+import {installErrorReporting} from './errors/reporter.js';
+
+// Uncaught errors → the dev server's /__errors (error-log/plugin.js); a no-op without it.
+installErrorReporting({endpoint: (import.meta.env.BASE_URL || '/') + '__errors'});
 
 startApp();
 

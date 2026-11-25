@@ -16,9 +16,13 @@
 //   piano.silence() · load() · setMuted(v) · click(delay, accent) · stopClicks() · setClickVolume(v)
 //   piano.setInstrument('auto'|'piano'|'harpsichord') · setSong(catalogEntry) · setRoom(0…1)
 //   piano.setMetronomeSound('wood'|'click'|'beep') · setPedal(down) · meter() (peak metering)
+//   piano.setProfile('auto'|'light'|'full') · memory() → {bytes, sets: {grand, harpsichord, fallback}}
+//     'light' (small-memory devices, src/audio/budget.js) keeps three of the five grand layers,
+//     loaded nearest-to-mezzo-forte first; 'full' is the desktop behaviour described above.
 import manifest from './audio/sample-manifest.json';
 import {nearestSample, layerWeights, layerGain, velocityLevel, panForNote, dampTime, UNDAMPED_FROM,
   resonanceSends, combDelay, combFeedback, chooseInstrument} from './audio/layers.js';
+import {allowedLayers, decodedBytes, layerLoadOrder, pianoProfile} from './audio/budget.js';
 import {hallImpulse} from './audio/reverb.js';
 import {playTick} from './audio/metronome.js';
 
@@ -30,7 +34,9 @@ const GRAND_REF = manifest.grand.level;
 const RESONANCE_SEND = .07; // measured: the halo sits ≈ 25 dB under the struck note (offline render)
 const HARP_GAIN = GRAND_REF * .5 / manifest.harpsichord.level;
 
-export function createPiano(onError = () => {}, {context = null} = {}) {
+const deviceInfo = () => (typeof navigator === 'undefined' ? {} : {deviceMemory: navigator.deviceMemory, userAgent: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints});
+
+export function createPiano(onError = () => {}, {context = null, profile: profileSetting = 'auto', device = deviceInfo()} = {}) {
   let ctx = null, master = null, bus = null, dry = null, wet = null, clickOut = null, limiter = null, post = null;
   let muted = false, clickVolume = .6, room = .35, metroSound = 'wood';
   let instrumentSetting = 'auto', song = null, pedalDown = false;
@@ -40,6 +46,10 @@ export function createPiano(onError = () => {}, {context = null} = {}) {
   let resonance = null;                   // lazily built comb bank
   let releaseCount = [];                  // recent release-noise times (keeps dense chords from clattering)
   let lastStrike = 0;                     // audio-clock time of the latest strike (for the mic's echo gate)
+  let profile = pianoProfile(profileSetting, device);               // 'light' | 'full'
+  const grandCentres = manifest.grand.layers.map(l => l.centre);
+  const allowedMask = () => { const ok = new Set(allowedLayers(grandCentres.length, profile)); return grandCentres.map((c, i) => ok.has(i)); };
+  let allowed = allowedMask();
 
   // ───────── Graph ─────────
   function softClipCurve() {
@@ -144,11 +154,17 @@ export function createPiano(onError = () => {}, {context = null} = {}) {
     return {kind, def, layers: def.layers.map(() => new Map()), ready: def.layers.map(() => false),
       loading: def.layers.map(() => null), release: new Map(), releaseLoading: null};
   }
+  // A grand layer the memory profile leaves out never loads (and one dropped mid-load stops filling).
+  const layerAllowed = (set, i) => set.kind !== 'grand' || allowed[i];
   function loadLayer(set, i) {
+    if (!layerAllowed(set, i)) return Promise.resolve();
     if (!set.loading[i]) {
       const dir = set.def.base + set.def.layers[i].name + '/';
-      set.loading[i] = loadAll(set.def.notes, async n => set.layers[i].set(n, await fetchBuffer(BASE + dir + n + '.mp3')))
-        .then(() => { set.ready[i] = true; })
+      set.loading[i] = loadAll(set.def.notes, async n => {
+        const sample = await fetchBuffer(BASE + dir + n + '.mp3');
+        if (layerAllowed(set, i)) set.layers[i].set(n, sample);
+      })
+        .then(() => { if (layerAllowed(set, i)) set.ready[i] = true; else set.layers[i].clear(); })
         .catch(e => { set.loading[i] = null; throw e; });
     }
     return set.loading[i];
@@ -168,18 +184,54 @@ export function createPiano(onError = () => {}, {context = null} = {}) {
   // The grand: middle layer first (that is the one most notes use), then its
   // neighbours and the release noises in the background. The softest and loudest
   // layers load when a velocity first asks for them.
+  // Lighter profile: its three layers nearest-first (mezzo forte, then the others
+  // in the background), the release noises right after the first.
+  function backgroundLayers(g) {
+    if (profile === 'light') {
+      const [, ...rest] = layerLoadOrder(grandCentres, allowedLayers(grandCentres.length, profile));
+      rest.reduce((p, i) => p.then(() => loadLayer(g, i)), loadReleases(g)).catch(() => {});
+    } else Promise.resolve().then(() => loadLayer(g, 3)).then(() => loadReleases(g)).then(() => loadLayer(g, 1)).catch(() => {});
+  }
   let loading = null;
   function load() {
     setup();
     loading ??= (async () => {
       sets.grand ??= makeSet('grand');
-      const g = sets.grand, mid = 2;
-      try { await loadLayer(g, mid); }
+      const g = sets.grand, first = layerLoadOrder(grandCentres, allowedLayers(grandCentres.length, profile))[0] ?? 2;
+      try { await loadLayer(g, first); }
       catch (e) { await loadFallback().catch(err => { loading = null; onError(err); throw err; }); return; }
-      Promise.resolve().then(() => loadLayer(g, 3)).then(() => loadReleases(g)).then(() => loadLayer(g, 1)).catch(() => {});
+      backgroundLayers(g);
       if (effectiveInstrument() === 'harpsichord') loadHarpsichord();
     })().catch(() => {});
     return loading;
+  }
+  // Switching profile: a lighter grand drops the layers it leaves out (freeing their memory);
+  // a full one fetches its usual background layers again.
+  function setProfile(setting) {
+    const next = pianoProfile(setting, device);
+    if (next === profile) return;
+    profile = next;
+    allowed = allowedMask();
+    const g = sets.grand;
+    if (!g) return;
+    g.def.layers.forEach((l, i) => { if (!allowed[i]) { g.layers[i].clear(); g.ready[i] = false; g.loading[i] = null; } });
+    if (g.ready.some(Boolean)) {
+      const first = layerLoadOrder(grandCentres, allowedLayers(grandCentres.length, profile))[0];
+      loadLayer(g, first).then(() => backgroundLayers(g)).catch(() => {});
+    }
+  }
+  // Decoded sample memory (4 bytes per sample per channel), per instrument.
+  function memory() {
+    const count = set => (set?.layers ?? []).map(m => m.size);
+    const grand = sets.grand, harp = sets.harpsichord, fb = sets.fallback;
+    const bufs = set => [...(set?.layers ?? []).flatMap(m => [...m.values()]), ...(set?.release?.values() ?? [])].map(x => x.buffer);
+    const out = {
+      grand: {profile, layers: manifest.grand.layers.length, allowed: allowed.filter(Boolean).length,
+        ready: grand?.ready.filter(Boolean).length ?? 0, samples: count(grand), releases: grand?.release.size ?? 0, bytes: decodedBytes(bufs(grand))},
+      harpsichord: {ready: !!harp?.ready[0], samples: count(harp), releases: harp?.release.size ?? 0, bytes: decodedBytes(bufs(harp))},
+      fallback: {ready: !!fb, samples: fb?.map.size ?? 0, bytes: decodedBytes([...(fb?.map.values() ?? [])].map(x => x.buffer))},
+    };
+    return {bytes: out.grand.bytes + out.harpsichord.bytes + out.fallback.bytes, sets: out};
   }
   function loadHarpsichord() {
     sets.harpsichord ??= makeSet('harpsichord');
@@ -266,7 +318,7 @@ export function createPiano(onError = () => {}, {context = null} = {}) {
         const {note, rate} = nearestSample(n, set.def.notes);
         const weights = layerWeights(v, set.def.layers.map(l => l.centre), {available: set.ready});
         // Ask for the layer this velocity really wants, for next time.
-        const want = layerWeights(v, set.def.layers.map(l => l.centre))[0]?.layer;
+        const want = layerWeights(v, grandCentres, {available: allowed})[0]?.layer;
         if (want != null && !set.ready[want]) loadLayer(set, want).catch(() => {});
         // A gentle tone colour for velocities between layers: brighter above the layer centre.
         filter = ctx.createBiquadFilter();
@@ -392,7 +444,8 @@ export function createPiano(onError = () => {}, {context = null} = {}) {
 
   return {
     tone, silence, load, setMuted, click, stopClicks, setClickVolume,
-    setInstrument, setSong, setPedal(v) { pedalDown = !!v; },
+    setInstrument, setSong, setPedal(v) { pedalDown = !!v; }, setProfile, memory,
+    get profile() { return profile; },
     setRoom(v) { room = Math.max(0, Math.min(1, +v || 0)); applyRoom(); },
     setMetronomeSound(v) { metroSound = ['wood', 'click', 'beep'].includes(v) ? v : 'wood'; },
     meter,
@@ -401,6 +454,6 @@ export function createPiano(onError = () => {}, {context = null} = {}) {
     get context() { return ctx; },
     // For the microphone's echo gate: is the app itself sounding a fresh note right now?
     recentlyStruck(windowS = .35) { return !!ctx && voices.size > 0 && ctx.currentTime - lastStrike < windowS; },
-    get loaded() { return {grand: sets.grand?.ready.slice() ?? [], harpsichord: sets.harpsichord?.ready[0] ?? false, fallback: !!sets.fallback}; },
+    get loaded() { return {grand: sets.grand?.ready.slice() ?? [], harpsichord: sets.harpsichord?.ready[0] ?? false, fallback: !!sets.fallback, profile, allowed: allowed.slice()}; },
   };
 }

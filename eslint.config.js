@@ -11,7 +11,7 @@ export default [
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
-      globals: {...globals.browser, ...globals.node},
+      globals: {...globals.browser, ...globals.node, __APP_VERSION__: 'readonly', __APP_COMMIT__: 'readonly'},
     },
     rules: {
       'no-unused-vars': ['warn', {args: 'none', caughtErrors: 'none', ignoreRestSiblings: true}],

@@ -17,12 +17,16 @@
 //
 // The bridge page (src/bridge.js): sendRelayMidi(bytes), sendRelayStatus(status), and
 // startLatencyProbe(onSample) which pings every page and reports round trips.
+//
+// Any page: measureRelayRtt({timeoutMs}) → Promise<ms | null>, one echo through the dev server
+// (null without a dev server or on timeout). Settings → Diagnostics shows it.
 
 const EVENT_MIDI = 'midi-relay:message';
 const EVENT_STATUS = 'midi-relay:status';
 const EVENT_HELLO = 'midi-relay:hello';
 const EVENT_PING = 'midi-relay:ping';
 const EVENT_PONG = 'midi-relay:pong';
+const EVENT_ECHO = 'midi-relay:echo';
 const STALE_AFTER = 3; // missed heartbeats before the bridge counts as gone
 
 const hot = import.meta.hot;
@@ -102,6 +106,20 @@ function pageLabel() {
   const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : '';
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone ? ' (home screen)' : '';
   return `${device} ${browser}${standalone}`.trim();
+}
+
+/** One page → dev server → page round trip over the relay's socket, in ms (null if unavailable). */
+export function measureRelayRtt({timeoutMs = 2000} = {}) {
+  if (!hot || !connected) return Promise.resolve(null);
+  return new Promise(resolve => {
+    const id = randomId();
+    let timer = null;
+    const done = v => { clearTimeout(timer); hot.off?.(EVENT_ECHO, onEcho); resolve(v); };
+    const onEcho = data => { if (data?.id === id) done(performance.now() - data.t); };
+    hot.on(EVENT_ECHO, onEcho);
+    timer = setTimeout(() => done(null), timeoutMs);
+    hot.send(EVENT_ECHO, {id, t: performance.now()});
+  });
 }
 
 export function onRelayMidi(handler) {

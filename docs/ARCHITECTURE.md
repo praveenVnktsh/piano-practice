@@ -247,3 +247,25 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
 - **Accessibility**: all token text pairs pass WCAG AA in both themes (`--brass-ink` for small
   brass text); modal dialogs trap focus and return it; reduced motion disables transitions,
   easing and timing-word animations.
+
+## Phase 16: real hardware confidence
+
+- **Diagnostics** (`src/diagnostics/`): `report.js` (pure: `buildReport(info)` → labelled sections,
+  `formatReport(sections)` → the "Copy report" text), `collect.js` (reads the browser, the piano and the
+  relay), `sheet.js` (`mountDiagnostics(root, {piano, midiAccess, latencyMs, openSettings, closeSettings})`
+  adds Settings → This device → Diagnostics; the sheet stands in for Settings while open, and Escape goes back).
+  Version and commit come from Vite `define` (`__APP_VERSION__`, `__APP_COMMIT__`; the `APP_COMMIT` env var overrides git).
+- **Relay echo**: `midi-relay:echo` page → server → the same page `{id, t}`; `measureRelayRtt({timeoutMs})`
+  in `src/midi-relay.js` → round-trip ms, or null (no dev server, or timeout).
+- **Memory budget** (`src/audio/budget.js`, pure): `isSmallMemoryDevice`, `pianoProfile('auto'|'light'|'full')`,
+  `allowedLayers`, `layerLoadOrder`, `decodedBytes`. `createPiano(onError, {profile})`, `piano.setProfile(v)`,
+  `piano.memory()` → `{bytes, sets: {grand: {profile, layers, allowed, ready, samples, releases, bytes}, harpsichord, fallback}}`;
+  `piano.loaded` adds `profile` and `allowed`. The sound setting `pianoProfile` lives in `piano-practice:sound`;
+  `window.pianoSound.memory()`.
+- **Error log** (`error-log/plugin.js`, dev server; `errorLog({dir})`, default `.data/`, `ERRORS_DIR` overrides):
+  `POST /__errors` ← `{message, stack, url, ua, at, count?}` or an array (≤ 20; JSON or text/plain body ≤ 64 kB)
+  → `{ok, added}`; `GET /__errors?limit=N` → `{errors}` (oldest first). JSON lines in `errors.log`, strings capped,
+  oldest half dropped past 256 kB. Browser side `src/errors/reporter.js` (installed by `src/main.js`,
+  `window.pianoErrors.stats`): the same error at most once a minute (with a repeat `count`), ≤ 10 a minute, ≤ 50 a session,
+  and off for the session after the first failed post (production builds have no endpoint).
+  `node tools/errors.mjs [-n N] [--follow] [--json] [--clear] [--dir PATH]`.
