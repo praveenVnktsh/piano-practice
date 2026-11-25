@@ -1,6 +1,8 @@
 import {passage, spelledName, FollowNotes, handGroups, handFilter, TimedGrader, TIMING, beatsOf, countIn, measureBeats, beatInfo, speedUpTempo, MissLog} from './score-core.mjs';
 import {createHighway} from './highway.js';
 import {follower, monotoneMap} from './motion.mjs';
+import {mountQuickBars} from './app/quick-bars.js';
+import {isExerciseId} from './exercises/index.js';
 import {createPiano} from './piano.js';
 import {keyForControl} from './app/dom.js';
 import {mountSoundSettings} from './audio/sound-ui.js'; // [sound] instrument, room, metronome sound, microphone
@@ -1867,6 +1869,7 @@ export function createPlayer(root) {
   });
   learn = attachLearn({root, flash, setStatus, setPrompt, setLoop: v => setLoop(v), setIntent: v => setIntent(v), closePopovers: () => closePopovers(),
     stopAtPassEnd: () => { stopForStep = true; }});
+  mountQuickBars(root); // every Bars ▾ choice one tap away, under the section bar
 
   // ───────── Highway ─────────
   const highway = createHighway({
@@ -2372,17 +2375,17 @@ export function createPlayer(root) {
   const saveSong = v => { if (current?.id != null) write(SONG_STORE(current.id), v); };
   const clampTempo = v => Math.max(+q('#um-tempo').min || 20, Math.min(+q('#um-tempo').max || 160, Math.round(v)));
 
-  // Default section: the catalog's, else the first 4 measures (plus a
-  // pickup), or the whole piece when it is short.
+  // Default section: a piece always opens on the whole piece (the student asked for it); a passage
+  // is one tap away (the quick passages under the section bar), and a step-by-step plan or a
+  // teacher's "practise bars X–Y" still sets its own. Generated exercises keep the catalog's section.
   function defaultSection(entry) {
     const n = song.measures.length;
     const valid = (a, b) => Number.isInteger(a) && Number.isInteger(b) && a >= 0 && a <= b && b < n;
-    const saved = read(SONG_STORE(entry.id));
-    if (valid(saved.first, saved.last)) return [saved.first, saved.last];
-    const [a, b] = Array.isArray(entry.section) ? entry.section.map(Number) : [];
-    if (valid(a, b)) return [a, b];
-    if (n <= 8) return [0, n - 1];
-    return [0, Math.min(n - 1, song.measures[0].pickup ? 4 : 3)];
+    if (isExerciseId(entry.id) || String(entry.id).startsWith('sr:')) {
+      const [a, b] = Array.isArray(entry.section) ? entry.section.map(Number) : [];
+      if (valid(a, b)) return [a, b];
+    }
+    return [0, n - 1];
   }
   // Speed trainer goal: the catalog's tempo, else the score's.
   const targetTempo = () => clampTempo(+current?.tempo > 0 ? +current.tempo : song?.tempo > 0 ? song.tempo : 100);

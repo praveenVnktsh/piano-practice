@@ -283,6 +283,25 @@ button.menu-row:hover > span:first-child { color: var(--brass); }
 .zoom-level { min-width: 3.4em; text-align: center; font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 /* ───────── Section strip ───────── */
+/* Quick passages (src/app/quick-bars.js): the Bars ▾ choices as one quiet row under the section bar. */
+.quick-bars {
+  flex-basis: 100%; order: 99; display: flex; align-items: center; justify-content: center; gap: 4px;
+  overflow-x: auto; scrollbar-width: none; padding: 0 0 4px; min-height: 30px;
+}
+.quick-bars::-webkit-scrollbar { display: none; }
+.quick-bars button {
+  flex: none; height: 28px; padding: 0 10px; border: 1px solid var(--rule); border-radius: 6px; background: transparent;
+  font: 500 12px/26px var(--font-ui); letter-spacing: .02em; color: var(--ink-soft); cursor: pointer; white-space: nowrap;
+  transition: color 160ms var(--ease), border-color 160ms var(--ease), background 160ms var(--ease);
+}
+.quick-bars button:hover { color: var(--ink); border-color: var(--rule-strong); }
+.quick-bars button:active { background: color-mix(in srgb, var(--brass) 14%, transparent); }
+.quick-bars button:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+.quick-bars button.on { color: var(--brass-ink); border-color: var(--brass); }
+.quick-bars button:disabled { opacity: .4; cursor: default; }
+.quick-bars .qb-sep { flex: none; width: 1px; height: 16px; margin: 0 6px; background: var(--rule); }
+@media (max-width: 900px) { .quick-bars { justify-content: flex-start; padding-inline: 8px; } }
+@media (pointer: coarse) { .quick-bars button { height: 36px; line-height: 34px; padding: 0 12px; } }
 .section-bar {
   grid-row: 2;
   position: relative; z-index: 5;

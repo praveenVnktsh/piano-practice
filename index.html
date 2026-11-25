@@ -211,6 +211,23 @@
       <button class="nav-btn nav-note" id="um-next" type="button" aria-label="Next note" title="Next note (→)"><svg viewBox="0 0 24 24"><path d="m10 6 6 6-6 6"/></svg></button>
       <button class="nav-btn" id="um-next-measure" type="button" aria-label="Next bar" title="Next bar (Shift+→)"><svg viewBox="0 0 24 24"><path d="m6 6 6 6-6 6M12 6l6 6-6 6"/></svg></button>
     </div>
+    <!-- Quick passages: every Bars ▾ option one tap away (src/app/quick-bars.js). -->
+    <div class="quick-bars" id="quick-bars" role="toolbar" aria-label="Quick passages">
+      <button type="button" data-for='[data-preset="here"]'>This bar</button>
+      <button type="button" data-for='[data-preset="four"]'>4 bars</button>
+      <button type="button" data-for='[data-preset="prev"]' aria-label="Previous passage">‹ Passage</button>
+      <button type="button" data-for='[data-preset="next"]' aria-label="Next passage">Passage ›</button>
+      <button type="button" data-for='[data-smart="phrase"]'>Phrase</button>
+      <button type="button" data-for='[data-smart="next-phrase"]' aria-label="Next phrase">Phrase ›</button>
+      <button type="button" data-for='[data-preset="whole"]'>Whole piece</button>
+      <span class="qb-sep" aria-hidden="true"></span>
+      <button type="button" data-for="#smart-weak">Weak bars</button>
+      <button type="button" data-for='[data-smart="chain-forward"]' title="Loop the first bar, then add a bar after each clean pass">Chain →</button>
+      <button type="button" data-for='[data-smart="chain-backward"]' title="Loop the last bar, then add the bar before it after each clean pass">← Chain</button>
+      <button type="button" data-for="#learn-toggle">Step by step</button>
+      <span class="qb-sep" aria-hidden="true"></span>
+      <button type="button" data-for="#perform-run" title="The whole piece once, in time, without stopping; scored and recorded">Perform</button>
+    </div>
   </form>
 
   <!-- ───────── Stage ───────── -->

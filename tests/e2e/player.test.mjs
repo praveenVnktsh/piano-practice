@@ -80,4 +80,18 @@ export const tests = [
       assert.ok(s.title, 'exercise has a title');
     },
   },
+  {
+    name: 'a piece opens on the whole piece; the quick passages pick a passage in one tap',
+    async run({base, page: open, assert}) {
+      const page = await open(VIEWPORTS.desktop);
+      await page.goto(base + '#/play/fur-elise');
+      await waitForSong(page);
+      const {section, measureCount} = await state(page);
+      assert.deepEqual(section, [0, measureCount - 1], 'the whole piece');
+      await page.click('#quick-bars button[data-for*="four"]');
+      await page.waitFor(`window.pianoPlayer.getState().section[1] - window.pianoPlayer.getState().section[0] <= 4`, {what: 'four bars'});
+      await page.click('#quick-bars button[data-for*="whole"]');
+      await page.waitFor(`window.pianoPlayer.getState().section[1] === ${measureCount - 1} && window.pianoPlayer.getState().section[0] === 0`, {what: 'the whole piece again'});
+    },
+  },
 ];
