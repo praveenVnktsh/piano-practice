@@ -5,6 +5,8 @@
 //   student.md      the teacher's notes about the student (goals, level, recurring issues)
 //   assignments.json {assignments: [{id, at, task, action?, due?, done, doneAt?}]}  homework on Today
 //   letters.json     {letters: [{id, at, text, readAt?}]}                          weekly review letters
+//   comments.json    {comments: [{id, at, songId, first, last, text, readAt?, dismissedAt?}]}
+//                    bar comments pinned to a bar range of a piece (first/last: 0-based measure indices)
 import {appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -61,6 +63,7 @@ export function readThread(dir) {
     status: readStatus(dir),
     assignments: readAssignments(dir),
     letters: readLetters(dir),
+    comments: readComments(dir),
   };
 }
 
@@ -76,6 +79,80 @@ function readList(dir, file, key) {
 
 export const readAssignments = dir => readList(dir, 'assignments.json', 'assignments');
 export const readLetters = dir => readList(dir, 'letters.json', 'letters');
+export const readComments = dir => readList(dir, 'comments.json', 'comments');
+
+export const MAX_COMMENT = 500;
+export const MAX_COMMENTS_PER_SONG = 60;
+const SONG_ID = /^[^\s]{1,200}$/;
+
+/**
+ * Pins a comment to a bar range of a piece: {songId, first, last, text} with first/last as
+ * 0-based measure indices → the stored comment. Throws on bad input.
+ */
+export function addComment(dir, {songId, first, last = first, text} = {}) {
+  const id = typeof songId === 'string' ? songId.trim() : '';
+  if (!SONG_ID.test(id)) throw new Error('a comment needs a song id (no spaces)');
+  if (!Number.isInteger(first) || first < 0) throw new Error('the first bar must be a whole number ≥ 1');
+  if (!Number.isInteger(last) || last < first) throw new Error('the last bar must be a whole number, not before the first');
+  if (last - first > 400) throw new Error('a comment covers at most 400 bars');
+  const said = typeof text === 'string' ? text.trim() : '';
+  if (!said) throw new Error('a comment needs text');
+  if (said.length > MAX_COMMENT) throw new Error(`a comment is at most ${MAX_COMMENT} characters`);
+  const list = readComments(dir);
+  if (list.filter(c => c.songId === id && !c.dismissedAt).length >= MAX_COMMENTS_PER_SONG)
+    throw new Error(`${id} already has ${MAX_COMMENTS_PER_SONG} comments; remove some first`);
+  const comment = {id: Math.max(nextId(list), lastCommentId(dir) + 1), at: new Date().toISOString(), songId: id, first, last, text: said};
+  writeComments(dir, [...list, comment]);
+  return comment;
+}
+
+// Ids are never reused (a removed comment's id stays retired): the file keeps the last id given.
+function lastCommentId(dir) {
+  try {
+    const n = JSON.parse(readFileSync(join(dir, 'comments.json'), 'utf8'))?.lastId;
+    return Number.isInteger(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+function writeComments(dir, list) {
+  const lastId = Math.max(lastCommentId(dir), 0, ...list.map(c => c.id));
+  writeAtomic(dir, 'comments.json', JSON.stringify({lastId, comments: list}, null, 1) + '\n');
+}
+
+function updateComment(dir, id, change) {
+  const n = Number(id);
+  const list = readComments(dir);
+  const c = list.find(x => x.id === n);
+  if (!c) throw new Error(`no comment ${id}`);
+  if (change(c) !== false) writeComments(dir, list);
+  return c;
+}
+
+/** The student opened a comment → the comment (readAt set once). */
+export const markCommentRead = (dir, id) =>
+  updateComment(dir, id, c => {
+    if (c.readAt) return false;
+    c.readAt = new Date().toISOString();
+  });
+
+/** The student dismissed a comment (it leaves the score; the teacher still sees it) → the comment. */
+export const dismissComment = (dir, id) =>
+  updateComment(dir, id, c => {
+    if (c.dismissedAt) return false;
+    c.dismissedAt = new Date().toISOString();
+    c.readAt ||= c.dismissedAt;
+  });
+
+/** Removes a comment for good (the teacher's CLI) → the removed comment. */
+export function removeComment(dir, id) {
+  const n = Number(id);
+  const list = readComments(dir);
+  const c = list.find(x => x.id === n);
+  if (!c) throw new Error(`no comment ${id}`);
+  writeComments(dir, list.filter(x => x !== c));
+  return c;
+}
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** A real calendar day 'YYYY-MM-DD'. */

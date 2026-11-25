@@ -149,10 +149,10 @@ export function pieceMastery(doc, songId, {target, now = Date.now()} = {}) {
     polishedAt: RANK[status] >= RANK.polished ? polishedAt : null, review, weakest: weakest.slice(0, 50)};
 }
 
-/** Every song (not ex: exercises or sr: sight-reading pieces) with any practice → pieceMastery rows, most recent first. */
+/** Every song (not ex: / tex: exercises or sr: sight-reading pieces) with any practice → pieceMastery rows, most recent first. */
 export function repertoire(doc, {targets = {}, now = Date.now()} = {}) {
   const ids = new Set([...Object.keys(doc?.totals?.songs || {}), ...resultsFor(doc).map(e => e.songId)]);
-  return [...ids].filter(id => !id.startsWith('ex:') && !id.startsWith('sr:'))
+  return [...ids].filter(id => !id.startsWith('ex:') && !id.startsWith('sr:') && !id.startsWith('tex:'))
     .map(id => pieceMastery(doc, id, {target: targets[id], now}))
     .filter(m => m.status)
     .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));

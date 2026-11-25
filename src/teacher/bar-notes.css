@@ -1,0 +1,63 @@
+/* The teacher's bar comments in the player (src/teacher/bar-notes.js): a brass hairline over the
+   bars with a small quill tab, and a note card. Tokens only (src/styles/tokens.css). */
+
+.bn-layer { position: absolute; left: 0; top: 0; height: 0; z-index: 4; pointer-events: none; }
+.bn-roll { inset: 0; height: auto; overflow: hidden; }
+.bn-layer[hidden] { display: none; }
+
+/* Score: a hairline just above the system, across the bars, with the tab at its start. */
+.bn-mark { position: absolute; top: 9px; height: 0; border-top: 1.5px solid var(--brass); }
+.bn-mark[hidden] { display: none; }
+
+/* Falling notes: the same hairline turned on end, beside the bar numbers. */
+.bn-roll .bn-mark { top: 0; width: 0; border-top: 0; border-left: 1.5px solid var(--brass); margin-left: 6px; }
+.bn-roll .bn-mark.cut { border-bottom: 0; }
+
+.bn-tab {
+  position: absolute; left: -2px; top: -10px; width: 20px; height: 20px; padding: 0;
+  display: grid; place-items: center; pointer-events: auto; cursor: pointer;
+  border: 1px solid var(--brass); border-radius: 50%;
+  background: var(--paper-raised); color: var(--brass-ink);
+  transition: background var(--dur), color var(--dur), transform var(--dur) var(--ease);
+}
+/* A 44 px touch target around the small tab. */
+.bn-tab::after { content: ""; position: absolute; inset: -12px; }
+.bn-tab svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.bn-tab.unread { background: var(--brass); color: var(--paper-raised); }
+.bn-tab:hover, .bn-tab[aria-expanded="true"] { transform: translateY(-1px); background: var(--brass-soft); color: var(--brass-ink); }
+.bn-tab.unread:hover { background: var(--brass); color: var(--paper-raised); }
+.bn-tab:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.bn-roll .bn-tab { left: 18px; top: auto; bottom: 4px; }
+
+/* The note: a small card, like a pencilled note in the margin. */
+.bn-pop {
+  position: absolute; z-index: 25; width: min(320px, calc(100% - 16px));
+  padding: 10px 16px 8px; border-radius: var(--radius-card);
+  background: var(--paper-raised); color: var(--ink);
+  box-shadow: var(--shadow-paper), 0 0 0 1px var(--rule);
+  border-top: 2px solid var(--brass);
+  animation: bn-in 180ms var(--ease);
+}
+.bn-pop[hidden] { display: none; }
+@keyframes bn-in { from { opacity: 0; transform: translateY(4px); } }
+.bn-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bn-head span { font-size: 12.5px; font-variant: all-small-caps; letter-spacing: .08em; font-weight: 600; color: var(--brass-ink); }
+.bn-close { width: var(--hit); height: 32px; margin-right: -12px; border: 0; background: transparent; color: var(--ink-soft); font-size: 20px; line-height: 1; }
+.bn-close:hover { color: var(--ink); }
+.bn-text { font-family: var(--font-text); font-size: 17px; line-height: 1.4; margin: 2px 0 8px; }
+.bn-text p { margin: 0 0 .4em; }
+.bn-text p:last-child { margin-bottom: 0; }
+.bn-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin: 0 -12px 0 0; }
+.bn-practise {
+  min-height: 38px; padding: 0 14px; border: 0; border-radius: var(--radius-control);
+  background: var(--ink); color: var(--paper-raised); font-size: 14px; font-weight: 500; letter-spacing: .02em;
+  transition: opacity var(--dur);
+}
+.bn-practise:hover { opacity: .88; }
+.bn-actions .quiet-btn { min-height: 38px; font-size: 14px; padding: 0 8px; }
+
+.bn-menu b { font-weight: inherit; font-variant-numeric: lining-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bn-tab, .bn-pop { transition: none; animation: none; }
+}

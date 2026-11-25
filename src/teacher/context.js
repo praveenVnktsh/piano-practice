@@ -5,6 +5,7 @@
 import {loadCatalogs} from '../app/catalog.js';
 import {barStatsFrom, dueReviews, goalProgress, plateaus, repertoire, troubleSpots} from '../progress/mastery.js';
 import {curriculum} from '../curriculum/levels.js';
+import {askAttachment, lastResultFor} from './comments.mjs';
 
 const RESULTS_KEY = 'piano-practice.teacher.results';
 const TRAINER_KEY = 'piano-practice.teacher.trainer';
@@ -189,4 +190,23 @@ export function sharingLine(state = playerState(), last = recentResults()[0]) {
   if (last && typeof last.accuracy === 'number' && (!state?.songId || last.songId === state.songId))
     parts.push(`last attempt ${Math.round(last.accuracy)}%`);
   return parts.join(' · ');
+}
+
+/**
+ * The attachment for "Ask the teacher about bars X–Y" (context.ask; `node teacher/cli.js show`
+ * prints it): the piece, the bars and the last practice pass over them — from this tab's recent
+ * results, else from the progress store.
+ * `d` = the `teacher:ask` event detail {songId, title, section, bars, tempo?, hands?, comments?}.
+ */
+export async function askContext(d) {
+  let results = recentResults();
+  if (!lastResultFor(results, d.songId, d.section)) {
+    try {
+      const store = await progressModules['../progress/store.js']?.();
+      const doc = await store?.getProgress();
+      const passes = (doc?.events || []).filter(e => e.type === 'practice:result' && e.songId === d.songId).sort((a, b) => b.at - a.at);
+      results = [...results, ...passes];
+    } catch {}
+  }
+  return askAttachment({...d, results, comments: d.comments || []});
 }

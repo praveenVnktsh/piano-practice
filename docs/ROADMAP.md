@@ -120,11 +120,11 @@ New capability arrives inside an existing place or behind progressive disclosure
 - [ ] P1 Beginner score aids: larger noteheads, optional letter names, coloured hands, which start on and fade out by level
 - [ ] P1 Curriculum: Beginner level gets lessons, pieces and a reading track sized for the first month
 
-## Phase 14: Teacher, closer to the music ⏳
-- [ ] P0 Bar comments: the teacher can pin a comment to a bar range of a piece ("lift the wrist here"). It shows as a quiet marker in the player, and a tap reads it
-- [ ] P1 The teacher sees the heat strip, the tempo ladder and plan progress in `teacher/cli.js progress`, and suggests the next plan step
-- [ ] P1 "Ask about this bar": from the player, send a message to the teacher with the piece, bars and last attempt attached
-- [ ] P2 The teacher composes a short custom exercise (MusicXML via notes2musicxml) for a weak spot, and it lands in Exercises
+## Phase 14: Teacher, closer to the music ✅
+- [x] P0 Bar comments: the teacher can pin a comment to a bar range of a piece ("lift the wrist here"). It shows as a quiet marker in the player, and a tap reads it
+- [x] P1 The teacher sees the heat strip, the tempo ladder and plan progress in `teacher/cli.js progress`, and suggests the next plan step
+- [x] P1 "Ask about this bar": from the player, send a message to the teacher with the piece, bars and last attempt attached
+- [x] P2 The teacher composes a short custom exercise (MusicXML via notes2musicxml) for a weak spot, and it lands in Exercises
 
 ## Phase 15: Musicality ⏳
 - [ ] P1 Phrase shaping: velocity contour per phrase against a simple model (rise to the peak, taper at the cadence), with a gentle hint

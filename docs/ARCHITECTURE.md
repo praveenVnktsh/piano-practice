@@ -269,3 +269,33 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   `window.pianoErrors.stats`): the same error at most once a minute (with a repeat `count`), ≤ 10 a minute, ≤ 50 a session,
   and off for the session after the first failed post (production builds have no endpoint).
   `node tools/errors.mjs [-n N] [--follow] [--json] [--clear] [--dir PATH]`.
+
+## Phase 14: teacher, closer to the music
+
+- **Bar comments** (`teacher/store.js`): `comments.json` in the teacher dir (`TEACHER_DIR`, default `.teacher/`) =
+  `{lastId, comments: [{id, at, songId, first, last, text (≤ 500), readAt?, dismissedAt?}]}`, `first`/`last` 0-based
+  measure indices; ids are never reused. CLI: `comment <songId> <fromBar> <toBar> "<text>"` (bar numbers from 1 =
+  index + 1), `comments [<songId>] [--all]`, `uncomment <id>`. Endpoints: `GET /__teacher/comments[?songId=]` →
+  `{comments}`, `POST /__teacher/comments/<id>/read|dismiss` → the comment; the thread (GET `/__teacher` and the SSE
+  `thread` event) carries `comments`.
+- **In the player** (`src/teacher/bar-notes.js`, pure helpers in `src/teacher/comments.mjs`): `attachBarNotes({root,
+  highway, song, range, entry, label, setSection})` → `{layout(sheetTrack, measureBoxes), loaded(), destroy()}`; the
+  player calls `layout` after laying out the sheet and `loaded` when a piece is shown. Live comments come from the
+  Teacher panel's window event `teacher:thread` (detail = the thread) after one `GET /__teacher/comments`. A brass
+  hairline + quill tab over the bars (score: a layer in `#um-sheet` following the track's transform; falling notes:
+  a layer in the stage using `highway.yOf(t)`); the tab opens a note with "Practise these bars" (`setSection`),
+  "Ask about these bars" and "Dismiss". ⋯ gets "Ask the teacher about bars X–Y" (`#ask-teacher-btn`, only with a teacher).
+- **Ask about these bars**: window event `teacher:ask` `{songId, title, section, bars, tempo?, hands?, comments?}` → the
+  panel opens with the text "About bars X–Y: " and an attachment; the message's context gains
+  `ask: {songId, title, section, bars, tempo?, hands?, lastResult: <trimmed practice:result over those bars> | null,
+  comments?}` (sent even with sharing off). `teacher/cli.js` `list --open` / `show` print it as `ASKING ABOUT …`.
+- **Progress report** (`teacher/insights.js`): per piece the heat strip (`heatStrip`: G/f/W/· per bar), the tempo ladder
+  (`tempoLadder`: best clean play-along tempo ≥ 95 % per section and hands + `nextTempoStep`), the learn plan
+  (`learnPlan`, read defensively from `totals.learn[songId]` of the progress document, Phase 12) and the teacher's
+  comments; `readProgressDoc` keeps `totals.learn` even where the model drops it.
+- **Teacher exercises** (`teacher/exercises.js` storage, `teacher/compose.js` composing via tools/notes2musicxml.mjs;
+  the plugin must not import the converter): `exercises.json` = `{lastId, exercises: [{id, at, title, about?, songId?,
+  first?, last?}]}` + `exercises/<id>.musicxml`. CLI `exercise "<title>" <file.notes> [--about] [--song --bars 5-8]`,
+  `exercises`, `unexercise <id>`. Endpoints `GET /__teacher/exercises` → `{exercises}`, `GET
+  /__teacher/exercises/<id>.musicxml`. App ids `tex:<id>` resolve through `catalog.resolveEntry` →
+  `src/teacher/exercises.js`; Exercises lists them under "From your teacher"; mastery leaves `tex:` out of repertoire.

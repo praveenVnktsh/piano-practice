@@ -264,6 +264,17 @@ export function mountExercises(container, {open} = {}) {
       el('ol', {class: 'exh-recent-list', role: 'list'}, ...recent.map(r => el('li', {},
         el('button', {type: 'button', class: 'exh-recent-link', onclick: () => open?.(r.id)}, r.title))))));
   }
+  // Exercises the teacher composed for you (dev server only; nothing shows without it).
+  let gone = false;
+  import('../teacher/exercises.js').then(m => m.teacherExercises()).then(list => {
+    if (gone || !list.length) return;
+    const section = el('section', {class: 'exh-recent exh-teacher', 'aria-labelledby': 'exh-teacher-h'},
+      el('h2', {class: 'exh-section-h', id: 'exh-teacher-h', text: 'From your teacher'}),
+      el('ol', {class: 'exh-recent-list', role: 'list'}, ...list.slice(0, 12).map(x => el('li', {},
+        el('button', {type: 'button', class: 'exh-recent-link', 'data-id': x.id, onclick: () => open?.(x.id)}, x.title,
+          x.about ? el('small', {class: 'exh-teacher-about', text: x.about}) : null)))));
+    root.querySelector('.exh-cards').after(section);
+  }).catch(() => {});
   container.append(root);
-  return {destroy() { root.remove(); }};
+  return {destroy() { gone = true; root.remove(); }};
 }
