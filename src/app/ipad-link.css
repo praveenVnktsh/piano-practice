@@ -1,4 +1,4 @@
-/* "Open on your iPad" card (src/app/ipad-link.js). Quiet, at the foot of Today and in Settings. */
+/* "Piano & iPad" card (src/app/ipad-link.js). Quiet, at the foot of Today and in Settings. */
 .ipl {
   display: flex;
   gap: 16px;
@@ -26,4 +26,34 @@
 .ipl code { font-size: 12px; background: var(--paper); padding: 1px 4px; border-radius: 4px; }
 .ipl-compact { margin: 0; padding: 10px 12px; border-radius: 6px; }
 .ipl-compact .ipl-url { font-size: 18px; }
-@media (max-width: 520px) { .ipl { flex-direction: column; align-items: flex-start; } }
+.ipl-link { display: flex; gap: 16px; align-items: center; min-width: 0; }
+
+/* With the piano relay (the Mac app relays the keyboard itself): piano on the left, iPad address on the right. */
+.ipl-duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 20px; align-items: start; }
+.ipl-piano { display: grid; gap: 8px; min-width: 0; align-content: start; }
+.ipl-duo .ipl-link { padding-left: 20px; border-left: 1px solid var(--rule); }
+.ipl-status { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink); }
+.ipl-dot, .ipl-qdot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint, var(--rule)); flex: none; transform: translateY(-1px); transition: background var(--dur) var(--ease); }
+.ipl-status[data-tone="on"] .ipl-dot { background: var(--sage); }
+.ipl-status[data-tone="warn"] .ipl-dot { background: var(--oxblood); }
+.ipl-status[data-tone="busy"] .ipl-dot { background: var(--brass); }
+.ipl-actions { display: flex; }
+.ipl-actions .quiet-btn { padding: 0; min-height: 32px; font-size: 13px; }
+.ipl-connect[hidden] { display: none; }
+.ipl-pages { list-style: none; margin: 4px 0 0; padding: 0; display: grid; }
+.ipl-pages li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 0; border-top: 1px solid var(--rule); }
+.ipl-pages li.ipl-empty { border-top: 0; padding: 0; color: var(--ink-soft); font: italic 400 15px/1.4 var(--font-text); }
+.ipl-pg-name { min-width: 0; overflow-wrap: anywhere; color: var(--ink-soft); }
+.ipl-pg-ms { display: inline-flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.ipl-pg-ms[data-q="good"] .ipl-qdot { background: var(--sage); }
+.ipl-pg-ms[data-q="fair"] .ipl-qdot { background: var(--brass); }
+.ipl-pg-ms[data-q="poor"] .ipl-qdot { background: var(--oxblood); }
+.ipl-pages-line { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.ipl-compact.ipl-duo { grid-template-columns: 1fr; gap: 10px; }
+.ipl-compact.ipl-duo .ipl-link { padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--rule); }
+
+@media (max-width: 620px) {
+  .ipl-duo { grid-template-columns: 1fr; }
+  .ipl-duo .ipl-link { padding: 14px 0 0; border-left: 0; border-top: 1px solid var(--rule); }
+}
+@media (max-width: 520px) { .ipl, .ipl-link { flex-direction: column; align-items: flex-start; } }

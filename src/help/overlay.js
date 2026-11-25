@@ -76,7 +76,7 @@ const SECTIONS = [
     p('The piano’s USB cable goes to the Mac; the iPad shows the app. iPad Safari has no Web MIDI, so the Mac relays your keyboard over Wi-Fi.'),
     el('ol', {class: 'hp-steps'},
       el('li', {}, 'On the Mac, in the project folder: ', el('code', {text: 'npm run dev:ipad'}), '.'),
-      el('li', {}, 'On the Mac, in Chrome: open ', el('code', {text: 'localhost:5173/bridge.html'}), ', press ', b('Connect piano'), ' and allow MIDI. Keep that tab open; it shows the address for the iPad.'),
+      el('li', {}, 'On the Mac, in Chrome: open ', el('code', {text: 'localhost:5173'}), '. At the foot of Today, ', b('Piano & iPad'), ': press ', b('Connect piano'), ' and allow MIDI. Keep the app open; it shows the address for the iPad.'),
       el('li', {}, 'On the iPad, in Safari: open that address, for example ', el('code', {text: 'http://192.168.1.20:5173/'}), '.'),
       el('li', {}, 'To keep it on the home screen: Share → Add to Home Screen. It opens full screen, like an app.')),
     p('The bridge reconnects by itself when the Wi-Fi drops or the Mac restarts the server; the player’s ⋯ menu shows the relay’s state and its delay. The screen stays awake while you practise.'),

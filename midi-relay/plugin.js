@@ -7,7 +7,9 @@
 // Everything travels over Vite's dev WebSocket (src/midi-relay.js is the browser side):
 //   midi-relay:message  bridge → server → every page    {bytes: [status, data1, data2], source}
 //   midi-relay:status   bridge → server → every page    heartbeat every few seconds:
-//                       {bridge, devices: [names], latency: {<pageId>: ms}, heartbeatMs, at}
+//                       {bridge, devices: [names], latency: {<pageId>: ms}, source, heartbeatMs, at}
+//                       `source` is the sending bridge's id: a second bridge (bridge.html next to the
+//                       app's own relay on Today) sees who is relaying and stands by (src/relay/).
 //                       The server also sends {bridge: false, reason: 'bridge-closed'} when the
 //                       bridge's socket closes, and answers a page's `hello` with the last status.
 //   midi-relay:hello    page → server                   "tell me the current status" (on (re)connect)
@@ -32,10 +34,12 @@ export function sanitizeStatus(data, now = Date.now()) {
   if (data?.latency && typeof data.latency === 'object') {
     for (const [k, v] of Object.entries(data.latency).slice(0, 16)) if (ID.test(k) && Number.isFinite(v) && v >= 0 && v < 60000) latency[k] = Math.round(v * 10) / 10;
   }
+  const source = ID.test(String(data?.source ?? '')) ? String(data.source) : undefined;
   return {
     bridge: !!data?.bridge,
     devices: Array.isArray(data?.devices) ? data.devices.map(d => str(d, 80)).slice(0, 16) : [],
     latency,
+    ...(source ? {source} : {}),
     heartbeatMs: HEARTBEAT_MS,
     at: now,
   };

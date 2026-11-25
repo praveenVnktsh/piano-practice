@@ -874,3 +874,9 @@ button.menu-row:hover > span:first-child { color: var(--brass); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
 }
+
+/* iPad / iPhone without Web MIDI or a Mac relay (src/relay/piano-hint.js): one quiet line. */
+.piano-hint { margin: 6px 0 4px; padding: 0 2px; max-width: 34em; color: var(--ink-soft); font: italic 400 14px/1.45 var(--font-text); }
+.piano-hint[hidden] { display: none; }
+.piano-hint .link-btn { font-style: normal; font-family: var(--font-ui); font-size: 12px; padding: 2px 0; }
+.midi-chip .piano-hint { padding: 0 12px; font-size: 13px; }

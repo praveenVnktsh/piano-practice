@@ -16,6 +16,7 @@ import {isExerciseId} from '../exercises/index.js';
 import {installHelp} from '../help/index.js';
 import {aidsFor, isBeginnerPiece, studentIsBeginner} from '../curriculum/aids.js';
 import {startOnboarding} from '../onboarding/index.js';
+import {startAppRelay} from '../relay/app-relay.js';
 
 const {loadCatalogs, songSource} = catalog;
 
@@ -34,6 +35,9 @@ const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch {} };
 
 export async function startApp() {
   initTheme();
+  // On the Mac: relay the piano to the iPad app-wide (Today's "Piano & iPad" card shows it), so
+  // it keeps going in the player and the exercises. Before the player: Settings shows it too.
+  startAppRelay();
   const $ = id => document.getElementById(id);
   const shell = document.querySelector('.shell');
   const root = $('player');

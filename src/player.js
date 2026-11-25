@@ -6,6 +6,9 @@ import {keyForControl} from './app/dom.js';
 import {mountSoundSettings} from './audio/sound-ui.js'; // [sound] instrument, room, metronome sound, microphone
 import {mountDiagnostics} from './diagnostics/sheet.js';
 import {onRelayMidi, onRelayStatus, relayAvailable} from './midi-relay.js';
+import {preferLocal} from './relay/bridge-state.js';
+import {MIDI_GRANTED_EVENT} from './relay/bridge-core.js';
+import {mountPianoHint} from './relay/piano-hint.js';
 import {setTheme as setAppTheme, getTheme, THEME_EVENT} from './app/theme.js';
 import {attachRecording} from './record/player-ui.js';
 import {attachBarNotes} from './teacher/bar-notes.js'; // the teacher's bar comments (Phase 14)
@@ -1712,6 +1715,9 @@ export function createPlayer(root) {
   let relay = {bridge: false, devices: [], state: '', label: ''}, relayLatency = null;
   const midiHeld = new Map();
   const localInputs = () => midiAccess ? [...midiAccess.inputs.values()].filter(p => p.state === 'connected') : [];
+  // The same keyboard heard twice (Web MIDI here + bridge.html relaying it from another tab):
+  // the local input wins and the relay is ignored, so no note is ever doubled.
+  const relayIgnored = () => preferLocal({localNames: localInputs().map(p => p.name || 'MIDI input'), relayDevices: relay.devices});
   function renderMidi() {
     const notes = [...new Set([...midiHeld.values()].flatMap(s => [...s]))];
     root.querySelectorAll('.pkey').forEach(b => b.classList.toggle('midi-down', notes.includes(+b.dataset.note)));
@@ -1728,7 +1734,7 @@ export function createPlayer(root) {
     const inputs = localInputs();
     const relayName = relay.devices.length > 1 ? `${relay.devices.length} inputs` : relay.devices[0] || 'piano';
     const fine = Number.isFinite(relayLatency) ? ` · ${Math.round(relayLatency)} ms` : '';
-    if (inputs.length) setMidiChip((inputs.length === 1 ? (inputs[0].name || 'Piano') : `${inputs.length} inputs`) + (relay.bridge ? ' + Mac' : ''), 'on');
+    if (inputs.length) setMidiChip((inputs.length === 1 ? (inputs[0].name || 'Piano') : `${inputs.length} inputs`) + (relay.bridge && !relayIgnored() ? ' + Mac' : ''), 'on');
     else if (relay.bridge && (!relay.state || relay.state === 'connected')) setMidiChip('Mac · ' + relayName + fine, 'on');
     // The Mac relay's own trouble states (src/midi-relay.js) with its ready-made label.
     else if (['reconnecting', 'stale', 'no-piano', 'waiting'].includes(relay.state) && relay.label) setMidiChip(relay.label, relay.state === 'reconnecting' ? 'busy' : 'warn');
@@ -1759,7 +1765,7 @@ export function createPlayer(root) {
     renderMidi();
   }
   const clearHeld = (prefix = '') => { for (const k of [...midiHeld.keys()]) if (k.startsWith(prefix)) midiHeld.delete(k); };
-  onRelayMidi(bytes => midiMessage('relay', bytes));
+  onRelayMidi(bytes => { if (!relayIgnored()) midiMessage('relay', bytes); });
   onRelayStatus(status => {
     relay = {bridge: !!status?.bridge, devices: Array.isArray(status?.devices) ? status.devices : [], state: status?.state || '', label: status?.label || ''};
     clearHeld('relay:'); refreshChip(); renderMidi();
@@ -1779,7 +1785,7 @@ export function createPlayer(root) {
     select.innerHTML = '<option value="all">All inputs</option>';
     inputs.forEach(p => select.append(new Option(p.name || 'MIDI input', p.id)));
     select.value = inputs.some(p => p.id === selected) ? selected : 'all';
-    clearHeld('local:'); renderMidi(); refreshChip();
+    clearHeld('local:'); if (relayIgnored()) clearHeld('relay:'); renderMidi(); refreshChip();
     inputs.forEach(input => {
       input.onmidimessage = event => {
         if (select.value !== 'all' && select.value !== input.id) return;
@@ -1803,6 +1809,10 @@ export function createPlayer(root) {
     } catch { setMidiChip('MIDI blocked', 'warn'); }
   };
   q('#um-midi').onclick = connectMidi;
+  // Today's "Piano & iPad" card asked for MIDI (same permission): the player listens too.
+  window.addEventListener(MIDI_GRANTED_EVENT, () => { if (!midiAccess) connectMidi(); });
+  // iPad / iPhone without Web MIDI and no Mac relay: one quiet line under the piano status.
+  mountPianoHint(q('#midi-chip'));
   // Allowed once, the piano reconnects by itself on the next visit (no prompt is shown when the
   // permission is already granted), so Today → note reading works without opening a piece first.
   navigator.permissions?.query({name: 'midi'}).then(p => { if (p.state === 'granted' && !midiAccess) connectMidi(); }, () => {});
