@@ -1,0 +1,19 @@
+/* Settings → Diagnostics: label / value rows grouped like the Settings sheet. */
+.diag-card { width: min(620px, 100%); }
+.diag-group { padding: 10px 0 6px; border-top: 1px solid var(--rule); margin-top: 10px; }
+.diag-rows { margin: 0; }
+.diag-rows > div { display: grid; grid-template-columns: minmax(9em, 38%) 1fr; gap: 12px; padding: 4px 0; font-size: 14px; line-height: 1.4; }
+.diag-rows > div + div { border-top: 1px solid var(--rule); }
+.diag-rows dt { color: var(--ink-soft); }
+.diag-rows dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.diag-text {
+  display: block; width: 100%; height: 160px; margin: 12px 0 0; padding: 8px 10px; resize: vertical;
+  border: 1px solid var(--rule); border-radius: var(--radius-control); background: var(--paper-sunk); color: var(--ink);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.diag-text[hidden] { display: none; }
+.diag-actions { justify-content: flex-start; margin-top: 14px; }
+.diag-status { font-family: var(--font-text); font-style: italic; font-size: 15px; color: var(--ink-soft); }
+@media (max-width: 560px) {
+  .diag-rows > div { grid-template-columns: 1fr; gap: 0; }
+}

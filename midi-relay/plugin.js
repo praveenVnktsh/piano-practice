@@ -13,12 +13,15 @@
 //   midi-relay:hello    page → server                   "tell me the current status" (on (re)connect)
 //   midi-relay:ping     bridge → server → every page    {id, t}         round-trip latency probe
 //   midi-relay:pong     page → server → the bridge      {id, t, page, label}
+//   midi-relay:echo     page → server → the same page   {id, t}         page ↔ dev-server round trip
+//                       (Settings → Diagnostics measures it; works with or without a bridge)
 
 export const EVENT_MIDI = 'midi-relay:message';
 export const EVENT_STATUS = 'midi-relay:status';
 export const EVENT_HELLO = 'midi-relay:hello';
 export const EVENT_PING = 'midi-relay:ping';
 export const EVENT_PONG = 'midi-relay:pong';
+export const EVENT_ECHO = 'midi-relay:echo';
 export const HEARTBEAT_MS = 3000;
 
 const str = (v, max) => String(v ?? '').slice(0, max);
@@ -88,6 +91,10 @@ export function midiRelay() {
       server.ws.on(EVENT_PING, data => {
         if (!ID.test(String(data?.id ?? '')) || !Number.isFinite(data?.t)) return;
         server.ws.send(EVENT_PING, {id: data.id, t: data.t});
+      });
+      server.ws.on(EVENT_ECHO, (data, client) => {
+        if (!ID.test(String(data?.id ?? '')) || !Number.isFinite(data?.t)) return;
+        client?.send(EVENT_ECHO, {id: data.id, t: data.t});
       });
       server.ws.on(EVENT_PONG, data => {
         if (!bridgeSocket || !ID.test(String(data?.id ?? '')) || !ID.test(String(data?.page ?? '')) || !Number.isFinite(data?.t)) return;

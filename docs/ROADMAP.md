@@ -99,3 +99,9 @@ Status is updated in place: ⏳ planned · 🔨 in progress · ✅ done.
 - [x] P1 Performance pass (long scores, many events, iPad memory)
 - [x] P1 Data backup/export (progress, journal, imports) and restore
 - [x] P1 User guide (README + in-app "?" overlay with shortcuts) and an onboarding tour on first launch
+
+## Phase 16: Real hardware confidence 🔨
+- [x] P0 Diagnostics sheet (Settings → This device → Diagnostics): Web MIDI and inputs, Mac relay state + measured round trip, AudioContext state / sample rate / latencies, grand layers loaded, decoded sample memory, storage estimate, version + commit, user agent; "Copy report" (clipboard, or a text box to copy by hand)
+- [x] P1 iPad memory budget: decoded sample memory measured and shown; "Lighter piano" (Auto · On · Off) keeps 3 of the 5 grand layers, loaded nearest-to-mezzo-forte first, the rest in the background; Auto turns it on for navigator.deviceMemory ≤ 4 or iPad / iPhone; desktop unchanged
+- [x] P1 Client error log: window error / unhandledrejection → `/__errors` (dev server) → `.data/errors.log`, deduped and rate-limited; `node tools/errors.mjs` lists / follows them
+- [ ] P2 Sustained-use e2e (long play under virtual time)
