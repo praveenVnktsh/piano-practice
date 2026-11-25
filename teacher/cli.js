@@ -32,6 +32,7 @@ import {ACTION_TYPES} from './actions.js';
 import {RECORDINGS_DIR, listExams, listTakes, readTake} from '../recordings/store.js';
 import {takeMeta} from '../src/record/take.mjs';
 import {examText, reportText, takeLine} from '../src/record/text.mjs';
+import {musicalityLines} from '../src/analysis/musicality.mjs';
 import {progressReport, readCatalog, readProgressDoc} from './report.js';
 import {
   addAssignment,
@@ -119,6 +120,7 @@ export function formatContext(context, {full = false} = {}) {
       `  result: ${r.title || r.songId} · bars ${(r.section || []).map(n => n + 1).join('–')} · ${r.hands} · ${r.mode} · ${r.tempo} BPM · ` +
         `${pct(r.accuracy)} (${r.right} right, ${r.wrong} wrong)${timing} · ${when}`,
     );
+    for (const line of musicalityLines(r.musicality)) out.push(`      ${line}`);
     const misses = r.misses || [];
     for (const m of misses.slice(0, full ? 50 : 8)) {
       out.push(
@@ -187,6 +189,7 @@ export function formatContext(context, {full = false} = {}) {
         `${rec.meanBpm ? ` · ♩ ≈ ${rec.meanBpm} (recorded at ${rec.tempo ?? '?'})` : ''}${rec.timingSdMs != null ? ` · timing ±${rec.timingSdMs} ms` : ''}` +
         `${rec.evenness != null ? ` · evenness ${rec.evenness}` : ''} — run: node teacher/cli.js review ${rec.takeId}`,
     );
+    for (const line of musicalityLines(rec.musicality)) out.push(`      ${line}`);
     if (rec.weakBars?.length) out.push(`      weak bars: ${rec.weakBars.map(b => `${b.label} ${b.accuracy}%`).join(', ')}`);
     for (const r of rec.remarks || []) out.push(`      remark: ${r}`);
   }

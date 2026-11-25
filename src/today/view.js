@@ -18,6 +18,7 @@ import {dueReviews, pieceMastery, STATUS_LABEL} from '../progress/mastery.js';
 import {curriculum} from '../curriculum/levels.js';
 import {lessonById, LESSONS} from '../lessons/lessons.js';
 import {describeAction} from '../../teacher/actions.js';
+import {mountIpadLink} from '../app/ipad-link.js';
 
 // "Learn this piece" plans (src/learn/guide.js): Today offers the current step, and asks the
 // player to set it up when the piece opens.
@@ -412,10 +413,13 @@ export function mountToday(container, {library, open} = {}) {
   document.addEventListener('visibilitychange', onFocus);
   refresh();
   loadTeacher();
+  // On the Mac: the address to open on the iPad (nothing on the iPad itself or a static site).
+  const ipad = mountIpadLink(container);
 
   return {
     destroy() {
       destroyed = true;
+      ipad.destroy();
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);

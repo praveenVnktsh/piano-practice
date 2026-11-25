@@ -15,13 +15,23 @@ import {resolve} from 'node:path';
 
 // Private songs (public/songs/local/) are for the dev server only: drop them
 // from production builds unless INCLUDE_LOCAL_SONGS=1.
-const excludeLocalSongs = () => ({
-  name: 'exclude-local-songs',
-  apply: 'build',
-  closeBundle() {
-    if (!process.env.INCLUDE_LOCAL_SONGS) rmSync(resolve('dist/songs/local'), {recursive: true, force: true});
-  },
-});
+// Runs right after public/ is copied (before the service worker's precache list is made), for
+// whatever outDir the build uses.
+const excludeLocalSongs = () => {
+  let outDir = resolve('dist');
+  return {
+    name: 'exclude-local-songs',
+    apply: 'build',
+    configResolved(config) { outDir = resolve(config.root, config.build.outDir); },
+    writeBundle: {
+      sequential: true,
+      order: 'pre',
+      handler() {
+        if (!process.env.INCLUDE_LOCAL_SONGS) rmSync(resolve(outDir, 'songs/local'), {recursive: true, force: true});
+      },
+    },
+  };
+};
 
 // Settings → Diagnostics shows the app version and the commit it was built from.
 const APP_VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
@@ -29,6 +39,8 @@ let APP_COMMIT = process.env.APP_COMMIT || '';
 if (!APP_COMMIT) try { APP_COMMIT = execSync('git rev-parse --short HEAD', {stdio: ['ignore', 'pipe', 'ignore']}).toString().trim(); } catch {}
 
 export default defineConfig({
+  // BASE=./ builds a copy that works from any sub-path (the public GitHub Pages site).
+  base: process.env.BASE || '/',
   define: {__APP_VERSION__: JSON.stringify(APP_VERSION), __APP_COMMIT__: JSON.stringify(APP_COMMIT)},
   // ANNOTATE=1 npm run dev adds the in-page notes overlay (dev server only).
   // midiRelay forwards a Mac's MIDI keyboard to an iPad (npm run dev:ipad).

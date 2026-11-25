@@ -17,6 +17,8 @@ import {
 import {isFavourite, setFavourite} from './collections/model.js';
 import {collections, loadCollections, updateCollections, setlistPosition, CHANGE_EVENT as COLLECTIONS_EVENT} from './collections/store.js';
 import {performanceScore} from './analysis/performance.mjs';
+import {playerMusicality, compactMusicality} from './analysis/musicality.mjs';
+import {renderMusicality} from './analysis/musicality-view.js';
 import {attachLearn} from './learn/guide.js';
 import {startingKeys} from './learn/position.mjs';
 
@@ -806,6 +808,9 @@ export function createPlayer(root) {
     if (touch.evenness) { const {points, ...rest} = touch.evenness; detail.evenness = rest; }
     if (touch.dynamics) detail.dynamics = touch.dynamics;
     if (touch.articulation) detail.articulation = touch.articulation;
+    // Musicality (phase 15): phrase shape and voicing (real keyboard, pieces), tempo flex (performance runs).
+    r.musicality = playerMusicality({played, song, phrases, section: [range.first, range.last], songId: current?.id, perf: !!r.performance});
+    if (r.musicality) detail.musicality = compactMusicality(r.musicality);
     if (strategy !== 'off') detail.strategy = strategy;
     if (chain) detail.chain = {dir: chain.dir, section: [...chain.goal]};
     if (r.performance) detail.performance = {score: r.performance.score, accuracy: r.performance.accuracy, timing: r.performance.timing, evenness: r.performance.evenness};
@@ -1092,6 +1097,7 @@ export function createPlayer(root) {
       timing.hidden = true;
     }
     showTouch(r.touch);
+    renderMusicality(q('#um-music'), r.musicality);
     const last = range.last >= song.measures.length - 1;
     // No dead buttons: at the end of the piece there is no next section to offer.
     q('#um-complete-next').hidden = last || !!perfR;
