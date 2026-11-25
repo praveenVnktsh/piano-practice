@@ -1,0 +1,154 @@
+# Prelude in C major, BWV 846, from The Well-Tempered Clavier, Book I —
+# J. S. Bach (public domain). Transcribed by the Piano Practice contributors and
+# checked bar by bar against the Mutopia edition (Tobias Erbsland et al., public
+# domain). Released CC0.
+# Every bar from 1 to 32 has the same figure: LH holds a half-note bass while a
+# second voice enters on the second 16th and is held for 7/16; the RH plays
+# r/8 then three notes twice per half bar.
+title: Prelude in C (BWV 846)
+composer: Johann Sebastian Bach
+time: 4/4
+key: 0
+tempo: 60
+license: CC0-1.0
+---
+# bar 1
+RH:  r/8 g4/16 c5 e5 g4 c5 e5 r/8 g4/16 c5 e5 g4 c5 e5 |
+LH:  c4/2 c4 |
+LH2: r/16 e4/8.~ e4/4 r/16 e4/8.~ e4/4 |
+# bar 2
+RH:  r/8 a4/16 d5 f5 a4 d5 f5 r/8 a4/16 d5 f5 a4 d5 f5 |
+LH:  c4/2 c4 |
+LH2: r/16 d4/8.~ d4/4 r/16 d4/8.~ d4/4 |
+# bar 3
+RH:  r/8 g4/16 d5 f5 g4 d5 f5 r/8 g4/16 d5 f5 g4 d5 f5 |
+LH:  b3/2 b3 |
+LH2: r/16 d4/8.~ d4/4 r/16 d4/8.~ d4/4 |
+# bar 4
+RH:  r/8 g4/16 c5 e5 g4 c5 e5 r/8 g4/16 c5 e5 g4 c5 e5 |
+LH:  c4/2 c4 |
+LH2: r/16 e4/8.~ e4/4 r/16 e4/8.~ e4/4 |
+# bar 5
+RH:  r/8 a4/16 e5 a5 a4 e5 a5 r/8 a4/16 e5 a5 a4 e5 a5 |
+LH:  c4/2 c4 |
+LH2: r/16 e4/8.~ e4/4 r/16 e4/8.~ e4/4 |
+# bar 6
+RH:  r/8 f#4/16 a4 d5 f#4 a4 d5 r/8 f#4/16 a4 d5 f#4 a4 d5 |
+LH:  c4/2 c4 |
+LH2: r/16 d4/8.~ d4/4 r/16 d4/8.~ d4/4 |
+# bar 7
+RH:  r/8 g4/16 d5 g5 g4 d5 g5 r/8 g4/16 d5 g5 g4 d5 g5 |
+LH:  b3/2 b3 |
+LH2: r/16 d4/8.~ d4/4 r/16 d4/8.~ d4/4 |
+# bar 8
+RH:  r/8 e4/16 g4 c5 e4 g4 c5 r/8 e4/16 g4 c5 e4 g4 c5 |
+LH:  b3/2 b3 |
+LH2: r/16 c4/8.~ c4/4 r/16 c4/8.~ c4/4 |
+# bar 9
+RH:  r/8 e4/16 g4 c5 e4 g4 c5 r/8 e4/16 g4 c5 e4 g4 c5 |
+LH:  a3/2 a3 |
+LH2: r/16 c4/8.~ c4/4 r/16 c4/8.~ c4/4 |
+# bar 10
+RH:  r/8 d4/16 f#4 c5 d4 f#4 c5 r/8 d4/16 f#4 c5 d4 f#4 c5 |
+LH:  d3/2 d3 |
+LH2: r/16 a3/8.~ a3/4 r/16 a3/8.~ a3/4 |
+# bar 11
+RH:  r/8 d4/16 g4 b4 d4 g4 b4 r/8 d4/16 g4 b4 d4 g4 b4 |
+LH:  g3/2 g3 |
+LH2: r/16 b3/8.~ b3/4 r/16 b3/8.~ b3/4 |
+# bar 12
+RH:  r/8 e4/16 g4 c#5 e4 g4 c#5 r/8 e4/16 g4 c#5 e4 g4 c#5 |
+LH:  g3/2 g3 |
+LH2: r/16 bb3/8.~ bb3/4 r/16 bb3/8.~ bb3/4 |
+# bar 13
+RH:  r/8 d4/16 a4 d5 d4 a4 d5 r/8 d4/16 a4 d5 d4 a4 d5 |
+LH:  f3/2 f3 |
+LH2: r/16 a3/8.~ a3/4 r/16 a3/8.~ a3/4 |
+# bar 14
+RH:  r/8 d4/16 f4 b4 d4 f4 b4 r/8 d4/16 f4 b4 d4 f4 b4 |
+LH:  f3/2 f3 |
+LH2: r/16 ab3/8.~ ab3/4 r/16 ab3/8.~ ab3/4 |
+# bar 15
+RH:  r/8 c4/16 g4 c5 c4 g4 c5 r/8 c4/16 g4 c5 c4 g4 c5 |
+LH:  e3/2 e3 |
+LH2: r/16 g3/8.~ g3/4 r/16 g3/8.~ g3/4 |
+# bar 16
+RH:  r/8 a3/16 c4 f4 a3 c4 f4 r/8 a3/16 c4 f4 a3 c4 f4 |
+LH:  e3/2 e3 |
+LH2: r/16 f3/8.~ f3/4 r/16 f3/8.~ f3/4 |
+# bar 17
+RH:  r/8 a3/16 c4 f4 a3 c4 f4 r/8 a3/16 c4 f4 a3 c4 f4 |
+LH:  d3/2 d3 |
+LH2: r/16 f3/8.~ f3/4 r/16 f3/8.~ f3/4 |
+# bar 18
+RH:  r/8 g3/16 b3 f4 g3 b3 f4 r/8 g3/16 b3 f4 g3 b3 f4 |
+LH:  g2/2 g2 |
+LH2: r/16 d3/8.~ d3/4 r/16 d3/8.~ d3/4 |
+# bar 19
+RH:  r/8 g3/16 c4 e4 g3 c4 e4 r/8 g3/16 c4 e4 g3 c4 e4 |
+LH:  c3/2 c3 |
+LH2: r/16 e3/8.~ e3/4 r/16 e3/8.~ e3/4 |
+# bar 20
+RH:  r/8 bb3/16 c4 e4 bb3 c4 e4 r/8 bb3/16 c4 e4 bb3 c4 e4 |
+LH:  c3/2 c3 |
+LH2: r/16 g3/8.~ g3/4 r/16 g3/8.~ g3/4 |
+# bar 21
+RH:  r/8 a3/16 c4 e4 a3 c4 e4 r/8 a3/16 c4 e4 a3 c4 e4 |
+LH:  f2/2 f2 |
+LH2: r/16 f3/8.~ f3/4 r/16 f3/8.~ f3/4 |
+# bar 22
+RH:  r/8 a3/16 c4 eb4 a3 c4 eb4 r/8 a3/16 c4 eb4 a3 c4 eb4 |
+LH:  f#2/2 f#2 |
+LH2: r/16 c3/8.~ c3/4 r/16 c3/8.~ c3/4 |
+# bar 23
+RH:  r/8 b3/16 c4 d4 b3 c4 d4 r/8 b3/16 c4 d4 b3 c4 d4 |
+LH:  ab2/2 ab2 |
+LH2: r/16 f3/8.~ f3/4 r/16 f3/8.~ f3/4 |
+# bar 24
+RH:  r/8 g3/16 b3 d4 g3 b3 d4 r/8 g3/16 b3 d4 g3 b3 d4 |
+LH:  g2/2 g2 |
+LH2: r/16 f3/8.~ f3/4 r/16 f3/8.~ f3/4 |
+# bar 25
+RH:  r/8 g3/16 c4 e4 g3 c4 e4 r/8 g3/16 c4 e4 g3 c4 e4 |
+LH:  g2/2 g2 |
+LH2: r/16 e3/8.~ e3/4 r/16 e3/8.~ e3/4 |
+# bar 26
+RH:  r/8 g3/16 c4 f4 g3 c4 f4 r/8 g3/16 c4 f4 g3 c4 f4 |
+LH:  g2/2 g2 |
+LH2: r/16 d3/8.~ d3/4 r/16 d3/8.~ d3/4 |
+# bar 27
+RH:  r/8 g3/16 b3 f4 g3 b3 f4 r/8 g3/16 b3 f4 g3 b3 f4 |
+LH:  g2/2 g2 |
+LH2: r/16 d3/8.~ d3/4 r/16 d3/8.~ d3/4 |
+# bar 28
+RH:  r/8 a3/16 c4 f#4 a3 c4 f#4 r/8 a3/16 c4 f#4 a3 c4 f#4 |
+LH:  g2/2 g2 |
+LH2: r/16 eb3/8.~ eb3/4 r/16 eb3/8.~ eb3/4 |
+# bar 29
+RH:  r/8 g3/16 c4 g4 g3 c4 g4 r/8 g3/16 c4 g4 g3 c4 g4 |
+LH:  g2/2 g2 |
+LH2: r/16 e3/8.~ e3/4 r/16 e3/8.~ e3/4 |
+# bar 30
+RH:  r/8 g3/16 c4 f4 g3 c4 f4 r/8 g3/16 c4 f4 g3 c4 f4 |
+LH:  g2/2 g2 |
+LH2: r/16 d3/8.~ d3/4 r/16 d3/8.~ d3/4 |
+# bar 31
+RH:  r/8 g3/16 b3 f4 g3 b3 f4 r/8 g3/16 b3 f4 g3 b3 f4 |
+LH:  g2/2 g2 |
+LH2: r/16 d3/8.~ d3/4 r/16 d3/8.~ d3/4 |
+# bar 32
+RH:  r/8 g3/16 bb3 e4 g3 bb3 e4 r/8 g3/16 bb3 e4 g3 bb3 e4 |
+LH:  c2/2 c2 |
+LH2: r/16 c3/8.~ c3/4 r/16 c3/8.~ c3/4 |
+# bar 33 (the RH dips low: written in the bass clef, as in most editions)
+RH:  clef=bass r/8 f3/16 a3 c4 f4 c4 a3 c4 a3 f3 a3 f3 d3 f3 d3 |
+LH:  c2/1 |
+LH2: r/16 c3/8.~ c3/4~ c3/2 |
+# bar 34
+RH:  clef=treble r/8 g4/16 b4 d5 f5 d5 b4 d5 b4 g4 b4 d4 f4 e4 d4 |
+LH:  c2/1 |
+LH2: r/16 b2/8.~ b2/4~ b2/2 |
+# bar 35
+RH:  [e4 g4 c5]/1 |
+LH:  c2/1 |
+LH2: c3/1 |

@@ -1,0 +1,29 @@
+# Minuet in G major, BWV Anh. 114, from the 1725 Notebook for Anna Magdalena Bach,
+# attributed to Christian Petzold (public domain). Repeats are not written out;
+# ornaments (mordents, the grace note in bar 8) are omitted.
+# Transcribed by the Piano Practice contributors and checked note by note against
+# the Bach-Gesellschaft-based Mutopia edition (Allen Garvin, public domain).
+# Released CC0.
+title: Minuet in G
+composer: Christian Petzold (attr.), BWV Anh. 114
+time: 3/4
+key: 1
+tempo: 108
+license: CC0-1.0
+---
+# bars 1–8
+RH:  d5/4 g4/8 a4 b4 c5 | d5/4 g4 g4 | e5/4 c5/8 d5 e5 f#5 | g5/4 g4 g4 | c5/4 d5/8 c5 b4 a4 | b4/4 c5/8 b4 a4 g4 | f#4/4 g4/8 a4 b4 g4 | a4/2. |
+LH:  [g3 b3 d4]/2 a3/4  | b3/2.      | c4/2.               | b3/2.      | a3/2.              | g3/2.              | d4/4 b3 g3           | d4/4 d3/8 c4 b3 a3 |
+LH2:                    |            |                     |            |                    |                    |                      |       |
+# bars 9–16
+RH:  d5/4 g4/8 a4 b4 c5 | d5/4 g4 g4 | e5/4 c5/8 d5 e5 f#5 | g5/4 g4 g4 | c5/4 d5/8 c5 b4 a4 | b4/4 c5/8 b4 a4 g4 | a4/4 b4/8 a4 g4 f#4 | g4/2. |
+LH:  b3/2 a3/4          | g3/4 b3 g3 | c4/2.               | b3/4 c4/8 b3 a3 g3 | a3/2 f#3/4  | g3/2 b3/4          | c4/4 d4 d3          | g3/2 g2/4 |
+LH2:                    |            |                     |            |                    |                    |                     |       |
+# bars 17–24
+RH:  b5/4 g5/8 a5 b5 g5 | a5/4 d5/8 e5 f#5 d5 | g5/4 e5/8 f#5 g5 d5 | c#5/4 b4/8 c#5 a4/4 | a4/8 b4 c#5 d5 e5 f#5 | g5/4 f#5 e5 | f#5/4 a4 c#5 | d5/2. |
+LH:  g3/2.              | f#3/2.              | e3/4 g3 e3          | a3/2 a2/4           | a3/2.                 | b3/4 d4 c#4 | d4/4 f#3 a3  | d4/4 d3 c4 |
+LH2:                    |                     |                     |                     |                       |             |              |       |
+# bars 25–32
+RH:  d5/4 g4/8 f#4 g4/4 | e5/4 g4/8 f#4 g4/4 | d5/4 c5 b4 | a4/8 g4 f#4 g4 a4/4 | d4/8 e4 f#4 g4 a4 b4 | c5/4 b4 a4 | b4/8 d5 g4/4 f#4 | [b3 d4 g4]/2. |
+LH:  b3/2 b3/4          | c4/2 c4/4          | b3/4 a3 g3 | d4/2 r/4            | d3/2.                | e3/4 g3 f#3 | g3/4 b2 d3      | g3/4 d3 g2 |
+LH2: r/4 d4/2           | r/4 e4/2           |            |                     | r/4 r f#3            |            |                  |       |

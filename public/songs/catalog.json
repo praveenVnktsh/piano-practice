@@ -1,0 +1,74 @@
+{
+  "songs": [
+    {
+      "id": "twinkle-twinkle",
+      "title": "Twinkle Twinkle Little Star",
+      "composer": "Traditional",
+      "difficulty": "beginner",
+      "file": "songs/twinkle-twinkle.musicxml",
+      "license": "CC0-1.0",
+      "source": "Piano Practice contributors – hand transcription (songs/twinkle-twinkle.notes)",
+      "sourceUrl": "https://github.com/praveenVnktsh/una-mattina-practice/blob/main/songs/twinkle-twinkle.notes",
+      "tempo": 96
+    },
+    {
+      "id": "ode-to-joy",
+      "title": "Ode to Joy",
+      "composer": "Ludwig van Beethoven",
+      "difficulty": "beginner",
+      "file": "songs/ode-to-joy.musicxml",
+      "license": "CC0-1.0",
+      "source": "Piano Practice contributors – simplified hand transcription (songs/ode-to-joy.notes)",
+      "sourceUrl": "https://github.com/praveenVnktsh/una-mattina-practice/blob/main/songs/ode-to-joy.notes",
+      "tempo": 100
+    },
+    {
+      "id": "minuet-in-g",
+      "title": "Minuet in G, BWV Anh. 114",
+      "composer": "Christian Petzold (attr.)",
+      "difficulty": "easy",
+      "file": "songs/minuet-in-g.musicxml",
+      "license": "CC0-1.0",
+      "source": "Piano Practice contributors – hand transcription (songs/minuet-in-g.notes), checked against the Mutopia edition by Allen Garvin",
+      "sourceUrl": "https://github.com/praveenVnktsh/una-mattina-practice/blob/main/songs/minuet-in-g.notes",
+      "tempo": 108,
+      "section": [0, 7]
+    },
+    {
+      "id": "bach-prelude-in-c",
+      "title": "Prelude in C, BWV 846",
+      "composer": "Johann Sebastian Bach",
+      "difficulty": "intermediate",
+      "file": "songs/bach-prelude-in-c.musicxml",
+      "license": "CC0-1.0",
+      "source": "Piano Practice contributors – hand transcription (songs/bach-prelude-in-c.notes), checked against the Mutopia edition",
+      "sourceUrl": "https://github.com/praveenVnktsh/una-mattina-practice/blob/main/songs/bach-prelude-in-c.notes",
+      "tempo": 60,
+      "section": [0, 3]
+    },
+    {
+      "id": "fur-elise",
+      "title": "Für Elise",
+      "composer": "Ludwig van Beethoven",
+      "difficulty": "intermediate",
+      "file": "songs/fur-elise.musicxml",
+      "license": "Public Domain",
+      "source": "Mutopia Project – typeset by Stelios Samelis (Breitkopf & Härtel, 1888); converted with tools/ly2musicxml.mjs, repeats unfolded",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=931",
+      "tempo": 72,
+      "section": [0, 8]
+    },
+    {
+      "id": "moonlight-sonata-1",
+      "title": "Moonlight Sonata, 1st movement",
+      "composer": "Ludwig van Beethoven",
+      "difficulty": "advanced",
+      "file": "songs/moonlight-sonata-1.musicxml",
+      "license": "CC BY-SA 2.5",
+      "source": "Mutopia Project – typeset by Stewart Holmes (Berners, 1908); converted with tools/ly2musicxml.mjs. Adaptations shared under CC BY-SA 2.5",
+      "sourceUrl": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=276",
+      "tempo": 52,
+      "section": [0, 4]
+    }
+  ]
+}

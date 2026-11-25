@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MIDI Bridge · Piano Practice</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: dark; font-family: Nunito, system-ui, sans-serif; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: linear-gradient(180deg, #171b36, #0d1020); color: #f3f5ff; }
+  main { width: min(560px, calc(100% - 32px)); display: grid; gap: 18px; }
+  h1 { margin: 0; font-size: 28px; font-weight: 900; }
+  p { margin: 0; color: #9aa1c7; font-weight: 600; line-height: 1.5; }
+  .card { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 18px; display: grid; gap: 12px; }
+  .label { font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: #9aa1c7; }
+  .url { font-size: 22px; font-weight: 900; color: #37e2a0; word-break: break-all; user-select: all; }
+  button { justify-self: start; height: 48px; padding: 0 22px; border: 0; border-radius: 99px; font: inherit; font-weight: 900; font-size: 16px; cursor: pointer; color: #0d1020; background: linear-gradient(180deg, #5ff0b7, #37e2a0); box-shadow: 0 4px 0 #11935f; }
+  .status { display: flex; align-items: center; gap: 10px; font-weight: 800; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #626a94; flex: none; }
+  .on .dot { background: #37e2a0; box-shadow: 0 0 12px #37e2a0; }
+  .warn .dot { background: #ff5d73; }
+  .last { font-variant-numeric: tabular-nums; color: #9aa1c7; font-weight: 700; min-height: 1.4em; }
+  code { background: rgba(0,0,0,.3); padding: 2px 6px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MIDI Bridge</h1>
+  <p>Keep this tab open on the computer your piano is plugged into. Notes you play are sent over Wi-Fi to Piano Practice on your iPad.</p>
+  <section class="card">
+    <div class="status" id="status"><span class="dot"></span><span id="status-text">Not connected</span></div>
+    <button id="connect" type="button">Connect piano</button>
+    <div class="last" id="last"></div>
+  </section>
+  <section class="card">
+    <div class="label">On your iPad, open</div>
+    <div id="urls"><p>Looking up this computer's address…</p></div>
+  </section>
+</main>
+<script type="module" src="/src/bridge.js"></script>
+</body>
+</html>
