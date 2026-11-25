@@ -27,7 +27,7 @@ Status is updated in place: ⏳ planned · 🔨 in progress · ✅ done.
 - [x] P0 Score stage, falling-notes roll in ink/brass, realistic ivory/ebony keyboard
 - [x] P0 Sidebar as a concert programme (composer headings, serif titles)
 - [x] P1 Progress / technique / trainer / teacher in the same language
-- [ ] P1 Motion and micro-interactions (page turns, playhead, results) restrained and smooth
+- [x] P1 Motion and micro-interactions (page turns, playhead, results) restrained and smooth
 - [x] P1 Before/after screenshots and a design QA pass on every screen
 
 ## Phase 3: Teacher online ✅
@@ -54,7 +54,7 @@ Status is updated in place: ⏳ planned · 🔨 in progress · ✅ done.
 - [x] P1 Practice strategies as modes: slow practice ladder, rhythm variations (dotted / reversed dotted), blocked chords from broken figures, start from the end (backward chaining), eyes-closed (hide score) memory check
 - [x] P1 Phrase detection: split pieces into phrases (rests, cadences, slurs) for chunked practice
 - [x] P1 Tempo ladder per piece: record the highest clean tempo per section and suggest the next step
-- [ ] P2 "Performance run": the whole piece once, no stops, scored
+- [x] P2 "Performance run": the whole piece once, no stops, scored
 
 ## Phase 6: Touch, dynamics and evenness feedback ✅
 - [x] P1 Evenness analysis for scales/arpeggios: timing and velocity deviation per note, drawn as a fine-line graph with an evenness score
@@ -63,19 +63,19 @@ Status is updated in place: ⏳ planned · 🔨 in progress · ✅ done.
 - [x] P1 Pedal: read CC64 from MIDI and compare with the score's pedal marks
 - [x] P2 Hand balance: melody vs accompaniment loudness
 
-## Phase 7: Repertoire 🔨
+## Phase 7: Repertoire ✅
 - [x] P0 15–25 verified public-domain pieces across levels from Mutopia (Anna Magdalena Notebook, Burgmüller Op. 100, Czerny, Clementi sonatinas Op. 36, Schumann Album for the Young, Chopin Preludes, Tchaikovsky Album for the Young, Satie if available, Bach Inventions), each checked bar by bar and graded
 - [x] P1 Browse Mutopia (experimental tier): piano catalogue with search and filters, on-demand conversion with clear "unverified" labelling
-- [ ] P1 Collections and setlists ("Grade 2 recital", "Bach"), favourites, period/composer/difficulty filters
+- [x] P1 Collections and setlists ("Grade 2 recital", "Bach"), favourites, period/composer/difficulty filters
 - [x] P1 Converter coverage: key/time changes mid-piece, grace notes, ornaments, tremolos
-- [ ] P2 MuseScore import guide + better handling of user MusicXML (repeats, voltas, multiple parts)
+- [x] P2 MuseScore import guide + better handling of user MusicXML (repeats, voltas, multiple parts)
 
-## Phase 8: Reading, theory and ear 🔨
+## Phase 8: Reading, theory and ear ✅
 - [x] P0 Sight-reading generator: fresh short pieces at your level (melody + simple LH), played in play-along mode
 - [x] P1 Rhythm trainer: read and tap rhythms (any key), from crotchets to syncopation and triplets
 - [x] P1 Theory lessons with interactive checks: note values, time signatures, key signatures, intervals, triads, inversions, cadences, circle of fifths explorer
 - [x] P1 Ear training: intervals, chord qualities, cadences, melodic dictation (play back what you hear)
-- [ ] P2 Score study mode: harmonic analysis overlay (Roman numerals) for bundled pieces
+- [x] P2 Score study mode: harmonic analysis overlay (Roman numerals) for bundled pieces
 
 ## Phase 9: Record, review, perform ✅
 - [x] P1 Record a performance from MIDI; play it back on the sampled piano with the score following
@@ -93,9 +93,9 @@ Status is updated in place: ⏳ planned · 🔨 in progress · ✅ done.
 - [x] P2 Microphone input (monophonic pitch detection) for practising away from the MIDI piano
 - [x] P2 Offline cache (service worker) for engine, samples and songs
 
-## Phase 11: Quality and docs ⏳
+## Phase 11: Quality and docs ✅
 - [x] P0 End-to-end test scripts (headless Chrome over CDP) checked into the repo and run in CI
-- [ ] P1 Accessibility pass (keyboard navigation, focus, contrast, reduced motion)
-- [ ] P1 Performance pass (long scores, many events, iPad memory)
+- [x] P1 Accessibility pass (keyboard navigation, focus, contrast, reduced motion)
+- [x] P1 Performance pass (long scores, many events, iPad memory)
 - [x] P1 Data backup/export (progress, journal, imports) and restore
-- [ ] P1 User guide (README + in-app "?" overlay with shortcuts) and an onboarding tour on first launch
+- [x] P1 User guide (README + in-app "?" overlay with shortcuts) and an onboarding tour on first launch

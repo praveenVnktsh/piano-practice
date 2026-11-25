@@ -39,7 +39,14 @@ export function openReview({host, songId, song, entry, ctl, takeId = null}) {
   // Escape closes; other keys stay with the overlay (Space must not start the player behind it).
   const onKey = e => {
     if (e.key === 'Escape' && !renaming) { e.preventDefault(); e.stopPropagation(); close(); return; }
-    if (e.key !== 'Tab') e.stopPropagation();
+    if (e.key !== 'Tab') { e.stopPropagation(); return; }
+    // Keep Tab inside the sheet (it is modal).
+    const items = [...sheet.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(x => !x.disabled && x.getClientRects().length);
+    if (!items.length) return;
+    const first = items[0], last = items.at(-1);
+    if (!sheet.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   };
   window.addEventListener('keydown', onKey, true);
   host.onclick = e => { if (e.target === host) close(); };

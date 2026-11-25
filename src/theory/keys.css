@@ -13,7 +13,7 @@
   display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; color: #5a544a;
 }
 .kb-white span { font: 600 11px var(--font-ui); pointer-events: none; }
-.kb-middle span { color: var(--brass); }
+.kb-middle span { color: var(--brass-ink); }
 .kb-black {
   width: calc(100% / var(--whites) * .6); height: 62%; transform: translateX(-50%); z-index: 2;
   background: linear-gradient(180deg, #2b2925, #0b0b0a 70%); border-radius: 0 0 3px 3px;

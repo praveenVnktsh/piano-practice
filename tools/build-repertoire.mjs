@@ -12,6 +12,7 @@
 // (songs/README.md, "Verify").
 
 import {mkdirSync, readFileSync, writeFileSync, existsSync} from 'node:fs';
+import {periodOf} from '../src/collections/model.js';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {expandIncludes, lilypondToEvents, eventsToMusicXML} from './ly2musicxml-core.mjs';
@@ -53,6 +54,7 @@ export function catalogEntry(p) {
     composer: p.composer,
     difficulty: p.grade === 0 ? 'beginner' : p.grade <= 2 ? 'easy' : p.grade <= 4 ? 'intermediate' : 'advanced',
     grade: p.grade,
+    ...(periodOf(p.composer) ? {period: periodOf(p.composer)} : {}),
     file: `songs/${p.id}.musicxml`,
     license: p.license,
     source: pd ? by : `${by}. Adaptations shared under ${p.license}`,

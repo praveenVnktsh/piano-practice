@@ -506,3 +506,6 @@ body:has(dialog[open]) .tch-fab {
   transform: translateY(8px);
 }
 .tch-fab { transition: opacity var(--dur, 200ms) var(--ease, ease), transform var(--dur, 200ms) var(--ease, ease); }
+
+/* Screen-reader announcement of a new reply (src/teacher/panel.js). */
+.tch-live { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

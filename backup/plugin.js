@@ -6,7 +6,7 @@
 //
 // Server part:
 //   {format: 'piano-practice-backup', version: 1, exportedAt, server: {
-//     data:    {'progress.json': <doc>, '<other>.json': <json>, ...}   .data/*.json (progress, journal, goals…)
+//     data:    {'progress.json': <doc>, 'collections.json': <doc>, '<other>.json': <json>, ...}   .data/*.json (progress, journal, goals, collections…)
 //     teacher: {'messages.jsonl': '<text>', 'replies.jsonl': '…', 'student.md': '…', ...}   .teacher/
 //     imports: {index: [entry, ...], files: {'<name>.musicxml': '<base64>', ...}, skipped: [names]}
 //   }}
@@ -27,6 +27,7 @@ const MAX_RECORDING_ITEMS = 10000;
 import {TEACHER_DIR} from '../teacher/store.js';
 import {SONGS_DIR, URL_BASE, ID_RE} from '../song-store/plugin.js';
 import {normalizeDoc} from '../src/progress/model.js';
+import {validateDoc as validateCollections} from '../src/collections/model.js';
 
 export const FORMAT = 'piano-practice-backup';
 export const VERSION = 1;
@@ -120,6 +121,9 @@ export function validateServerPart(backup) {
     if (name === 'progress.json') {
       if (!isObj(json)) throw new HttpError(400, 'progress.json is not an object');
       data[name] = normalizeDoc(json);
+    } else if (name === 'collections.json') {
+      // Favourites and collections (src/collections/): checked like a PUT to /__collections.
+      try { data[name] = validateCollections(json); } catch (e) { throw new HttpError(400, `collections.json: ${e.message}`); }
     } else {
       const text = JSON.stringify(json);
       if (text === undefined || text.length > MAX_DATA_FILE) throw new HttpError(400, `${name} is too large or empty`);
@@ -166,6 +170,8 @@ export function validateServerPart(backup) {
       exportedAt: typeof backup.exportedAt === 'string' ? backup.exportedAt.slice(0, 40) : null,
       events: progress ? progress.events.length : 0,
       journal: progress ? (progress.journal || []).length : 0,
+      collections: data['collections.json'] ? data['collections.json'].collections.length : 0,
+      favourites: data['collections.json'] ? data['collections.json'].favourites.length : 0,
       dataFiles: Object.keys(data),
       teacherMessages: count(teacher['messages.jsonl']),
       teacherReplies: count(teacher['replies.jsonl']),

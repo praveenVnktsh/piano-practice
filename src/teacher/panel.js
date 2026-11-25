@@ -75,7 +75,8 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
       <div><h2>Teacher</h2><p>Letters in the margin</p></div>
       <button type="button" class="tch-close" aria-label="Close the teacher">×</button>
     </header>
-    <div class="tch-thread" aria-live="polite"></div>
+    <div class="tch-thread"></div>
+    <p class="tch-live" role="status" aria-live="polite"></p>
     <div class="tch-thinking" hidden><span></span><span></span><span></span> Teacher is thinking…</div>
     <div class="tch-quick"></div>
     <form class="tch-compose">
@@ -84,7 +85,7 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
         <textarea rows="2" placeholder="Ask your teacher…" aria-label="Message to your teacher" maxlength="4000"></textarea>
         <button type="submit" class="tch-send">Send</button>
       </div>
-      <p class="tch-error" hidden></p>
+      <p class="tch-error" role="alert" hidden></p>
     </form>`;
   root.append(fab, panel);
 
@@ -96,7 +97,8 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
   const input = $('textarea'),
     share = $('.tch-share input'),
     shareText = $('.tch-share em'),
-    errorBox = $('.tch-error');
+    errorBox = $('.tch-error'),
+    live = $('.tch-live');
   share.checked = get(SHARE_KEY, 'on') === 'on';
 
   // ───────── Data ─────────
@@ -110,7 +112,11 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
     })
     .catch(() => {});
 
+  let lastReplyId = null; // announce new letters to screen readers (the thread itself is re-rendered)
   function setThread(next) {
+    const newest = Math.max(0, ...next.replies.map(r => r.id));
+    if (lastReplyId != null && newest > lastReplyId) live.textContent = 'Your teacher replied.';
+    lastReplyId = newest;
     thread = next;
     for (let i = pending.length - 1; i >= 0; i--)
       if (thread.messages.some(m => m.id === pending[i].id)) pending.splice(i, 1);
@@ -246,8 +252,10 @@ export function createPanel(root = document.body, {api = API, EventSourceImpl = 
 
   // ───────── Events ─────────
   function show(to) {
+    const hadFocus = panel.contains(document.activeElement);
     open = to;
     panel.hidden = !open;
+    if (!open && hadFocus) fab.focus(); // Escape / × hands focus back to the Teacher button
     fab.setAttribute('aria-expanded', String(open));
     document.documentElement.classList.toggle('tch-open', open);
     if (open) {

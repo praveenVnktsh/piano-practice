@@ -1,0 +1,37 @@
+/* "Add to collection" popover (src/collections/picker.js). Tokens: src/styles/tokens.css. */
+.cl-pop {
+  position: fixed; z-index: 90; width: min(300px, calc(100vw - 16px));
+  padding: 8px 14px 12px; border-radius: var(--radius-card);
+  background: var(--paper-raised); color: var(--ink);
+  box-shadow: var(--shadow-paper), 0 0 0 1px var(--rule);
+  animation: cl-pop-in 160ms var(--ease);
+}
+@keyframes cl-pop-in { from { opacity: 0; transform: translateY(-4px); } }
+.cl-pop-kicker { margin: 4px 0 4px; font: 600 13px var(--font-ui); font-variant: all-small-caps; letter-spacing: .07em; color: var(--ink-soft); }
+.cl-pop-list { display: grid; max-height: min(320px, 50vh); overflow-y: auto; }
+.cl-pop-row {
+  display: flex; align-items: center; gap: 10px; min-height: 44px;
+  border-top: 1px solid var(--rule); cursor: pointer;
+  font: 17px var(--font-text); color: var(--ink);
+}
+.cl-pop-row:first-child { border-top: 0; }
+.cl-pop-row input { width: 17px; height: 17px; margin: 0; accent-color: var(--brass); flex: none; }
+.cl-pop-row span:nth-of-type(1) { flex: none; }
+.cl-pop-row > span:not(.cl-pop-star):not(.cl-pop-n) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-pop-star::before { content: "☆"; color: var(--ink-soft); font: 18px var(--font-ui); }
+.cl-pop-row.is-fav input:checked + .cl-pop-star::before { content: "★"; color: var(--brass); }
+.cl-pop-n { font: 500 14px var(--font-text); font-variant: oldstyle-nums; color: var(--ink-faint); }
+.cl-pop-new { display: flex; gap: 8px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--rule); }
+.cl-pop-new input {
+  flex: 1; min-width: 0; height: 40px; padding: 0 2px; border: 0; border-bottom: 1px solid var(--rule-strong); background: none; outline: 0;
+  font: italic 16px var(--font-text); color: var(--ink);
+  user-select: text; -webkit-user-select: text;
+}
+.cl-pop-new input:focus-visible { border-bottom-color: var(--brass); }
+.cl-pop-new button {
+  flex: none; min-height: 40px; padding: 0 12px; border: 1px solid var(--rule-strong); border-radius: var(--radius-control); background: none; cursor: pointer;
+  font: 600 14px var(--font-ui); font-variant: all-small-caps; letter-spacing: .08em; color: var(--ink);
+}
+.cl-pop-new button:hover { border-color: var(--brass); color: var(--brass); }
+.cl-pop :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .cl-pop { animation: none; } }

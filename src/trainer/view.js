@@ -81,7 +81,7 @@ export function mountReadingTrainer(container) {
     </div>
 
     <div class="tr-kb-wrap">
-      <p class="tr-kb-note">Play on your piano (connect it from the player's MIDI button) or tap the keys.</p>
+      <p class="tr-kb-note">Play on your piano (connect it in any piece: ⋯ → Connect piano) or tap the keys.</p>
       <div class="tr-kb" data-ref="kbScroll"><div class="tr-keys" data-ref="keys"></div></div>
     </div>`;
   container.append(root);

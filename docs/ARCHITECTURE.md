@@ -213,3 +213,36 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   `piano:note` with `source: 'mic'`. Settings live in localStorage `piano-practice:sound`;
   `window.pianoSound` exposes diagnostics. The service worker caches the large sample sets on first
   use (only the 2 MB single-layer piano is precached).
+
+## v5 additions (collections, score study, performance, user MusicXML)
+
+- **Catalog entries** carry `period` (`Baroque` | `Classical` | `Romantic` | `Modern`), from the composer
+  (`periodOf()` in `src/collections/model.js`; `catalog.js` fills it in for entries without it).
+- **Collections** (`src/collections/`): `model.js` (pure: document validation, favourites, ordered
+  collections, periods, smart collections, Pieces filters), `store.js` (browser: dev server first,
+  localStorage `piano-practice.collections` fallback, window event `collections:change`; setlists in play in
+  sessionStorage `piano-practice.setlist`), `picker.js` ("Add to a collection" popover), `plugin.js`
+  (dev server: `GET|PUT /__collections` → `.data/collections.json`; a PUT older than the file gets 409 + the
+  newer doc). Document: `{version: 1, favourites: [pieceId], collections: [{id: 'c-…', name, items: [pieceId],
+  createdAt, updatedAt}], updatedAt}`. Backups include it (validated on restore). Pieces remembers its filters
+  in `piano-practice.pieces.filters` = `{grade, period, composer, status, fav}`.
+- **Player**: ⋯ → Favourite / Add to a collection…; ⋯ → View → Harmony (setting `harmony`); Bars ▾ → Performance
+  run; results card "Next in setlist →". Entry hints `mode` / `intent` apply to that piece only (never saved);
+  `src/app/index.js` no longer applies them. `practice:result` may carry `performance: {score, accuracy, timing,
+  evenness}`. Measures carry `key: {fifths, mode}` (score-core).
+- **Analysis** (`src/analysis/`): `harmony.mjs` (approximate Roman-numeral analysis, method documented in the
+  file), `performance.mjs` (performance-run scoring).
+- **User MusicXML** (`src/musicxml.mjs`): `prepareMusicXml(text)` keeps the piano part / joins a two-part piano,
+  drops percussion, marks pickups, finds a title; the import dialog prepares and test-loads every MusicXML
+  import; `loadSong` prepares multi-part MusicXML. Guide: songs/README.md "Importing from MuseScore".
+
+## v5 polish
+- **Lazy engine**: `src/verovio.js` loads the Verovio WASM on first use and warms it when the app
+  is idle, so the main bundle is ~270 kB; piano samples load with the first piece opened.
+- **Pitch reading**: for MusicXML, `src/song.js` reads pitches from Verovio's MEI in one pass
+  (spot-checked against Verovio, with a fallback).
+- **Help & onboarding**: `src/help/` (Shift+/ anywhere, ⋯ → Help, rail "?", Progress → Settings)
+  and `src/onboarding/` (five steps on first launch; `piano-practice.onboarded`).
+- **Accessibility**: all token text pairs pass WCAG AA in both themes (`--brass-ink` for small
+  brass text); modal dialogs trap focus and return it; reduced motion disables transitions,
+  easing and timing-word animations.

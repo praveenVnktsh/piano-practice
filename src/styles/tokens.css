@@ -11,16 +11,17 @@
   --paper-raised: #fbf8f1;
   --paper-sunk: #ebe4d5;
   --ink: #1d1b18;
-  --ink-soft: #6d665b;
-  --ink-faint: #a39b8d;
+  --ink-soft: #675f54;   /* AA (4.5:1) on paper, raised and sunk */
+  --ink-faint: #857d6e;  /* 3:1 on every paper: hints and placeholders, never body text */
   --rule: rgba(29, 27, 24, .14);
   --rule-strong: rgba(29, 27, 24, .28);
   --ebony: #151412;
   --ivory: #fdfbf6;
-  --brass: #a8833f;
-  --brass-soft: rgba(168, 131, 63, .16);
-  --sage: #5f8a69;
-  --sage-soft: rgba(95, 138, 105, .18);
+  --brass: #9d7a3a;      /* 3:1 on every paper (focus rings, the playhead, large numerals) */
+  --brass-soft: rgba(157, 122, 58, .16);
+  --brass-ink: #7f6129;  /* brass for small text: 4.5:1 */
+  --sage: #4d7457;       /* 4.5:1 on paper and raised ("Clean.", Polished) */
+  --sage-soft: rgba(77, 116, 87, .18);
   --oxblood: #8e3b3f;
   --oxblood-soft: rgba(142, 59, 63, .14);
   --right-hand: #3d5a80;
@@ -51,10 +52,11 @@
     --ivory: #e9e3d6;
     --brass: #c9a25a;
     --brass-soft: rgba(201, 162, 90, .18);
+    --brass-ink: #c9a25a;
     --sage: #7fae89;
     --sage-soft: rgba(127, 174, 137, .2);
-    --oxblood: #c0656a;
-    --oxblood-soft: rgba(192, 101, 106, .18);
+    --oxblood: #c66c71;
+    --oxblood-soft: rgba(198, 108, 113, .18);
     --right-hand: #8fb0d8;
     --left-hand: #d3a172;
     --shadow-paper: 0 12px 34px -14px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .4);
@@ -74,10 +76,11 @@
   --ivory: #e9e3d6;
   --brass: #c9a25a;
   --brass-soft: rgba(201, 162, 90, .18);
+  --brass-ink: #c9a25a;
   --sage: #7fae89;
   --sage-soft: rgba(127, 174, 137, .2);
-  --oxblood: #c0656a;
-  --oxblood-soft: rgba(192, 101, 106, .18);
+  --oxblood: #c66c71;
+  --oxblood-soft: rgba(198, 108, 113, .18);
   --right-hand: #8fb0d8;
   --left-hand: #d3a172;
   --shadow-paper: 0 12px 34px -14px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .4);

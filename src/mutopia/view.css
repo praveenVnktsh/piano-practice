@@ -16,7 +16,7 @@
   display: flex; align-items: center; gap: 10px; min-height: 48px;
   border-bottom: 1px solid var(--rule-strong); color: var(--ink-soft);
 }
-.mu-search:focus-within { border-bottom-color: var(--brass); }
+.mu-search:focus-within { border-bottom-color: var(--brass); box-shadow: 0 1px 0 var(--brass); }
 .mu-search svg.ln-icon { width: 20px; height: 20px; flex: none; }
 .mu-search-input {
   flex: 1; min-width: 0; height: 46px; border: 0; outline: 0; background: none; padding: 0;
@@ -25,7 +25,7 @@
 .mu-search-input::placeholder { color: var(--ink-faint); font-style: italic; }
 .mu-filters { display: flex; flex-wrap: wrap; gap: 8px; }
 .mu-select {
-  min-height: 40px; max-width: 100%; padding: 0 10px;
+  min-height: 44px; max-width: 100%; padding: 0 10px;
   border: 1px solid var(--rule-strong); border-radius: var(--radius-control);
   background: var(--paper-raised); color: var(--ink); font: 15px var(--font-ui);
 }

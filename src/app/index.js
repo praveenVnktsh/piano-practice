@@ -13,6 +13,8 @@ import {initTheme} from './theme.js';
 import {el, icon} from './dom.js';
 import {startProgressTracking} from '../progress/store.js';
 import {isExerciseId} from '../exercises/index.js';
+import {installHelp} from '../help/index.js';
+import {startOnboarding} from '../onboarding/index.js';
 
 const {loadCatalogs, songSource} = catalog;
 
@@ -23,8 +25,6 @@ const VIEW_MODULES = import.meta.glob(['../today/view.js', '../exercises/view.js
 
 const LAST_KEY = 'piano-practice.last-song';
 const RETURN_KEY = 'piano-practice.return-to';
-// The player's mode and Listen | Practise choice before an entry with a `mode` hint (sight-reading) changed them.
-const HINT_KEY = 'piano-practice.mode-before-hint';
 const APP_NAME = 'Piano Practice';
 const getLast = () => { try { return localStorage.getItem(LAST_KEY); } catch { return null; } };
 const setLast = id => { try { id ? localStorage.setItem(LAST_KEY, id) : localStorage.removeItem(LAST_KEY); } catch {} };
@@ -44,6 +44,7 @@ export async function startApp() {
   startProgressTracking();
   const toast = createToast(shell);
   const nav = createNav(shell);
+  installHelp({shell}); // "?" help overlay (before any view mounts: its key guard runs first)
   const back = createBackButton(root);
   // Sight-reading: "Another one" after a generated piece is played through (loaded when first needed).
   let srWatch = null;
@@ -127,6 +128,7 @@ export async function startApp() {
     entries.bundled = cat.bundled; entries.local = cat.local; entries.loaded = true;
     changed();
   });
+  startOnboarding(); // the introduction, on first launch only
 
   const library = {
     ready: ready.then(() => entries),
@@ -150,28 +152,8 @@ export async function startApp() {
     songPromise.catch(e => {
       if (currentId === entry.id) toast(`Couldn’t open “${entry.title}”: ${e?.message || e}`);
     });
-    Promise.resolve(player.load(entry, songPromise)).then(song => {
-      if (song && currentId === entry.id) applyHints(entry);
-    }).catch(() => {});
-  }
-
-  // Entries may ask for a practice mode (sight-reading: Play along, Practise chosen); the player's own
-  // choice comes back with the next entry that doesn't.
-  function applyHints(entry) {
-    const api = window.pianoPlayer;
-    if (!api?.setMode) return;
-    let before = null;
-    try { before = JSON.parse(localStorage.getItem(HINT_KEY) || 'null'); } catch {}
-    const choose = intent => root.querySelector(intent === 'practice' ? '#um-practice' : '#um-listen')?.click();
-    if (entry.mode) {
-      if (!before) try { localStorage.setItem(HINT_KEY, JSON.stringify({mode: api.getState().mode, intent: root.dataset.intent || 'listen'})); } catch {}
-      api.setMode(entry.mode);
-      if (entry.intent && root.dataset.intent !== entry.intent) choose(entry.intent);
-    } else if (before) {
-      try { localStorage.removeItem(HINT_KEY); } catch {}
-      if (before.mode) api.setMode(before.mode);
-      if (before.intent && root.dataset.intent !== before.intent) choose(before.intent);
-    }
+    // The player applies the entry's own hints (sight-reading: `mode`, `intent`) for that piece only.
+    Promise.resolve(player.load(entry, songPromise)).catch(() => {});
   }
 
   // Ids that aren't in a catalog ("ex:…" exercises are generated on demand): catalog.resolveEntry.

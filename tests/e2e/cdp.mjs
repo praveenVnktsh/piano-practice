@@ -51,10 +51,12 @@ export async function launchChrome({profileRoot = process.env.E2E_PROFILE_ROOT |
   const httpBase = wsUrl.replace(/^ws:/, 'http:').replace(/\/devtools\/.*$/, '');
   const pages = [];
   return {
-    async newPage({width = 1180, height = 820, mobile = false, scale = 1} = {}) {
+    /** onboarding: true shows the first-launch introduction; by default it counts as seen. */
+    async newPage({width = 1180, height = 820, mobile = false, scale = 1, onboarding = false} = {}) {
       const res = await fetch(`${httpBase}/json/new?about:blank`, {method: 'PUT'});
       const target = await res.json();
       const page = await connectPage(target.webSocketDebuggerUrl, {width, height, mobile, scale});
+      if (!onboarding) await page.send('Page.addScriptToEvaluateOnNewDocument', {source: "try { localStorage.getItem('piano-practice.onboarded') || localStorage.setItem('piano-practice.onboarded', 'e2e'); } catch {}"});
       pages.push(page);
       return page;
     },

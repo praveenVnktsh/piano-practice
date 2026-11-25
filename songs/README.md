@@ -127,10 +127,10 @@ Our own transcriptions of public-domain works are released as CC0.
 ### c) Notation software (MuseScore etc.)
 
 Enter or open the piece in [MuseScore](https://musescore.org/) (or any
-notation program), then *File → Export → MusicXML* (`.musicxml`,
-uncompressed). Before exporting, write out repeats and D.C./D.S. jumps
-(MuseScore: *Tools → Unroll repeats*), because the app refuses scores with
-repeats. Only use a score you are allowed to share (see section 1). Many scores
+notation program) and export it as MusicXML, as described in
+[Importing from MuseScore](#importing-from-musescore) below. Repeats, first and
+second endings and pickup bars are fine: the app writes repeats out as it loads
+a score. Only use a score you are allowed to share (see section 1). Many scores
 on musescore.com are not.
 
 ## 3. Add a catalog entry
@@ -145,6 +145,7 @@ beginner to advanced:
   "composer": "Christian Petzold (attr.)",
   "difficulty": "easy",
   "grade": 1,
+  "period": "Baroque",
   "file": "songs/minuet-in-g.musicxml",
   "license": "CC0-1.0",
   "source": "Piano Practice contributors – hand transcription",
@@ -154,6 +155,10 @@ beginner to advanced:
 }
 ```
 
+`period` (`Baroque`, `Classical`, `Romantic` or `Modern`) is what the Pieces
+filter row and the smart collections use; it follows the composer
+(`periodOf()` in `src/collections/model.js`, which `tools/build-repertoire.mjs`
+also uses), and entries without it get it from the composer as the catalog loads.
 `difficulty` is one of `beginner`, `easy`, `intermediate`, `advanced`, and
 `grade` (0–5) places the piece more precisely: 0 = beginner, 1–2 = easy,
 3–4 = intermediate, 5 = advanced (roughly the exam grades of the same number).
@@ -178,3 +183,54 @@ For converted LilyPond, also check the source's own bar checks: convert with
 pitches in the source against the converted notes, so nothing was dropped.
 Where an independent encoding of the piece exists, compare the pitches bar by
 bar (read it only; don't add it to the project unless its licence allows).
+
+## Importing from MuseScore
+
+For your own scores (they stay private: Pieces → *Import a score*, kept on your
+Mac or in the browser, never in the bundled catalog). The import dialog has a
+short version of this under *How to export from MuseScore*.
+
+1. **Open the score in MuseScore** (3 or 4). If you downloaded it from
+   musescore.com, check its licence before sharing it with anyone.
+2. **One piano part.** The app plays piano music: the top staff is the right
+   hand and the staff below it the left. If the score has other instruments
+   (a voice, a violin), either open the piano part on its own (*File → Parts…*)
+   or delete the other instruments (*Instruments* panel). If you don't, the
+   import keeps the piano part and says which parts it left out.
+3. **Two staves, treble over bass.** A piano entered as two separate
+   instruments ("Right hand", "Left hand", or a treble and a bass staff) is
+   joined into one two-staff part on import, but it is cleaner to use one
+   *Piano* instrument.
+4. **Export.** *File → Export…*, format **Compressed MusicXML (`*.mxl`)** (plain
+   `*.musicxml` works too). Leave "All layout" on if MuseScore asks; layout is
+   ignored anyway, because the app engraves the score itself as one long line.
+5. **Import.** Drop the file on the import dialog (or *Choose a file*). The
+   score is checked before it is saved: if it can't be played you'll see why,
+   and anything the import changed (parts left out or joined) is listed in the
+   message afterwards.
+
+What the import takes care of:
+
+- **Repeat signs and first/second endings (voltas)** are written out, so bar
+  numbers repeat ("Bar 3 (repeat)") and practice sections follow the playing
+  order. Nothing to do in MuseScore. *D.C.*, *D.S.* and *Coda* jumps are not
+  followed: if a piece depends on them, copy the repeated passage out in
+  MuseScore before exporting.
+- **Pickup bars** (an incomplete first bar) are labelled *Pickup* and counted
+  in on the right beat.
+- **Titles.** The work title, else the movement title, else the score's title
+  text on the first page, else the file name. The composer comes from the
+  score's composer field or its composer text.
+- **Several parts:** the piano is kept (found by name, by its piano sound or by
+  having two staves); percussion and empty parts are dropped; a piano in two
+  one-staff parts is joined. With no piano at all, every part is kept and the
+  top staff plays as the right hand.
+
+What doesn't import well:
+
+- Timewise MusicXML (rare; re-export as ordinary MusicXML).
+- PDFs and images: use the *Recognize a PDF* option (needs the local Audiveris
+  helper) and check every bar afterwards, or enter the notes in MuseScore.
+- Scores made only of chord symbols or tablature, without notes.
+- Ornaments are played as written in the file; a trill that is only a symbol
+  sounds as its main note.
