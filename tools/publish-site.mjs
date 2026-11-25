@@ -18,7 +18,7 @@ const dry = args.includes('--dry-run');
 const run = (cmd, a, o = {}) => execFileSync(cmd, a, {stdio: ['ignore', 'pipe', 'inherit'], ...o}).toString().trim();
 
 const owner = run('gh', ['api', 'user', '--jq', '.login']);
-const repo = opt('--repo') || `${owner}/piano-practice`;
+const repo = opt('--repo') || `${owner}/piano-practice-site`;
 const work = mkdtempSync(join(tmpdir(), 'piano-site-'));
 const out = join(work, 'site');
 
@@ -41,9 +41,18 @@ if (big.length) { console.error('Files too large for GitHub:', big); process.exi
 console.log(`${files.length} files, ${(files.reduce((n, f) => n + statSync(f).size, 0) / 1e6).toFixed(1)} MB`);
 if (dry) { console.log('Dry run: not pushing.'); process.exit(0); }
 
-// The public repo (created once).
-let exists = true;
-try { run('gh', ['repo', 'view', repo, '--json', 'name']); } catch { exists = false; }
+// The public repo (created once). Never the source repo, and never a private repo: the target must
+// be public, and must not be this checkout's origin (repos can be renamed under us).
+let exists = true, info = null;
+try { info = JSON.parse(run('gh', ['repo', 'view', repo, '--json', 'name,visibility,url'])); } catch { exists = false; }
+let origin = '';
+try { origin = run('git', ['remote', 'get-url', 'origin']).replace(/\.git$/, '').toLowerCase(); } catch {}
+let source = '';
+try { source = run('gh', ['repo', 'view', '--json', 'url', '--jq', '.url']).toLowerCase(); } catch {}
+if (exists && (info.visibility !== 'PUBLIC' || [origin, source].includes(info.url.toLowerCase()))) {
+  console.error(`Refusing to publish to ${repo}: it is ${info.visibility !== 'PUBLIC' ? 'not public' : 'this source repo'}. Pass --repo owner/name for a separate public repo.`);
+  process.exit(1);
+}
 if (!exists) {
   run('gh', ['repo', 'create', repo, '--public', '--description', 'Piano Practice: a practice room in the browser (built app only).']);
   console.log(`Created https://github.com/${repo}`);
@@ -53,10 +62,10 @@ const id = run('gh', ['api', 'user', '--jq', '.id']);
 const env = {...process.env, GIT_AUTHOR_NAME: owner, GIT_COMMITTER_NAME: owner,
   GIT_AUTHOR_EMAIL: `${id}+${owner}@users.noreply.github.com`, GIT_COMMITTER_EMAIL: `${id}+${owner}@users.noreply.github.com`};
 const git = (...a) => run('git', a, {cwd: out, env});
-const source = run('git', ['rev-parse', '--short', 'HEAD']);
+const commit = run('git', ['rev-parse', '--short', 'HEAD']);
 git('init', '-q', '-b', 'gh-pages');
 git('add', '-A');
-git('commit', '-q', '-m', `Publish ${source}`);
+git('commit', '-q', '-m', `Publish ${commit}`);
 const url = run('gh', ['repo', 'view', repo, '--json', 'url', '--jq', '.url']);
 git('push', '-q', '--force', `${url}.git`, 'gh-pages');
 
@@ -66,5 +75,5 @@ try { run('gh', ['api', `repos/${repo}/pages`]); } catch {
 }
 const site = run('gh', ['api', `repos/${repo}/pages`, '--jq', '.html_url']);
 rmSync(work, {recursive: true, force: true});
-console.log(`Published ${source} → ${site} (GitHub takes a minute to update it).`);
+console.log(`Published ${commit} → ${site} (GitHub takes a minute to update it).`);
 if (existsSync('.data')) console.log('Your .data/ stays on this Mac: the public site keeps progress in the browser.');
