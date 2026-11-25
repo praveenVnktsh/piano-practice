@@ -153,7 +153,7 @@ New capability arrives inside an existing place or behind progressive disclosure
 
 ## Phase 19: Polish from real use ⏳
 - [ ] P0 Work through the student's annotate notes and teacher conversations as they arrive; every fix gets a test
-- [ ] P1 Suggested fingering for runs and scales without printed fingering (Phase 12 leftover), marked as suggested
+- [x] P1 Suggested fingering for runs and scales without printed fingering (Phase 12 leftover), marked as suggested
 - [ ] P1 Calibrate musicality thresholds (phrase shape, tempo flex, voicing) against real recordings once there are some
-- [ ] P1 Larger noteheads option for beginners (Phase 13 leftover)
+- [x] P1 Larger noteheads option for beginners (Phase 13 leftover)
 - [ ] P2 Memorisation ladder (Phase 12 P2), sustained-use e2e (Phase 16 P2), duets (Phase 17 P2)
