@@ -1,6 +1,7 @@
 import {describe, expect, test} from 'vitest';
 
-import {eventsToMusicXML, lilypondToEvents} from '../tools/ly2musicxml.mjs';
+import {eventsToMusicXML, expandIncludes, lilypondToEvents, measureGrid} from '../tools/ly2musicxml.mjs';
+import * as core from '../tools/ly2musicxml-core.mjs';
 import {measures, notes} from './xml-helpers.js';
 
 const Q = 480; // ticks per quarter note
@@ -124,11 +125,15 @@ describe('lilypondToEvents(): rhythm', () => {
     expect(score("{ \\time 3/4 \\partial 8 g'8 | c''2. }")).toMatchObject({pickup: Q / 2, time: [3, 4]});
   });
 
-  test('grace notes are dropped without taking time', () => {
+  test('grace notes are kept, take no time and come before their main note', () => {
+    const s = score("{ \\grace d'16 c'4 \\acciaccatura { e'16 } d'4 }");
     expect(events("{ \\grace d'16 c'4 \\acciaccatura { e'16 } d'4 }")).toEqual([
+      ['note', 0, 0.25, 'D4'],
       ['note', 0, 1, 'C4'],
+      ['note', 1, 0.25, 'E4'],
       ['note', 1, 1, 'D4'],
     ]);
+    expect(s.events.map(e => e.grace ?? null)).toEqual([{slash: false}, null, {slash: true}, null]);
   });
 });
 
@@ -339,5 +344,234 @@ describe('eventsToMusicXML()', () => {
     expect(xml).toContain('<work-title>A &amp; B</work-title>');
     expect(xml).toContain('<rights>CC BY-SA 2.5</rights>');
     expect(xml).toContain('<source>https://example.org/?a=1&amp;b=2</source>');
+  });
+});
+
+describe('converter coverage: grace notes, ornaments, tremolos', () => {
+  test('grace notes become MusicXML <grace/> notes without a duration, before the main note', () => {
+    const ns = notes(xmlOf("{ \\appoggiatura d''8 c''2 \\acciaccatura b'8 c''2 }"));
+    expect(ns.map(n => [n.pitch, n.duration || 0, n.type])).toEqual([
+      ['D5', 0, 'eighth'],
+      ['C5', 960, 'half'],
+      ['B4', 0, 'eighth'],
+      ['C5', 960, 'half'],
+    ]);
+    const xml = xmlOf("{ \\appoggiatura d''8 c''2 \\acciaccatura b'8 c''2 }");
+    expect(xml).toMatch(/<note><grace\/><pitch><step>D/);
+    expect(xml).toMatch(/<note><grace slash="yes"\/><pitch><step>B/);
+  });
+
+  test('\\afterGrace: the grace notes follow the main note', () => {
+    expect(events("{ \\afterGrace c''2 { b'16 c'' } d''2 }")).toEqual([
+      ['note', 0, 2, 'C5'],
+      ['note', 2, 0.25, 'B4'],
+      ['note', 2, 0.25, 'C5'],
+      ['note', 2, 2, 'D5'],
+    ]);
+  });
+
+  test('trills, mordents and turns become ornaments; fermata and arpeggio notations', () => {
+    const xml = xmlOf("{ c''4\\trill d''\\prall e''-\\mordent f''^\\turn <c' e' g'>\\arpeggio g'\\fermata r2 }");
+    expect(xml).toContain('<ornaments><trill-mark/></ornaments>');
+    expect(xml).toContain('<ornaments><inverted-mordent/></ornaments>');
+    expect(xml).toContain('<ornaments><mordent/></ornaments>');
+    expect(xml).toContain('<ornaments><turn/></ornaments>');
+    expect(xml.match(/<arpeggiate\/>/g)).toHaveLength(3);
+    expect(xml).toContain('<fermata type="upright"/>');
+    expect(pitches("{ c''4\\trill d''\\prall e''-\\mordent f''^\\turn }")).toEqual(['C5', 'D5', 'E5', 'F5']);
+  });
+
+  test('a single-note tremolo is one note with tremolo strokes', () => {
+    expect(events("{ c''2:16 d''4:32 r4 }").map(e => e.slice(0, 3))).toEqual([
+      ['note', 0, 2],
+      ['note', 2, 1],
+      ['rest', 3, 1],
+    ]);
+    const xml = xmlOf("{ c''2:16 d''4:32 r4 }");
+    expect(xml).toContain('<tremolo type="single">2</tremolo>');
+    expect(xml).toContain('<tremolo type="single">3</tremolo>');
+  });
+
+  test('\\repeat tremolo is written out over its full length', () => {
+    const e = events("{ \\repeat tremolo 4 { c'16 e' } d'2 }");
+    expect(e.map(x => x[3])).toEqual(['C4', 'E4', 'C4', 'E4', 'C4', 'E4', 'C4', 'E4', 'D4']);
+    expect(e.at(-1)[1]).toBe(2);
+  });
+});
+
+describe('converter coverage: key, meter and pickup changes', () => {
+  test('a mid-piece \\key change is written at its bar and changes the accidentals', () => {
+    const xml = xmlOf("{ \\key g \\major fis'1 \\key f \\major fis'1 bes'1 }");
+    const ms = measures(xml);
+    expect(ms[1].body).toContain('<key><fifths>-1</fifths></key>');
+    expect(notes(xml).map(n => n.accidental)).toEqual([null, 'sharp', null]);
+    expect(score("{ \\key g \\major c'1 \\key f \\major c'1 }").keys.map(k => [k.t / Q, k.fifths])).toEqual([
+      [0, 1],
+      [4, -1],
+    ]);
+  });
+
+  test('a mid-piece \\time change sets the following bar lengths', () => {
+    const s = score("{ \\time 4/4 c'1 \\time 3/4 d'2. e'2. \\time 2/4 f'2 }");
+    expect(measureGrid(s).map(b => [b.start / Q, b.len / Q])).toEqual([
+      [0, 4],
+      [4, 3],
+      [7, 3],
+      [10, 2],
+    ]);
+    const ms = measures(eventsToMusicXML(s));
+    expect(ms[1].body).toContain('<time><beats>3</beats><beat-type>4</beat-type></time>');
+    expect(ms[2].body).not.toContain('<time>');
+    expect(ms[3].body).toContain('<time><beats>2</beats><beat-type>4</beat-type></time>');
+  });
+
+  test('a mid-piece \\partial starts a new section with a short bar', () => {
+    // A 4/4 section ending on a 3-beat bar, then an upbeat into the next section.
+    const s = score("{ \\partial 4 g'4 | c''1 | d''2. \\bar \"||\" \\partial 4 e''4 | f''1 }");
+    expect(measureGrid(s).map(b => [b.start / Q, b.len / Q])).toEqual([
+      [0, 1],
+      [1, 4],
+      [5, 4],
+      [9, 4],
+    ]);
+    const cut = score("{ c''1 | d''2 \\partial 4 e''4 | f''1 }"); // \partial where the bar isn't full yet
+    expect(measureGrid(cut).map(b => [b.start / Q, b.len / Q])).toEqual([
+      [0, 4],
+      [4, 2],
+      [6, 1],
+      [7, 4],
+    ]);
+  });
+});
+
+describe('converter coverage: repeats', () => {
+  test('repeat bar lines (\\bar ".|:" … ":|.") are unfolded', () => {
+    expect(pitches("{ c'1 \\bar \".|:\" d'1 e'1 \\bar \":|.\" f'1 }")).toEqual(['C4', 'D4', 'E4', 'D4', 'E4', 'F4']);
+    expect(pitches("{ c'1 d'1 \\bar \":|.\" e'1 }")).toEqual(['C4', 'D4', 'C4', 'D4', 'E4']);
+  });
+
+  test('\\set Score.repeatCommands with first and second endings', () => {
+    const music = String.raw`{
+      \set Score.repeatCommands = #'(start-repeat) c'1
+      \set Score.repeatCommands = #'((volta "1")) d'1
+      \set Score.repeatCommands = #'((volta #f) (volta "2") end-repeat) e'1
+      \set Score.repeatCommands = #'((volta #f)) f'1 }`;
+    expect(pitches(music)).toEqual(['C4', 'D4', 'C4', 'E4', 'F4']);
+  });
+
+  test('a voice may write a volta passage out once: the repeat applies to every staff', () => {
+    const src = String.raw`<<
+      \new Staff = "up" { \repeat volta 2 { c''1 } \alternative { { d''1 } { e''1 } } f''1 }
+      \new Staff = "down" { c1 d1 e1 f1 } >>`;
+    const s = score(src);
+    const at = staff => s.events.filter(e => e.staff === staff).map(e => `${e.t / Q}:${e.pitches[0].step}`);
+    expect(at(1)).toEqual(['0:C', '4:D', '8:C', '12:E', '16:F']);
+    expect(at(2)).toEqual(['0:C', '4:D', '8:C', '12:E', '16:F']);
+  });
+
+  test('\\relative inside a repeat is lexical: every pass has the same octaves', () => {
+    expect(pitches("\\relative c' { \\repeat unfold 3 { <fis, c' es>8 } g'4 }")).toEqual([
+      'F#3 C4 Eb4',
+      'F#3 C4 Eb4',
+      'F#3 C4 Eb4',
+      'G4', // relative to the chord's first note (F#3) as written once, not to the third pass
+    ]);
+    expect(pitches("\\relative c'' { \\repeat volta 2 { c4 g' } \\alternative { { e2 } { c2 } } d1 }")).toEqual([
+      'C5',
+      'G5',
+      'E5',
+      'C5',
+      'G5',
+      'C5',
+      'D5',
+    ]);
+  });
+});
+
+describe('converter coverage: pitch entry and structure', () => {
+  test('chord repetition q repeats the last chord', () => {
+    expect(pitches("\\relative c' { <c e g>4 q q8 q d4 }")).toEqual(['C4 E4 G4', 'C4 E4 G4', 'C4 E4 G4', 'C4 E4 G4', 'D4']);
+  });
+
+  test('\\transpose moves pitches by the interval, spelled', () => {
+    expect(pitches("{ \\transpose c d { c'4 fis' bes' } }")).toEqual(['D4', 'G#4', 'C5']);
+    expect(pitches("\\transpose c f, \\relative c' { c4 e g }")).toEqual(['F3', 'A3', 'C4']);
+  });
+
+  test('note-name languages: \\language and \\include "english.ly"', () => {
+    const names = src => lilypondToEvents(src).events.map(e => e.pitches.map(p => p.step + ({'-1': 'b', 1: '#', 2: '##'}[p.alter] ?? '') + p.octave).join(' '));
+    expect(names("\\language \"english\"\n\\score { { cs'4 ef' fss' bf' } }")).toEqual(['C#4', 'Eb4', 'F##4', 'Bb4']);
+    expect(names("\\include \"english.ly\"\n\\score { { af'4 gs' } }")).toEqual(['Ab4', 'G#4']);
+    expect(names("\\language \"deutsch\"\n\\score { { h'4 b' fis' es' } }")).toEqual(['B4', 'Bb4', 'F#4', 'Eb4']);
+    expect(names("\\language \"italiano\"\n\\score { { do'4 sib' fad' } }")).toEqual(['C4', 'Bb4', 'F#4']);
+  });
+
+  test('\\include is read through a reader (sync) or expandIncludes (async)', async () => {
+    const files = {'dir/notes.ily': "tune = { c'4 d' }"};
+    const src = "\\include \"notes.ily\"\n\\score { \\tune }";
+    const read = path => files[path] ?? null;
+    expect(lilypondToEvents(src, {read, path: 'dir/main.ly'}).events).toHaveLength(2);
+    const text = await expandIncludes(src, async path => files[path] ?? null, {path: 'dir/main.ly'});
+    expect(lilypondToEvents(text).events).toHaveLength(2);
+    const warnings = [];
+    expandIncludes("\\include \"missing.ily\"", () => null, {warnings});
+    expect(warnings).toEqual(['could not include "missing.ily"']);
+  });
+
+  test('\\keepWithTag and \\tag choose between versions', () => {
+    expect(pitches("{ \\keepWithTag #'one { c'4 \\tag #'one d'4 \\tag #'two e'4 f'4 } }")).toEqual(['C4', 'D4', 'F4']);
+    expect(pitches("{ \\removeWithTag #'one { \\tag #'one d'4 \\tag #'two e'4 } }")).toEqual(['E4']);
+  });
+
+  test('an empty chord <> takes no time', () => {
+    expect(events("{ c'4 <>\\f d'4 }").map(e => e[1])).toEqual([0, 1]);
+  });
+
+  test('a tie inside a chord ties only that note', () => {
+    const xml = xmlOf("{ <c' e'~>2 <d' e'>2 }");
+    expect(notes(xml).map(n => [n.pitch, n.tieStart, n.tieStop])).toEqual([
+      ['C4', false, false],
+      ['E4', true, false],
+      ['D4', false, false],
+      ['E4', false, true],
+    ]);
+  });
+
+  test('definitions: one expression each, with or without spaces around =', () => {
+    const src = String.raw`
+      Treble = \clef treble
+      upper= \relative c'' { \Treble c4 d }
+      title = \markup \bold \piece
+      \score { \new Staff = "up" \upper }`;
+    expect(lilypondToEvents(src).events.map(e => e.pitches[0].midi)).toEqual([72, 74]);
+  });
+
+  test('a markup variable does not swallow the music after it', () => {
+    const src = String.raw`
+      num = "1."
+      \score { \new PianoStaff << \set PianoStaff.instrumentName = \markup \huge \bold \num
+        \new Staff = "up" { c''1 } \new Staff = "down" { c1 } >> }`;
+    expect(lilypondToEvents(src).events.map(e => e.staff)).toEqual([1, 2]);
+  });
+
+  test('\\context Staff without a name is the current staff; the last clef at the start wins', () => {
+    const src = String.raw`\new PianoStaff <<
+      \new Staff = "up" << \context Staff { c''1 } >>
+      \new Staff = "down" { \clef bass \clef treble c'1 } >>`;
+    const s = lilypondToEvents(`\\score { ${src} }`);
+    expect(s.staffNames).toEqual(['up', 'down']);
+    expect(s.clefs).toEqual({2: 'G'});
+    expect(s.clefChanges).toEqual([]);
+  });
+
+  test('bar checks and \\barNumberCheck are recorded for verification (unfold: false)', () => {
+    const s = lilypondToEvents("\\score { { c'1 | d'1 | \\barNumberCheck #3 e'1 } }", {unfold: false});
+    expect(s.checks.bars.map(c => c.t / Q)).toEqual([4, 8]);
+    expect(s.checks.numbers).toMatchObject([{t: 8 * Q, n: 3}]);
+  });
+
+  test('the core module has no Node imports (it runs in the browser)', () => {
+    expect(typeof core.lilypondToEvents).toBe('function');
+    expect(typeof core.convertLilyPond("\\score { { c'1 } }").xml).toBe('string');
   });
 });

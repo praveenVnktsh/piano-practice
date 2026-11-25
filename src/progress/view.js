@@ -1,7 +1,13 @@
-// Progress dashboard (#/progress): today vs goal, streak, recent practice, songs,
+// Progress dashboard (#/progress): today vs goal, streak, letters from the teacher, the graded
+// path, goals, the practice journal, recent practice, songs (with repertoire status),
 // technique keys and note-reading trend. mountProgress(container) → {destroy()}.
 import './progress.css';
-import {CHANGE_EVENT, getProgress, progressWhere, saveSettings, startProgressTracking} from './store.js';
+import {CHANGE_EVENT, addJournalEntry, getProgress, progressWhere, saveGoals, saveSettings, startProgressTracking} from './store.js';
+import {goalsSection, journalSection, lettersSection, pathSection, pathStartSetting} from './learning.js';
+import {pieceMastery, STATUS_LABEL} from './mastery.js';
+import {curriculum} from '../curriculum/levels.js';
+import {loadCatalogs} from '../app/catalog.js';
+import {mountBackupControls} from '../pwa/backup.js';
 import {getTheme, setTheme, THEMES, THEME_EVENT} from '../app/theme.js';
 import {DEFAULT_GOAL_MIN} from './model.js';
 import {addDays, dayKey, keyStats, lastDays, minutesByDay, readingSummary, readingTrend, songStats, streaks, exerciseStats, STREAK_MIN_MINUTES} from './stats.js';
@@ -46,20 +52,55 @@ const FIFTHS_MINOR = [[9, 'Am'], [4, 'Em'], [11, 'Bm'], [6, 'F♯m'], [1, 'C♯m
 export function mountProgress(container) {
   startProgressTracking();
   let destroyed = false, doc = null, where = 'browser', editingGoal = false, renderToken = 0;
+  let library = [], letters = [], addingGoal = false;
+  const expanded = new Set();
+  // Export / import of all data (src/pwa/backup.js): mounted once, moved into Settings on each render.
+  const backupHost = el('div', {class: 'pg-backup'});
+  const bk = mountBackupControls(backupHost);
   const root = el('div', {class: 'pg'});
   container.replaceChildren(root);
 
   async function refresh() {
     const token = ++renderToken;
     try {
-      const [d, w] = await Promise.all([getProgress(), progressWhere()]);
+      const [d, w, lib, tl] = await Promise.all([getProgress(), progressWhere(), loadLibrary(), loadLetters()]);
       if (destroyed || token !== renderToken) return;
-      doc = d; where = w;
+      doc = d; where = w; library = lib; letters = tl;
     } catch (e) {
       console.warn('Progress unavailable:', e);
       if (!doc) doc = null;
     }
     render();
+  }
+
+  let libraryPromise = null;
+  function loadLibrary() {
+    return (libraryPromise ||= loadCatalogs().then(c => [...c.bundled, ...c.local]).catch(() => { libraryPromise = null; return []; }));
+  }
+  async function loadLetters() {
+    try {
+      const res = await fetch('/__teacher', {cache: 'no-store'});
+      if (!res.ok || !(res.headers.get('content-type') || '').includes('json')) return [];
+      const data = await res.json();
+      return Array.isArray(data?.letters) ? data.letters : [];
+    } catch { return []; }
+  }
+  const markRead = id => fetch(`/__teacher/letters/${id}/read`, {method: 'POST'}).catch(() => {});
+  const targets = () => Object.fromEntries(library.filter(e => e.tempo).map(e => [e.id, e.tempo]));
+
+  function learningRow(now) {
+    let path = null;
+    try { path = curriculum(doc, {library, targets: targets(), now}); } catch (e) { console.warn('Path unavailable:', e); }
+    const practised = songStats(doc).map(s => ({id: s.id, title: s.title}));
+    const songs = [...library.map(e => ({id: e.id, title: e.title, tempo: e.tempo})), ...practised.filter(p => !library.some(e => e.id === p.id))];
+    return el('div', {class: 'pg-grid pg-learn'},
+      pathSection({path, expanded, toggle: id => { expanded.has(id) ? expanded.delete(id) : expanded.add(id); render(); }}),
+      el('div', {class: 'pg-stack'},
+        goalsSection({doc, songs, adding: addingGoal, now,
+          setAdding: v => { addingGoal = v; render(); root.querySelector('.pg-goal-form-add select')?.focus(); },
+          onAdd: async g => { addingGoal = false; doc.goals = await saveGoals([...(doc.goals || []), g]); render(); },
+          onRemove: async id => { doc.goals = await saveGoals((doc.goals || []).filter(g => g.id !== id)); render(); }}),
+        journalSection({journal: doc.journal, onAdd: text => addJournalEntry({text})})));
   }
 
   function render() {
@@ -71,6 +112,8 @@ export function mountProgress(container) {
     root.replaceChildren(...[
       hasAny ? null : welcome(),
       el('div', {class: 'pg-grid pg-top'}, todayCard(now, goal), streakCard(now), weekCard(now)),
+      lettersSection({letters, onRead: markRead}),
+      learningRow(now),
       el('div', {class: 'pg-grid pg-mid'}, barsCard(now, goal), heatmapCard(now)),
       el('div', {class: 'pg-grid pg-bottom'}, songsCard(now), keysCard(now), readingCard()),
       settingsCard(goal),
@@ -87,10 +130,12 @@ export function mountProgress(container) {
           ...(editingGoal === 'settings' ? [goalForm(goal)] : [
             el('p', {class: 'pg-setting-value', text: `${goal} minutes a day`}),
             el('button', {class: 'text-btn', type: 'button', text: 'Change', onclick: () => editGoal('settings')})])),
+        pathStartSetting({start: doc.settings?.pathStart || 'beginner', onChange: async id => { doc.settings = await saveSettings({pathStart: id}); render(); }}),
         el('div', {class: 'pg-setting'},
           el('p', {class: 'pg-setting-name', id: 'pg-theme-l', text: 'Appearance'}),
           el('div', {class: 'pg-theme', role: 'radiogroup', 'aria-labelledby': 'pg-theme-l'}, THEMES.map(t =>
             el('button', {type: 'button', role: 'radio', class: 'pg-theme-opt', 'aria-checked': String(t.id === theme), onclick: () => { setTheme(t.id); render(); }}, t.label))))),
+      backupHost,
       el('p', {class: 'pg-fine', text: where === 'disk' ? 'Your progress is kept on your Mac (.data/progress.json) and shared by every device using this dev server.' : 'Your progress is kept in this browser.'}),
     );
   }
@@ -223,12 +268,17 @@ export function mountProgress(container) {
 
   function songsCard(now) {
     const songs = songStats(doc).slice(0, 12);
+    const t = targets();
+    const statusOf = id => pieceMastery(doc, id, {target: t[id]}).status;
     const body = songs.length
       ? el('ul', {class: 'pg-songs'}, songs.map(s => el('li', {},
         el('a', {class: 'pg-song', href: '#/play/' + encodeURIComponent(s.id), title: `Open “${s.title}”`},
           el('span', {class: 'pg-song-main'},
             el('span', {class: 'pg-song-title', text: s.title}),
-            el('span', {class: 'pg-muted', text: `${ago(s.lastAt, now)}${s.attempts ? ` · ${s.attempts} pass${s.attempts === 1 ? '' : 'es'}` : ''}${s.minutes >= 1 ? ` · ${fmtDuration(s.minutes)}` : ''}`})),
+            el('span', {class: 'pg-muted'},
+              statusOf(s.id) && s.attempts ? el('span', {class: 'pg-status is-' + statusOf(s.id), text: STATUS_LABEL[statusOf(s.id)]}) : null,
+              statusOf(s.id) && s.attempts ? ' · ' : null,
+              `${ago(s.lastAt, now)}${s.attempts ? ` · ${s.attempts} pass${s.attempts === 1 ? '' : 'es'}` : ''}${s.minutes >= 1 ? ` · ${fmtDuration(s.minutes)}` : ''}`)),
           s.best != null ? el('span', {class: 'pg-acc', title: `Best ${pct(s.best)} · latest ${pct(s.latest)}`},
             el('span', {class: 'pg-acc-bar'}, el('i', {style: `width:${Math.round(s.best)}%`})),
             el('strong', {text: pct(s.best)})) : el('span', {class: 'pg-muted pg-acc-none', text: 'listened'}),
@@ -304,6 +354,7 @@ export function mountProgress(container) {
   return {
     destroy() {
       destroyed = true;
+      bk?.destroy?.();
       window.removeEventListener(CHANGE_EVENT, onChange);
       window.removeEventListener(THEME_EVENT, onTheme);
       window.removeEventListener('focus', onFocus);

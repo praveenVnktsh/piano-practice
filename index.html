@@ -3,13 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d1020">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Crect width=%2724%27 height=%2724%27 rx=%276%27 fill=%27%2337e2a0%27/%3E%3Cpath d=%27M4 7h16v10H4zM8 7v6M12 7v6M16 7v6%27 fill=%27none%27 stroke=%27%230d1020%27 stroke-width=%272%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
+<meta name="theme-color" content="#f4efe4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121110" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
 <title>Piano Practice</title>
 <meta name="description" content="Practise piano pieces with falling notes or sheet music, a MIDI keyboard or the on-screen keys.">
+<!-- Home-screen app (src/pwa/, public/manifest.webmanifest). Icons: public/icons, rebuilt by src/pwa/make-icons.mjs. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Practice">
+<!-- "default": the status bar takes the theme colour above and keeps dark text on paper. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+<!-- Wake Lock, service worker, theme colour, relay status (src/pwa/index.js). -->
+<script type="module" src="/src/pwa/index.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -56,6 +69,8 @@
             <button class="step-btn" id="tempo-up" type="button" aria-label="Faster">+</button>
           </div>
           <p class="tempo-term" id="tempo-term">Andante</p>
+          <p class="tempo-ladder" id="tempo-ladder" hidden></p>
+          <p class="tempo-best" id="tempo-best" hidden><span id="tempo-best-text"></span> <button class="link-btn" id="tempo-try" type="button"></button></p>
           <label class="pop-toggle"><span>Metronome <small>K</small></span><input type="checkbox" id="metro-btn"><i></i></label>
           <label class="pop-toggle" title="+5% after each clean pass (95%+), up to the target tempo"><span>Speed up after clean passes</span><input type="checkbox" id="sec-speed"><i></i></label>
         </div>
@@ -79,10 +94,24 @@
             <label class="menu-row pop-toggle"><span>Sound <small>M</small></span><input type="checkbox" id="mute-btn" checked><i></i></label>
           </div>
           <div class="menu-group">
+            <label class="menu-row" title="One practice strategy at a time">
+              <span>Strategy</span>
+              <select class="menu-select" id="menu-strategy" aria-label="Practice strategy">
+                <option value="off">None</option>
+                <option value="ladder">Slow-practice ladder</option>
+                <option value="dotted">Dotted rhythm</option>
+                <option value="reversed">Reversed dotted</option>
+                <option value="blocked">Blocked chords</option>
+                <option value="memory">Memory check</option>
+              </select>
+            </label>
+          </div>
+          <div class="menu-group">
             <div class="menu-row">
               <span>View</span>
               <span class="fine-seg" role="radiogroup" aria-label="View">
                 <label><input type="radio" name="menu-view" value="sheet"><span>Notation</span></label>
+                <label><input type="radio" name="menu-view" value="pages"><span>Pages</span></label>
                 <label><input type="radio" name="menu-view" value="falling"><span>Falling notes</span></label>
               </span>
             </div>
@@ -130,6 +159,14 @@
             <button type="button" data-preset="next">Next passage ›</button>
             <button type="button" data-preset="whole">The whole piece</button>
           </div>
+          <p class="pop-kicker">Practise smarter</p>
+          <div class="preset-list smart-list">
+            <button type="button" data-smart="weak" id="smart-weak">Practise my weak bars<span class="preset-meta" id="smart-weak-meta"></span></button>
+            <button type="button" data-smart="phrase">This phrase<span class="preset-meta" id="smart-phrase-meta"></span></button>
+            <button type="button" data-smart="next-phrase" id="smart-next">Next phrase ›<span class="preset-meta" id="smart-next-meta"></span></button>
+            <button type="button" data-smart="chain-forward" title="Loop the first bar, then add a bar after each clean pass">Chain from the start<span class="preset-meta">+1 bar per clean pass</span></button>
+            <button type="button" data-smart="chain-backward" title="Loop the last bar, then add the bar before it after each clean pass">Chain from the end<span class="preset-meta">backward</span></button>
+          </div>
           <p class="pop-note">Or drag across the bar numbers above the score.</p>
         </div>
       </div>
@@ -169,6 +206,7 @@
           <div class="sheet-head">
             <span class="measure-pill" id="um-measure"></span>
             <span class="sheet-detail" id="um-detail"></span>
+            <span class="page-num" id="um-page"></span>
           </div>
           <div id="um-sheet" class="sheet"></div>
           <div class="beats" id="um-count"></div>
@@ -179,6 +217,8 @@
         <div class="sel-ruler sel-ruler-y" title="Drag along the bar numbers to loop them"></div>
       </section>
       <div class="loader"><div class="spinner"></div><p>Opening the score…</p></div>
+      <p class="memory-note" aria-hidden="true">Playing from memory</p>
+      <button class="strategy-tag" id="um-strategy" type="button" title="Turn off" hidden></button>
     </div>
     <div class="cue">
       <div class="prompt" id="um-practice-status">Opening the score…</div>
@@ -221,6 +261,12 @@
             <span class="choice-name">Falling notes</span>
             <span class="choice-sub">Notes descend onto the keys</span>
           </label>
+          <label class="choice">
+            <input type="radio" name="view" value="pages">
+            <span class="choice-art pages-art"><i></i><i></i><i></i><i></i><i></i><em></em><em></em><b></b></span>
+            <span class="choice-name">Pages</span>
+            <span class="choice-sub">One line at a time, turned for you</span>
+          </label>
         </div>
         <div class="set-row">
           <span>Playhead</span>
@@ -252,9 +298,21 @@
         <label class="set-row pop-toggle"><span>Metronome in Listen and Play along <small>K</small></span><input type="checkbox" id="set-metro"><i></i></label>
         <label class="set-row pop-toggle"><span>Also click in Wait mode</span><input type="checkbox" id="set-metro-wait"><i></i></label>
         <label class="set-row range-row"><span>Click volume</span><input type="range" id="set-metro-vol" min="0" max="100" value="60" aria-label="Metronome volume"></label>
+        <div class="set-row">
+          <span>Input latency <small id="lat-value">0 ms</small></span>
+          <button class="link-btn" id="lat-calibrate" type="button">Calibrate…</button>
+        </div>
+        <div class="lat-panel" id="lat-panel" hidden>
+          <p class="lat-text" id="lat-text">Tap a key (or the pad) with each click.</p>
+          <div class="lat-row">
+            <button class="lat-pad" id="lat-pad" type="button">Tap</button>
+            <div class="lat-dots" id="lat-dots" aria-hidden="true"></div>
+          </div>
+          <div class="lat-actions"><button class="link-btn" id="lat-again" type="button">Again</button><button class="link-btn" id="lat-reset" type="button">Reset to 0</button><button class="link-btn" id="lat-done" type="button">Done</button></div>
+        </div>
       </section>
 
-      <p class="shortcuts"><span class="label-caps">Shortcuts</span> Space play/pause · P practise · L loop · H hands · K metronome · M sound · N note names · +/− zoom · ←/→ note · Shift+←/→ bar</p>
+      <p class="shortcuts"><span class="label-caps">Shortcuts</span> Space play/pause · P practise · L loop · H hands · K metronome · M sound · N note names · +/− zoom · ←/→ note · Shift+←/→ bar · Pages view: ←/→ or PageUp/PageDown (page-turner pedals) turn the page</p>
     </div>
   </div>
 
@@ -267,6 +325,12 @@
       <h2 id="complete-title">Well played.</h2>
       <p class="note-text" id="um-complete-text"></p>
       <table class="timing-table" id="um-complete-timing" hidden></table>
+      <figure class="touch" id="um-touch" hidden>
+        <div class="touch-head"><span class="touch-label">Evenness</span><span class="touch-score" id="um-even-score"></span></div>
+        <svg class="touch-graph" id="um-even-graph" viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <figcaption class="touch-cap"><i class="k-time"></i>timing <i class="k-vel"></i>loudness <span id="um-even-detail"></span></figcaption>
+      </figure>
+      <ul class="note-remarks" id="um-remarks" hidden></ul>
       <div class="modal-actions">
         <button class="primary-btn" id="um-again" type="button">Again</button>
         <button class="quiet-btn" id="um-complete-next" type="button">Next section</button>

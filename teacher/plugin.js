@@ -4,8 +4,12 @@
 //   POST /__teacher/messages  {text, context?} → 201 the stored message
 //   GET  /__teacher/stream    SSE: `thread` events ({messages, replies, status}) whenever .teacher/ changes
 //   POST /__teacher/status    {thinking: <message id> | null} → 200 status
+//   POST /__teacher/assignments/<id>/done   {done?: true|false} → 200 the assignment (the student ticks homework)
+//   POST /__teacher/letters/<id>/read       → 200 the letter (the student opened it)
+// Assignments and letters are written by the teacher with the CLI (assign, letter); the thread
+// (GET / and the stream) carries them as `assignments` and `letters`.
 import {mkdirSync, watch} from 'node:fs';
-import {addMessage, readThread, setThinking, TEACHER_DIR} from './store.js';
+import {addMessage, markLetterRead, readThread, setAssignmentDone, setThinking, TEACHER_DIR} from './store.js';
 
 const MAX_BODY = 256 * 1024;
 
@@ -126,8 +130,21 @@ export function teacherHandler(dir = TEACHER_DIR, options) {
         hub.changed();
         return send(res, 200, status);
       }
+      let m = path.match(/^\/assignments\/(\d{1,9})\/done$/);
+      if (m && req.method === 'POST') {
+        const body = await readJson(req).catch(() => ({}));
+        const a = setAssignmentDone(dir, m[1], body?.done !== false);
+        hub.changed();
+        return send(res, 200, a);
+      }
+      m = path.match(/^\/letters\/(\d{1,9})\/read$/);
+      if (m && req.method === 'POST') {
+        const l = markLetterRead(dir, m[1]);
+        hub.changed();
+        return send(res, 200, l);
+      }
     } catch (e) {
-      return send(res, e.status || 400, {error: e.message});
+      return send(res, e.status || (/^no (assignment|letter)/.test(e.message) ? 404 : 400), {error: e.message});
     }
     next();
   };
