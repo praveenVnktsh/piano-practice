@@ -4,7 +4,7 @@ import globals from 'globals';
 export default [
   {
     // Built output, vendored third-party bundles, static assets and local scratch folders.
-    ignores: ['dist/', 'src/vendor/', 'public/', 'node_modules/', 'work/', 'outputs/', 'local-converter/', '.notes/'],
+    ignores: ['dist/', 'src/vendor/', 'public/', 'node_modules/', 'work/', 'outputs/', 'local-converter/', '.notes/', '.claude/'],
   },
   js.configs.recommended,
   {
