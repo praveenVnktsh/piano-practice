@@ -1,7 +1,9 @@
 // The review overlay inside the player: the piece's takes (history: play, rename, delete,
 // export as MIDI) and, for the chosen take, a calm "programme note" report — wrong / missed /
 // extra notes per bar, a fine-line tempo curve with the timing deviation per beat, evenness,
-// dynamics against the marks — printable, and sendable to the teacher.
+// dynamics against the marks, musicality (phrasing, tempo feel, voicing) and "listen and
+// compare" (one bar of the score on the sampler, then the same bar of the take) — printable,
+// and sendable to the teacher.
 //
 //   openReview({host, songId, song, entry, ctl, takeId?}) → {close()}
 import {el} from '../app/dom.js';
@@ -11,6 +13,8 @@ import {takeToMidi, midiFileName} from './midi-file.mjs';
 import {duration} from './text.mjs';
 import {velocityName, heatLevel, barsText} from '../practice-core.mjs';
 import {sendTake} from './send.js';
+import {musicalityMarkup} from '../analysis/musicality-view.js';
+import {prepareCompare} from './compare.mjs';
 
 const fmtDate = at => new Date(at).toLocaleDateString(undefined, {day: 'numeric', month: 'short', year: 'numeric'});
 const fmtTime = at => new Date(at).toLocaleTimeString(undefined, {hour: 'numeric', minute: '2-digit'});
@@ -27,9 +31,12 @@ export function openReview({host, songId, song, entry, ctl, takeId = null}) {
   host.hidden = false;
   document.documentElement.classList.add('rec-open');
 
+  let compare = null, compareBar = null, compareTimer = 0;
+  const silence = () => { clearTimeout(compareTimer); try { ctl.api?.piano?.silence?.(); } catch {} };
   const close = () => {
     if (closed) return;
     closed = true;
+    if (compare) silence();
     host.hidden = true; host.replaceChildren();
     document.documentElement.classList.remove('rec-open');
     window.removeEventListener('keydown', onKey, true);
@@ -60,7 +67,7 @@ export function openReview({host, songId, song, entry, ctl, takeId = null}) {
     await loadSelected();
   }
   async function loadSelected() {
-    current = null;
+    current = null; compare = null; compareBar = null;
     if (selected) {
       try { current = await store.getTake(selected); } catch { current = null; }
       if (current && (!current.report || current.report.v !== REPORT_VERSION)) {
@@ -121,6 +128,8 @@ export function openReview({host, songId, song, entry, ctl, takeId = null}) {
       r ? figure(r) : el('p', {class: 'rec-empty', text: 'This take couldn’t be compared with the score.'}),
       r ? stats(r, t) : null,
       r?.timing.curve.length ? tempoCurve(r, t) : null,
+      r?.musicality ? musicFigure(r) : null,
+      r ? listenCompare(t) : null,
       r ? barStrip(r) : null,
       r ? barList(r) : null,
       r ? dynamicsTable(r) : null,
@@ -196,6 +205,51 @@ export function openReview({host, songId, song, entry, ctl, takeId = null}) {
       el('div', {class: 'rec-fig-head'}, el('span', {class: 'rec-label', text: 'Tempo, beat by beat'}), el('span', {class: 'rec-fig-note', text: r.timing.drift ? `♩ ${r.timing.drift.from} → ${r.timing.drift.to}` : `♩ ≈ ${r.timing.meanBpm}`})),
       svg,
       el('figcaption', {class: 'touch-cap'}, el('i', {class: 'k-time'}), 'tempo', el('i', {class: 'k-ref'}), `set ♩ = ${ref}`, el('i', {class: 'k-dot'}), 'early ↑ late ↓ per beat'));
+  }
+
+  function musicFigure(r) {
+    const html = musicalityMarkup(r.musicality);
+    return html ? el('figure', {class: 'touch music rec-music', 'aria-label': 'Musicality', html}) : null;
+  }
+
+  // Listen and compare: A = the bar as written (the sampler, at your tempo there), B = the same
+  // bar of the take; "A then B" plays both with a breath between.
+  function listenCompare(t) {
+    const piano = ctl.api?.piano;
+    if (!piano?.tone || !t.notes?.length) return null;
+    if (!compare) { try { compare = prepareCompare(song, t); } catch { return null; } }
+    if (!compare.bars.length) return null;
+    compareBar ??= compare.bars[0].i;
+    const status = el('span', {class: 'rec-compare-status', role: 'status'});
+    const playClip = (notes, offset = 0) => { for (const x of notes) piano.tone(x.n, x.dur, x.velocity, offset + x.delay); };
+    const play = which => {
+      const c = compare.clip(compareBar);
+      if (!c) return;
+      silence();
+      const label = compare.bars.find(b => b.i === compareBar)?.label;
+      const where = label === 'Pickup' ? 'the pickup' : `bar ${label}`;
+      if (which === 'a') { playClip(c.reference); status.textContent = `The score, ${where}`; }
+      else if (which === 'b') { playClip(c.take); status.textContent = `Your take, ${where}`; }
+      else {
+        playClip(c.reference); playClip(c.take, c.seconds.reference + .6);
+        status.textContent = `The score, then your take, ${where}`;
+      }
+      const total = which === 'a' ? c.seconds.reference : which === 'b' ? c.seconds.take : c.seconds.reference + .6 + c.seconds.take;
+      clearTimeout(compareTimer);
+      compareTimer = setTimeout(() => { status.textContent = ''; }, (total + .4) * 1000);
+    };
+    const select = el('select', {class: 'rec-input rec-compare-bar', 'aria-label': 'Bar to compare',
+      onchange: e => { compareBar = Number(e.target.value); silence(); status.textContent = ''; }},
+    compare.bars.map(b => el('option', {value: b.i, selected: b.i === compareBar || null, text: b.label === 'Pickup' ? 'Pickup' : `Bar ${b.label}`})));
+    return el('section', {class: 'rec-section rec-compare'},
+      el('h4', {class: 'rec-label', text: 'Listen and compare'}),
+      el('div', {class: 'rec-compare-row'},
+        select,
+        el('div', {class: 'rec-compare-ab', role: 'group', 'aria-label': 'Play'},
+          el('button', {class: 'quiet-btn', type: 'button', text: 'A · the score', onclick: () => play('a')}),
+          el('button', {class: 'quiet-btn', type: 'button', text: 'B · your take', onclick: () => play('b')}),
+          el('button', {class: 'quiet-btn', type: 'button', text: 'A then B', onclick: () => play('ab')})),
+        status));
   }
 
   function barStrip(r) {

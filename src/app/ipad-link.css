@@ -1,0 +1,29 @@
+/* "Open on your iPad" card (src/app/ipad-link.js). Quiet, at the foot of Today and in Settings. */
+.ipl {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin: 24px auto 8px;
+  max-width: 720px;
+  padding: 14px 16px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+}
+.ipl[hidden] { display: none; }
+.ipl-qr { flex: none; width: 96px; height: 96px; border-radius: 4px; color: var(--ebony); } /* always dark on light: cameras read it reliably */
+.ipl-qr path { fill: currentColor; }
+.ipl-qr .ipl-qr-bg { fill: var(--ivory); }
+.ipl-body { min-width: 0; }
+.ipl-body p { margin: 0 0 4px; }
+.ipl-title { font-variant: all-small-caps; letter-spacing: .06em; color: var(--ink-soft); }
+.ipl-url { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ipl-url a, .ipl-alt a, .ipl-hint a { color: var(--ink); text-decoration-color: var(--brass); text-underline-offset: 3px; }
+.ipl-alt, .ipl-hint { color: var(--ink-soft); line-height: 1.45; }
+.ipl code { font-size: 12px; background: var(--paper); padding: 1px 4px; border-radius: 4px; }
+.ipl-compact { margin: 0; padding: 10px 12px; border-radius: 6px; }
+.ipl-compact .ipl-url { font-size: 18px; }
+@media (max-width: 520px) { .ipl { flex-direction: column; align-items: flex-start; } }

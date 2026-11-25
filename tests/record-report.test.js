@@ -180,3 +180,30 @@ describe('exam marks', () => {
     expect(examText({id: 'xxxxxxxx11', at: Date.UTC(2026, 0, 2), ...sheet})).toMatch(/Mock exam xxxxxxxx11 · 2026-01-02 00:00 · \d+\/81/);
   });
 });
+
+describe('musicality in the report', () => {
+  it('adds phrase shape, tempo feel and voicing to the report, the text and the teacher summary', () => {
+    const s = song();
+    // A shaped line: the right hand grows to the top C (bar 3) and tapers; the left hand stays soft.
+    const peak = RH.indexOf(72);
+    const notes = perform(s, 600, (e, row) => [row[0], row[1], e.hand === 'l' ? 50 : 55 + 3 * (Number(e.id.slice(1)) <= peak ? Number(e.id.slice(1)) : 2 * peak - Number(e.id.slice(1))), row[3]]);
+    const r = buildReport({song: s, take: take(notes)});
+    expect(r.v).toBe(3);
+    expect(r.musicality.flex).toMatchObject({label: 'steady', meanBpm: 100});
+    expect(r.musicality.shape.phrases.length).toBeGreaterThan(0);
+    expect(r.musicality.voicing).toBeNull(); // no right-hand chords
+    const text = reportText({...take(notes), report: r});
+    expect(text).toMatch(/Tempo feel: steady · ♩ ≈ 100/);
+    expect(text).toMatch(/Phrasing: \d+\/100/);
+    const c = compactSummary({...take(notes), report: r});
+    expect(c.musicality.flex.label).toBe('steady');
+    expect(c.musicality.flex.curve).toBeUndefined();
+  });
+  it('leaves velocity measures out for on-screen takes', () => {
+    const s = song();
+    const r = buildReport({song: s, take: take(perform(s, 600), {source: 'screen'})});
+    expect(r.musicality.shape).toBeNull();
+    expect(r.musicality.voicing).toBeNull();
+    expect(r.musicality.flex.label).toBe('steady');
+  });
+});
