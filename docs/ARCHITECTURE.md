@@ -437,3 +437,11 @@ mounted) and the public site shows one quiet line in Progress instead. sessionSt
   `{bars, clip(i)}`; a clip is the bar as written (played evenly at the take's own tempo in that bar,
   velocity from the marks) and the take's notes in the same bar, as `{n, delay, dur, velocity}` lists for
   `piano.tone`. The review's "Listen and compare" row plays A (the score), B (the take) or A then B.
+
+## Stuck hint (Wait mode)
+- `src/practice/stuck.mjs` (pure): `StuckTracker` — stuck after `STUCK_WRONGS` (3) wrong notes on one
+  chord, or `STUCK_AFTER_MS` (6 s) after the first wrong note on it; once per chord; `advance()` on the next.
+- Player: `.stuck` on `#player`, `.s-hint` on the chord's `.note` elements (letters via `.nh-name`,
+  made on demand), stronger `.pkey.attack` outline and names, the prompt "Here they are · …", the
+  chord played once softly (unless muted), and names on the falling notes. It also lifts the
+  memory check's hidden keys for that chord. Cleared when the chord is played, on stop and restart.
