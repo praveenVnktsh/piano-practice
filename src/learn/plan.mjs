@@ -1,32 +1,37 @@
 // "Learn this piece" (docs/ROADMAP.md, Phase 12): a step-by-step plan built from the
 // piece's phrases (detectPhrases in src/practice-core.mjs). Pure logic, no DOM.
 //
-// Each phrase walks these steps, in order:
-//   listen  – hear the phrase at the target tempo
-//   right   – right hand alone (Wait mode)           } only when the phrase has
+// Phrases are grouped into passages of about 4–8 bars (groupPassages): short phrases are
+// merged up to a phrase boundary; a phrase is split only when it is longer than 8 bars.
+// Each passage walks these steps, in order:
+//   listen  – hear the passage at the target tempo
+//   right   – right hand alone (Wait mode)           } only when the passage has
 //   left    – left hand alone (Wait mode)            } notes in both hands
 //   slow    – hands together, play along at ~60 % of the target tempo
 //   tempo   – hands together, play along, the slow-practice ladder up to the target tempo
-//   join    – this phrase joined to the one before it, at tempo (not for the first phrase)
-// Phrases that only replay a repeat (every bar a second visit) are skipped; a piece of two
-// phrases or more ends with
+//   join    – this passage joined to the one before it, at tempo (not for the first)
+// A passage with the same notes as an earlier one (a repeat, a returning theme) is
+// "same as passage N" and gets one quick step instead:
+//   through – play it through, hands together, at tempo
+// and a piece of two passages or more ends with
 //   whole   – the whole piece, hands together, at tempo.
 //
 // A step is done by a practice:result that covers its bars with its hands, mode and
 // (for play-along steps) at least its tempo, with accuracy ≥ PASS; `listen` by
-// listening to the end of a passage that covers its bars.
+// listening to the end of a section that covers its bars.
 // Step keys ("<first>-<last>:<kind>") name the bars, so a done step stays done
-// for as long as the phrase it belongs to is detected the same way.
+// for as long as its passage is found the same way.
 
 export const PASS = 90;              // accuracy (%) that completes a step
 export const SLOW = .6;              // "slowly": this share of the target tempo
-export const KINDS = ['listen', 'right', 'left', 'slow', 'tempo', 'join', 'whole'];
+export const KINDS = ['listen', 'right', 'left', 'slow', 'tempo', 'join', 'through', 'whole'];
+export const PASSAGE_MIN = 4, PASSAGE_MAX = 8;
 
 // What to do, shown in the prompt when a step is set up.
 const HINTS = {
   listen: 'Hear how it goes', right: 'The app plays the left hand and waits for you', left: 'The app plays the right hand and waits for you',
-  slow: 'Play along, slowly and in time', tempo: 'A little faster after each clean pass', join: 'Play the two phrases as one',
-  whole: 'From the first bar to the last',
+  slow: 'Play along, slowly and in time', tempo: 'A little faster after each clean pass', join: 'Play the two passages as one',
+  through: 'You know this one already: play it through', whole: 'From the first bar to the last',
 };
 const HANDS_TEXT = {right: 'right hand', left: 'left hand', both: 'hands together'};
 
@@ -39,57 +44,150 @@ export function barsLabel(measures, a, b = a) {
 }
 
 /**
- * The plan for a piece → [step]. step = {key, kind, phrase (index), phrases (count),
- * section: [first, last], hands, mode: 'wait'|'timed', intent: 'listen'|'practice',
- * tempo, goal?, hint (what to do) (tempo to reach, `tempo` steps), strategy: 'off'|'ladder', label, detail}.
- * `phrases` from detectPhrases; `events` (with `hand`) decide whether the hands are
- * practised separately; `target` is the piece's tempo (quarter-note BPM).
+ * Phrases ({first, last}) → passages of about `min`–`max` bars, cut only at phrase ends.
+ * A passage shorter than `min` takes in the next phrase while the two fit in `max`; a phrase
+ * longer than `max` is cut into near-equal parts; a short last passage joins the one before
+ * when they fit. A pickup bar doesn't count as a bar.
  */
-export function buildPlan({phrases = [], measures = [], events = []} = {}, {target = 100, slow = SLOW} = {}) {
+export function groupPassages(phrases = [], measures = [], {min = PASSAGE_MIN, max = PASSAGE_MAX} = {}) {
+  const len = (a, b) => b - a + 1 - (measures[a]?.pickup ? 1 : 0);
+  const parts = [];
+  for (const p of phrases) {
+    const n = len(p.first, p.last);
+    if (n <= max) { parts.push({first: p.first, last: p.last}); continue; }
+    const k = Math.ceil(n / max), size = (p.last - p.first + 1) / k;
+    for (let j = 0; j < k; j++) {
+      parts.push({first: p.first + Math.round(j * size), last: j === k - 1 ? p.last : p.first + Math.round((j + 1) * size) - 1});
+    }
+  }
+  const out = [];
+  for (const p of parts) {
+    const cur = out.at(-1);
+    if (cur && len(cur.first, cur.last) < min && len(cur.first, p.last) <= max) cur.last = p.last;
+    else out.push({...p});
+  }
+  if (out.length > 1) {
+    const a = out.at(-2), b = out.at(-1);
+    if (len(b.first, b.last) < min && len(a.first, b.last) <= max) { a.last = b.last; out.pop(); }
+  }
+  return out;
+}
+
+/**
+ * The notes of a passage relative to its start, as a comparable string ('' without notes):
+ * two passages with the same string are the same music.
+ */
+export function passagePrint(measures, events, {first, last}) {
+  const start = measures[first]?.start, end = measures[last]?.end;
+  if (start == null || end == null) return '';
+  const r = x => Math.round(x * 96);
+  return events.filter(e => e.t >= start && e.t < end)
+    .map(e => `${r(e.t - start)}:${e.n}:${r(e.d || 0)}:${e.hand === 'l' ? 'l' : 'r'}`).sort().join(',');
+}
+
+/**
+ * Literal repeats: runs of at least `min` bars whose notes match, bar for bar, an earlier run
+ * (a repeat written out or unfolded, a returning theme). → [{first, last, from}] where bars
+ * first…last are the same as from…from + (last − first). Bars without notes never match.
+ */
+export function repeatRuns(measures = [], events = [], {min = PASSAGE_MIN} = {}) {
+  const prints = measures.map((m, i) => passagePrint(measures, events, {first: i, last: i}));
+  const out = [];
+  for (let i = 0; i < prints.length;) {
+    let best = 0, from = -1;
+    if (prints[i]) {
+      for (let j = 0; j < i; j++) {
+        let k = 0;
+        while (i + k < prints.length && j + k < i && prints[j + k] && prints[j + k] === prints[i + k]) k++;
+        if (k > best) { best = k; from = j; }
+      }
+    }
+    if (best >= min) { out.push({first: i, last: i + best - 1, from}); i += best; } else i++;
+  }
+  return out;
+}
+
+/**
+ * The passages of a plan, in score order: new music grouped from the phrases (groupPassages,
+ * phrases clipped at repeats), and each literal repeat as one passage with `from` (its source bar).
+ * → [{first, last, from?}]
+ */
+export function planPassages(phrases = [], measures = [], events = [], {min = PASSAGE_MIN, max = PASSAGE_MAX} = {}) {
+  const runs = measures.length ? repeatRuns(measures, events, {min}) : [];
+  if (!runs.length) return groupPassages(phrases, measures, {min, max});
+  const out = [];
+  let at = phrases[0]?.first ?? 0;
+  const end = phrases.at(-1)?.last ?? -1;
+  const fresh = (a, b) => {
+    if (a > b) return;
+    const clipped = phrases.filter(p => p.last >= a && p.first <= b).map(p => ({first: Math.max(a, p.first), last: Math.min(b, p.last)}));
+    out.push(...groupPassages(clipped, measures, {min, max}));
+  };
+  for (const r of runs) {
+    fresh(at, r.first - 1);
+    out.push({first: r.first, last: r.last, from: r.from});
+    at = r.last + 1;
+  }
+  fresh(at, end);
+  return out;
+}
+
+/**
+ * The plan for a piece → [step]. step = {key, kind, passage (index), passages (count),
+ * section: [first, last], hands, mode: 'wait'|'timed', intent: 'listen'|'practice',
+ * tempo, goal? (tempo to reach, `tempo` steps), same? (number of the passage it repeats, 0-based),
+ * strategy: 'off'|'ladder', label, hint (what to do), detail ("Passage 2 of 6 · Bars 5–12")}.
+ * `phrases` from detectPhrases; `events` (with `hand`) decide whether the hands are
+ * practised separately and which passages repeat; `target` is the piece's tempo (♩ BPM).
+ */
+export function buildPlan({phrases = [], measures = [], events = []} = {}, {target = 100, slow = SLOW, min = PASSAGE_MIN, max = PASSAGE_MAX} = {}) {
   target = Math.max(20, Math.round(target) || 100);
   const slowTempo = Math.max(20, Math.min(target, Math.round(target * slow)));
-  // A repeat played again (every bar a second visit) is learnt the first time round.
-  const fresh = phrases.map((p, i) => ({p, i})).filter(({p}) => {
-    for (let k = p.first; k <= p.last; k++) if (!(measures[k]?.visit > 1)) return true;
-    return !measures.length;
-  });
-  const total = fresh.length;
+  const passages = planPassages(phrases, measures, events, {min, max});
   const steps = [];
   const inBars = (p, h) => {
     if (!measures.length) return true;
     const start = measures[p.first]?.start ?? -Infinity, end = measures[p.last]?.end ?? Infinity;
     return events.some(e => e.hand === h && e.t >= start && e.t < end);
   };
-  fresh.forEach(({p, i: orig}, i) => {
+  // Passages are numbered among the new music only: a repeat is "same as passage N".
+  const number = [];
+  let fresh = 0;
+  passages.forEach((p, i) => {
+    if (p.from == null) { number[i] = fresh++; return; }
+    const src = passages.findIndex(q => q.from == null && q.first <= p.from && p.from <= q.last);
+    number[i] = src >= 0 ? number[src] : 0;
+  });
+  const total = fresh;
+  passages.forEach((p, i) => {
     const section = [p.first, p.last];
-    const bars = barsLabel(measures, p.first, p.last);
-    const where = total > 1 ? `Phrase ${i + 1} of ${total}` : 'The piece';
+    const same = p.from != null ? number[i] : -1;
+    const where = total > 1 ? `Passage ${number[i] + 1} of ${total}` : 'The piece';
+    const base = {passage: number[i], passages: total, section, hands: 'both', mode: 'timed', intent: 'practice', tempo: target, strategy: 'off'};
     const add = (kind, opts) => steps.push({
-      key: `${section[0]}-${section[1]}:${kind}`, kind, phrase: i, phrases: total, section,
-      hands: 'both', mode: 'timed', intent: 'practice', tempo: target, strategy: 'off', hint: HINTS[kind], ...opts,
-      detail: `${where} · ${bars}`,
+      ...base, key: `${section[0]}-${section[1]}:${kind}`, kind, hint: HINTS[kind], ...opts,
+      detail: same >= 0 ? `${barsLabel(measures, p.first, p.last)} · same as passage ${same + 1}` : `${where} · ${barsLabel(measures, p.first, p.last)}`,
     });
+    if (same >= 0) { add('through', {label: 'Play it through', same}); return; }
     add('listen', {intent: 'listen', label: 'Listen'});
     if (inBars(p, 'r') && inBars(p, 'l')) {
-      add('right', {hands: 'right', mode: 'wait', tempo: slowTempo, label: 'Right hand alone'});
-      add('left', {hands: 'left', mode: 'wait', tempo: slowTempo, label: 'Left hand alone'});
+      add('right', {hands: 'right', mode: 'wait', tempo: slowTempo, label: 'Right hand'});
+      add('left', {hands: 'left', mode: 'wait', tempo: slowTempo, label: 'Left hand'});
     }
     add('slow', {tempo: slowTempo, label: `Hands together, slowly (♩ = ${slowTempo})`});
     if (slowTempo < target) add('tempo', {tempo: slowTempo, goal: target, strategy: 'ladder', label: `Up to tempo (♩ = ${target})`});
-    // Joined to whatever comes just before it in the score (a repeat included).
-    if (orig > 0) {
-      const prev = phrases[orig - 1];
+    if (i > 0) {
+      const from = Math.max(passages[i - 1].first, p.first - max); // a long repeat before: its last bars
       steps.push({
-        key: `${prev.first}-${p.last}:join`, kind: 'join', phrase: i, phrases: total, section: [prev.first, p.last],
-        hands: 'both', mode: 'timed', intent: 'practice', tempo: target, strategy: 'off', hint: HINTS.join,
-        label: 'Join to the phrase before', detail: `${where} · ${barsLabel(measures, prev.first, p.last)}`,
+        ...base, key: `${from}-${p.last}:join`, kind: 'join', section: [from, p.last], hint: HINTS.join,
+        label: 'Join to the bars before', detail: `${where} · ${barsLabel(measures, from, p.last)}`,
       });
     }
   });
-  if (phrases.length > 1 && total) {
-    const last = phrases.at(-1).last, first = phrases[0].first;
+  if (passages.length > 1) {
+    const first = passages[0].first, last = passages.at(-1).last;
     steps.push({
-      key: `${first}-${last}:whole`, kind: 'whole', phrase: total - 1, phrases: total, section: [first, last],
+      key: `${first}-${last}:whole`, kind: 'whole', passage: Math.max(0, total - 1), passages: total, section: [first, last],
       hands: 'both', mode: 'timed', intent: 'practice', tempo: target, strategy: 'off', hint: HINTS.whole,
       label: 'The whole piece', detail: `${barsLabel(measures, first, last)} · ♩ = ${target}`,
     });
@@ -130,6 +228,10 @@ export function planProgress(steps, done) {
   const cur = currentStep(steps, set);
   return {done: n, total: steps.length, index: cur ? steps.indexOf(cur) : steps.length};
 }
+
+/** The button's words: "Passage 2 of 6 · Left hand" (just the label for a one-passage piece or the last step). */
+export const stepTitle = step => (!step ? '' : step.kind === 'through' ? `Same as passage ${step.same + 1} · ${step.label}`
+  : step.passages > 1 && step.kind !== 'whole' ? `Passage ${step.passage + 1} of ${step.passages} · ${step.label}` : step.label);
 
 /** One line for Today and the player: "Phrase 2 of 5 · Bars 5–8 — Left hand alone". */
 export const stepText = step => (step ? `${step.label} · ${step.detail}` : '');

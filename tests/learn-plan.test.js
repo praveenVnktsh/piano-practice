@@ -1,7 +1,7 @@
 import {describe, expect, test} from 'vitest';
 
 import {
-  barsLabel, buildPlan, currentStep, goalTempo, isSetUp, listenMeets, listenSpan, planProgress, resultMeets, stepText, PASS,
+  barsLabel, buildPlan, groupPassages, planPassages, repeatRuns, stepTitle, currentStep, goalTempo, isSetUp, listenMeets, listenSpan, planProgress, resultMeets, stepText, PASS,
 } from '../src/learn/plan.mjs';
 import {startingKeys} from '../src/learn/position.mjs';
 import {appendEvents, emptyDoc, normalizeDoc, sanitizeEvent} from '../src/progress/model.js';
@@ -32,8 +32,10 @@ describe('buildPlan', () => {
     expect(by('0-3:slow')).toMatchObject({hands: 'both', mode: 'timed', tempo: 60, strategy: 'off'});
     expect(by('0-3:tempo')).toMatchObject({tempo: 60, goal: 100, strategy: 'ladder'});
     expect(goalTempo(by('0-3:tempo'))).toBe(100);
-    expect(by('0-7:join')).toMatchObject({section: [0, 7], tempo: 100, phrase: 1});
-    expect(stepText(by('4-7:left'))).toBe('Left hand alone · Phrase 2 of 2 · Bars 5–8');
+    expect(by('0-7:join')).toMatchObject({section: [0, 7], tempo: 100, passage: 1});
+    expect(stepText(by('4-7:left'))).toBe('Left hand · Passage 2 of 2 · Bars 5–8');
+    expect(stepTitle(by('4-7:left'))).toBe('Passage 2 of 2 · Left hand');
+    expect(stepTitle(by('0-7:whole'))).toBe('The whole piece');
   });
 
   test('a phrase with one hand only skips the hands-separate steps; one phrase has no join or whole step', () => {
@@ -48,18 +50,90 @@ describe('buildPlan', () => {
     expect(p.at(-1).tempo).toBe(20); // never below 20 BPM
   });
 
-  test('a repeat played again is skipped, but the phrase after it joins to the repeat', () => {
-    const m = bars(12).map((b, i) => ({...b, visit: i >= 4 && i < 8 ? 2 : 1}));
-    const p = buildPlan({phrases: [{first: 0, last: 3}, {first: 4, last: 7}, {first: 8, last: 11}], measures: m, events: both(12)}, {target: 100});
-    expect(p.filter(s => s.kind === 'listen').map(s => s.key)).toEqual(['0-3:listen', '8-11:listen']);
-    expect(p.filter(s => s.kind === 'join').map(s => s.key)).toEqual(['4-11:join']);
+  test('a passage with the same notes as an earlier one is one quick "play it through" step', () => {
+    // Bars 9–12 replay bars 1–4 note for note.
+    const evs = [];
+    for (let t = 0; t < 48; t++) { const b = Math.floor(t / 4), k = b >= 8 ? t - 32 : t; evs.push(ev(60 + (k % 7), t), ev(48 + (Math.floor(k / 4) % 3), t, 1, 'l')); }
+    const p = buildPlan({phrases: [{first: 0, last: 3}, {first: 4, last: 7}, {first: 8, last: 11}], measures: bars(12), events: evs}, {target: 100});
+    const third = p.filter(s => s.section[0] === 8 && s.kind !== 'whole');
+    expect(third.map(s => s.key)).toEqual(['8-11:through']);
+    expect(third[0]).toMatchObject({same: 0, hands: 'both', mode: 'timed', tempo: 100, label: 'Play it through'});
+    expect(third[0].detail).toBe('Bars 9–12 · same as passage 1');
+    expect(stepTitle(third[0])).toBe('Same as passage 1 · Play it through');
+    // Numbered among the new music: two passages, not three.
+    expect(p[0].detail).toBe('Passage 1 of 2 · Bars 1–4');
     expect(p.at(-1).key).toBe('0-11:whole');
-    expect(p[0].detail).toBe('Phrase 1 of 2 · Bars 1–4');
     expect(p[0].hint).toBeTruthy();
   });
 
   test('no phrases, no plan', () => {
     expect(buildPlan({phrases: []})).toEqual([]);
+  });
+});
+
+describe('groupPassages', () => {
+  const ph = (...lens) => { let a = 0; return lens.map(n => { const p = {first: a, last: a + n - 1}; a += n; return p; }); };
+  const len = ps => ps.map(p => p.last - p.first + 1);
+
+  test('short phrases merge into passages of 4–8 bars at phrase ends', () => {
+    expect(len(groupPassages(ph(2, 2, 2, 2, 4, 4), bars(16)))).toEqual([4, 4, 4, 4]);
+    expect(len(groupPassages(ph(2, 3, 4, 2, 2), bars(13)))).toEqual([5, 4, 4]);
+    expect(len(groupPassages(ph(4, 4, 4), bars(12)))).toEqual([4, 4, 4]);
+  });
+
+  test('a phrase longer than 8 bars is cut into near-equal parts; a short tail joins the passage before', () => {
+    expect(len(groupPassages(ph(12), bars(12)))).toEqual([6, 6]);
+    expect(len(groupPassages(ph(17), bars(17)))).toEqual([6, 5, 6]);
+    expect(len(groupPassages(ph(4, 2), bars(6)))).toEqual([6]);
+    expect(len(groupPassages(ph(8, 2), bars(10)))).toEqual([8, 2]); // can't fit: stays short
+  });
+
+  test('a pickup bar does not count', () => {
+    const m = bars(9); m[0] = {...m[0], pickup: true};
+    expect(len(groupPassages(ph(3, 2, 4), m))).toEqual([5, 4]); // pickup + 4 bars, then 4
+  });
+
+  test('a long minuet-like piece: 27 short phrases become a handful of passages', () => {
+    const lens = Array.from({length: 27}, (_, i) => (i % 3 === 2 ? 4 : 2)).slice(0, 27);
+    const total = lens.reduce((a, b) => a + b, 0);
+    const out = groupPassages(ph(...lens), bars(total));
+    expect(out.length).toBeLessThanOrEqual(Math.ceil(total / 4));
+    expect(out.every(p => p.last - p.first + 1 >= 4 && p.last - p.first + 1 <= 8)).toBe(true);
+  });
+});
+
+describe('repeats', () => {
+  // 24 bars: A (1–8), A again (9–16), B (17–24); every bar differs within A and B.
+  const tune = () => {
+    const out = [];
+    for (let b = 0; b < 24; b++) {
+      const k = b >= 8 && b < 16 ? b - 8 : b;
+      for (let q = 0; q < 4; q++) out.push(ev(60 + ((k * 3 + q) % 12), b * 4 + q), ev(36 + k, b * 4 + q, 1, 'l'));
+    }
+    return out;
+  };
+  const ph = n => Array.from({length: n / 2}, (_, i) => ({first: i * 2, last: i * 2 + 1}));
+
+  test('repeatRuns finds a literal repeat of four bars or more', () => {
+    expect(repeatRuns(bars(24), tune())).toEqual([{first: 8, last: 15, from: 0}]);
+    expect(repeatRuns(bars(24), tune(), {min: 9})).toEqual([]);
+    expect(repeatRuns(bars(4), [])).toEqual([]); // empty bars never match
+  });
+
+  test('planPassages: new music grouped from phrases, the repeat as one passage', () => {
+    expect(planPassages(ph(24), bars(24), tune())).toEqual([
+      {first: 0, last: 3}, {first: 4, last: 7}, {first: 8, last: 15, from: 0}, {first: 16, last: 19}, {first: 20, last: 23},
+    ]);
+  });
+
+  test('the plan numbers new music only and gives the repeat one step', () => {
+    const p = buildPlan({phrases: ph(24), measures: bars(24), events: tune()}, {target: 100});
+    const rep = p.filter(s => s.kind === 'through');
+    expect(rep).toHaveLength(1);
+    expect(rep[0]).toMatchObject({section: [8, 15], same: 0});
+    expect(stepTitle(p.find(s => s.key === '16-19:listen'))).toBe('Passage 3 of 4 · Listen');
+    expect(p.find(s => s.key.endsWith('-19:join')).section).toEqual([8, 19]); // the repeat's last eight bars and passage 3
+    expect(p.length).toBeLessThan(30);
   });
 });
 

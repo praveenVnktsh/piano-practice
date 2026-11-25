@@ -3,6 +3,8 @@
 // accidentals, the fastest notes), computed from buildScore's measures and events
 // (src/score-core.mjs; times in quarter notes, `hand` 'r' | 'l'). Pure logic, no DOM.
 
+import {repeatRuns} from './plan.mjs';
+
 const EPS = 1e-6;
 const MAJOR = ['C♭', 'G♭', 'D♭', 'A♭', 'E♭', 'B♭', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F♯', 'C♯'];
 const MINOR = ['A♭', 'E♭', 'B♭', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F♯', 'C♯', 'G♯', 'D♯', 'A♯'];
@@ -124,8 +126,9 @@ export function trickyBars(measures = [], events = [], {fifths = 0, max = 4, min
     b.score = Math.round(score * 100) / 100;
     b.reasons = reasons.sort((x, y) => y[0] - x[0]).map(r => r[1]);
   }
-  // A repeat played again is the same bar: only its first visit is named.
-  const ranked = bars.filter(b => b.score > 0 && !(measures[b.index].visit > 1)).sort((a, b) => b.score - a.score || a.index - b.index);
+  // A repeat played again (unfolded, or written out note for note) is the same bar: only its first time is named.
+  const again = new Set(repeatRuns(measures, events).flatMap(r => Array.from({length: r.last - r.first + 1}, (_, k) => r.first + k)));
+  const ranked = bars.filter(b => b.score > 0 && !(measures[b.index].visit > 1) && !again.has(b.index)).sort((a, b) => b.score - a.score || a.index - b.index);
   const picked = [];
   const near = b => picked.some(p => Math.abs(p.index - b.index) <= 1);
   for (const b of ranked) {
