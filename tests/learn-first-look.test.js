@@ -92,6 +92,15 @@ describe('tricky bars', () => {
     expect(trickyBars(measures, events).map(t => t.index)).toEqual([0]);
   });
 
+  test('a passage written out again note for note is not named twice', () => {
+    const measures = bars(8), events = [];
+    for (let b = 0; b < 8; b++) { const k = b % 4; events.push(...[0, 1, 2, 3].map(q => ev(60 + k * 2 + (q % 2), b * 4 + q)), ev(40 + k, b * 4, 4, 'l')); }
+    events.push(ev(79, 1 * 4 + 1.5, .5), ev(64, 1 * 4 + 2, .5), ev(79, 5 * 4 + 1.5, .5), ev(64, 5 * 4 + 2, .5));
+    const picked = trickyBars(measures, events).map(t => t.index);
+    expect(picked).toContain(1);
+    expect(picked.some(i => i >= 4)).toBe(false); // bars 5–8 repeat bars 1–4
+  });
+
   test('the pickup is named as such', () => {
     const measures = bars(3);
     measures[0] = {...measures[0], label: 'Pickup', pickup: true};

@@ -243,7 +243,7 @@ export function mountToday(container, {library, open} = {}) {
       return card(1, {
         kind: 'Learning, step by step', title: p.entry.title, titleClass: 'is-work', by: p.entry.composer,
         desc: p.plan.next.label,
-        meta: done ? `${done} of ${total} steps done` : 'A few minutes a step',
+        meta: total ? `Step ${Math.min(total, done + 1)} of ${total}` : null,
         action: 'Next step', onAction: () => {
           try { sessionStorage.setItem(LEARN_APPLY_KEY, p.entry.id); } catch {}
           go(p.entry.id);

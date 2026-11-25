@@ -276,9 +276,13 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   `isSetUp`, `listenSpan`), `first-look.mjs` (pure: `firstLook(song, {tempo})` → key, meter, tempo, hand ranges,
   `trickyBars`), `position.mjs` (pure: `startingKeys`), `guide.js` (`attachLearn(api)` from src/player.js:
   the "Next step" button `#learn-next` under the stage, Bars ▾ → `#learn-toggle`, the first-look card).
-- **Plan steps** per phrase (`detectPhrases`; phrases that only replay a repeat are skipped): `listen` →
-  `right` → `left` (only when both hands play) → `slow` (play along at 60 % of the target) → `tempo`
-  (the slow-practice ladder to the target) → `join` (with the phrase before it); then `whole`.
+- **Plan steps** per passage: phrases (`detectPhrases`) are grouped into passages of about 4–8 bars
+  (`groupPassages`: short phrases merged at phrase ends, a phrase split only when longer than 8 bars), and
+  literal repeats of 4+ bars (`repeatRuns`: the same notes bar for bar as earlier bars, unfolded or written
+  out) become one passage "same as passage N" with a single `through` step (play it through at tempo).
+  New passages walk `listen` → `right` → `left` (only when both hands play) → `slow` (play along at 60 %
+  of the target) → `tempo` (the slow-practice ladder to the target) → `join` (with up to 8 bars before);
+  then `whole`. Passages are numbered among new music only ("Passage 2 of 6 · Left hand", "Step 9 of 36").
   Step keys are `"<first>-<last>:<kind>"`. A step is done by a `practice:result` covering its bars with its
   hands, mode and tempo at ≥ 90 % accuracy, or (listen) by listening to the end of a covering section.
   "Next step" sets the step up through `window.pianoPlayer` (`setSection`, `setHands`, `setMode`,

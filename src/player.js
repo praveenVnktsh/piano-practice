@@ -104,6 +104,7 @@ export function createPlayer(root) {
   let strategy = 'off', chain = null, latencyMs = 0, phrases = [];
   let barTally = new BarTally(), trouble = new Map();
   let learn = null; // "Learn this piece" plan + first look (src/learn/guide.js), attached below
+  let stopForStep = false; // a plan step was done during a loop: end at this pass's end, quietly
   let played = [], pedalLog = [], pedalDown = false, memoryHints = 0;
   const screenDown = new Set();
   const wantHand = e => handFilter(hands)(e);
@@ -642,6 +643,7 @@ export function createPlayer(root) {
     : 'Press <b class="glyph">▶</b> · the music waits for each note');
 
   function stopAll() {
+    stopForStep = false;
     stopExternal();
     if (scrub) { scrub = null; clearTimeout(wheelTimer); root.classList.remove('scrubbing'); }
     stopClock(); clearTimeout(autoTimer); autoTimer = null;
@@ -720,7 +722,8 @@ export function createPlayer(root) {
     const kind = clock.kind;
     if (kind === 'timed' && finishTimedPass()) return; // a chain moved on to a longer passage
     if (!clock) return; // finishing stopped it
-    if (loop) {
+    const quiet = stopForStep; stopForStep = false;
+    if (loop && !quiet) {
       // Seamless loop: the next pass starts exactly where this one ended.
       matched.clear(); grades.clear();
       if (kind === 'timed') newGrader();
@@ -739,6 +742,7 @@ export function createPlayer(root) {
       learn?.listened([range.first, range.last]);
     } else {
       practicing = false; grader = null; finished = true; pos = range.end; endSession(); setButtons(); draw();
+      if (quiet && !perf) { setStatus('Step done'); return; } // the plan's prompt names the next step
       setStatus('Finished'); showResults(lastResult);
       if (perf) endPerformance({completed: true});
     }
@@ -964,7 +968,8 @@ export function createPlayer(root) {
     const r = {right: rightCount, wrong: wrongCount, accuracy: total ? Math.round(100 * rightCount / total) : 100, timing: null};
     emitResult(r);
     if (continueChain(r)) return;
-    if (loop) {
+    const quiet = stopForStep; stopForStep = false;
+    if (loop && !quiet) {
       flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : 'Once more.');
       follow.reset(); autoPlayed = new Set(); matched.clear(); rightCount = 0; wrongCount = 0;
       pos = follow.current.t; draw(); practicePrompt(); runAuto(true);
@@ -972,6 +977,7 @@ export function createPlayer(root) {
     }
     practicing = false; follow = null; finished = true; pos = range.end;
     refreshFreeClick(); endSession(); setButtons(); draw();
+    if (quiet) { setStatus('Step done'); return; } // the plan's prompt names the next step
     setPrompt('Passage complete'); setStatus('Finished'); showResults(r);
   }
 
@@ -1040,7 +1046,7 @@ export function createPlayer(root) {
     if (perf) r.performance = performanceScore({counts: r.counts, evenness: evenness(played.filter(p => p.id != null))});
     emitResult(r);
     if (r.chainNext) { stopAll(); setTimeout(() => continueChain(r), 300); return true; }
-    if (!loop) return false;
+    if (!loop || stopForStep) return false;
     flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : `${r.accuracy}% · once more.`);
     return false;
   }
@@ -1673,7 +1679,8 @@ export function createPlayer(root) {
     keys: notes => { if (notes.length) midiHeld.set('take:0', new Set(notes)); else midiHeld.delete('take:0'); renderMidi(); },
     flash, setStatus, setPrompt, measureName: i => measureName(song.measures[i]),
   });
-  learn = attachLearn({root, flash, setStatus, setPrompt, setLoop: v => setLoop(v), setIntent: v => setIntent(v), closePopovers: () => closePopovers()});
+  learn = attachLearn({root, flash, setStatus, setPrompt, setLoop: v => setLoop(v), setIntent: v => setIntent(v), closePopovers: () => closePopovers(),
+    stopAtPassEnd: () => { stopForStep = true; }});
 
   // ───────── Highway ─────────
   const highway = createHighway({
