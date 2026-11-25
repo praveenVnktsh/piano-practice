@@ -7,6 +7,7 @@ import {mountDiagnostics} from './diagnostics/sheet.js';
 import {onRelayMidi, onRelayStatus, relayAvailable} from './midi-relay.js';
 import {setTheme as setAppTheme, getTheme, THEME_EVENT} from './app/theme.js';
 import {attachRecording} from './record/player-ui.js';
+import {attachBarNotes} from './teacher/bar-notes.js'; // the teacher's bar comments (Phase 14)
 import {playHref} from './app/router.js';
 import {
   BarTally, normaliseBarStats, mergeBarStats, heatLevel, weakPassage, startChain, chainStep, detectPhrases, phraseAt, nextPhrase,
@@ -228,6 +229,7 @@ export function createPlayer(root) {
   let sheetTrack = null, sheetSvg = null, sheetEls = new Map(), measureEls = new Map();
   let anchors = [], sheetX = 0, lit = new Set();
   let measureBoxes = [], pages = [], page = -1, manualPage = null, autoPage = -1;
+  let barNotes = null; // the teacher's bar comments, drawn over the score (attachBarNotes below)
   function mountSheet() {
     // The playhead stays the track's last child (scrollSheet / showPage move it).
     sheetHost.innerHTML = `<div class="sheet-track"><div class="trouble" aria-hidden="true"></div><div class="harmony" aria-hidden="true"></div>${song.fullSvg()}<div class="playhead"></div></div>` +
@@ -268,6 +270,7 @@ export function createPlayer(root) {
     sheetTrack = sheetSvg = null; sheetEls = new Map(); measureEls = new Map();
     anchors = []; sheetX = 0; lit = new Set();
     measureBoxes = []; pages = []; page = -1; manualPage = null; autoPage = -1; clefW = 0;
+    barNotes?.layout(null, []);
   }
   // The system's height: up to 300 px, or the whole card on a tablet standing upright (portrait),
   // so the music fills the paper instead of sitting small in it; less the strip the Harmony
@@ -311,6 +314,7 @@ export function createPlayer(root) {
     page = -1; manualPage = null; autoPage = -1;
     drawTrouble();
     drawHarmony();
+    barNotes?.layout(sheetTrack, measureBoxes);
   }
   const PAGE_PAD = 14;
   // Pages after the first begin with the system's clefs and key signature, as a printed page
@@ -1702,6 +1706,11 @@ export function createPlayer(root) {
     },
   });
 
+  barNotes = attachBarNotes({
+    root, highway, song: () => song, range: () => range, entry: () => current,
+    label: i => song.measures[i].label, setSection: (a, b) => window.pianoPlayer.setSection(a, b),
+  });
+
   // ───────── Scrubbing ─────────
   // Drag or wheel over the sheet (horizontal) or the highway (vertical) to
   // move the music under the playhead; on release snap to the nearest note.
@@ -2209,6 +2218,7 @@ export function createPlayer(root) {
     const [first, last] = defaultSection(entry);
     setRange(first, last);
     refreshTrouble();
+    barNotes?.loaded();
     holdPagesAwake(root.dataset.view === 'pages');
     recording.loaded(entry);
     learn?.loaded(entry, song, phrases);

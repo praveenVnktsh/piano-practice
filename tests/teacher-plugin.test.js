@@ -87,6 +87,7 @@ describe('the teacher endpoints', () => {
       status: {thinking: null, at: null},
       assignments: [],
       letters: [],
+      comments: [],
     });
   });
 

@@ -182,6 +182,7 @@
   width: 100%; min-height: 48px; padding: 8px 2px; border: 0; background: none; text-align: left; cursor: pointer;
   font: 18px var(--font-text); color: var(--ink);
 }
+.exh-teacher-about { display: block; font: 13.5px var(--font-ui); color: var(--ink-soft); margin-top: 2px; }
 .exh-recent-link:hover { color: color-mix(in srgb, var(--ink) 70%, var(--brass)); }
 
 @media (max-width: 760px) {

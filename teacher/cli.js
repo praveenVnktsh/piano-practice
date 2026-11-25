@@ -16,7 +16,17 @@
 //   node teacher/cli.js progress [--days N]    mastery, trouble bars, reviews, plateaus, path, goals, journal
 //   node teacher/cli.js recordings [<songId>]  recorded takes (and mock exams), newest first
 //   node teacher/cli.js review <takeId>        a take compared with the score, bar by bar
+//   node teacher/cli.js comment <songId> <fromBar> <toBar> "<text>"   pin a note to bars of a piece
+//   node teacher/cli.js comments [<songId>] [--all]   bar comments (with --all: dismissed ones too)
+//   node teacher/cli.js uncomment <id>         remove a bar comment
+//   node teacher/cli.js exercise "<title>" <file.notes> [--about "<why>"] [--song <id> --bars 5-8]
+//                                              compose an exercise; it appears in Exercises → From your teacher
+//   node teacher/cli.js exercises              the exercises composed so far
+//   node teacher/cli.js unexercise <id>        remove one
+import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
+import {addExercise} from './compose.js';
+import {readExercises, removeExercise} from './exercises.js';
 import {fileURLToPath} from 'node:url';
 import {ACTION_TYPES} from './actions.js';
 import {RECORDINGS_DIR, listExams, listTakes, readTake} from '../recordings/store.js';
@@ -25,15 +35,18 @@ import {examText, reportText, takeLine} from '../src/record/text.mjs';
 import {progressReport, readCatalog, readProgressDoc} from './report.js';
 import {
   addAssignment,
+  addComment,
   addLetter,
   addReply,
   openMessages,
   PROFILE_TEMPLATE,
   readMessages,
   readAssignments,
+  readComments,
   readLetters,
   readProfile,
   readReplies,
+  removeComment,
   setAssignmentDone,
   setThinking,
   TEACHER_DIR,
@@ -52,7 +65,13 @@ export const USAGE = `usage: node teacher/cli.js list [--open]
        node teacher/cli.js letters
        node teacher/cli.js progress [--days N]
        node teacher/cli.js recordings [<songId>]
-       node teacher/cli.js review <takeId>`;
+       node teacher/cli.js review <takeId>
+       node teacher/cli.js comment <songId> <fromBar> <toBar> "<text>"
+       node teacher/cli.js comments [<songId>] [--all]
+       node teacher/cli.js uncomment <id>
+       node teacher/cli.js exercise "<title>" <file.notes> [--about "<why>"] [--song <id> --bars 5-8]
+       node teacher/cli.js exercises
+       node teacher/cli.js unexercise <id>`;
 
 export const ACTIONS_HELP = `Actions are buttons the student taps to apply (never run automatically). Types:
   {"type":"open_song","id":"fur-elise"}                 a library id (see context.player.songId / progress.recentSongs)
@@ -158,6 +177,8 @@ export function formatContext(context, {full = false} = {}) {
   }
   for (const a of context.assignments || [])
     out.push(`  assignment #${a.id}: ${a.task}${a.due ? ` (due ${a.due})` : ''}`);
+  const ask = context.ask;
+  if (ask && ask.songId) out.push(...askLines(ask, {full}));
   const rec = context.recording;
   if (rec && rec.takeId) {
     out.push(
@@ -178,6 +199,42 @@ export function formatContext(context, {full = false} = {}) {
     );
   return out.join('\n');
 }
+
+/** The "Ask about these bars" attachment: the piece, the bars and the last pass over them. */
+export function askLines(ask, {full = false} = {}) {
+  const sec = Array.isArray(ask.section) ? ask.section : null;
+  const out = [
+    `  ASKING ABOUT ${ask.bars || (sec ? `bars ${sec[0] + 1}–${sec[1] + 1}` : 'a passage')} of ${ask.title || ask.songId} [${ask.songId}]` +
+      `${sec ? ` · section [${sec[0]}, ${sec[1]}]` : ''}${ask.tempo ? ` · ♩ = ${ask.tempo}` : ''}${ask.hands ? ` · ${ask.hands} hands` : ''}`,
+  ];
+  const r = ask.lastResult;
+  if (r && typeof r === 'object') {
+    const when = r.at ? new Date(r.at).toLocaleString() : '';
+    const timing = r.timing ? ` · timing early ${r.timing.early} / late ${r.timing.late} / on time ${r.timing.onTime}` : '';
+    out.push(
+      `      last pass here: bars ${(r.section || []).map(n => n + 1).join('–')} · ${r.hands ?? '?'} · ${r.mode ?? '?'} · ${r.tempo ?? '?'} BPM · ` +
+        `${pct(r.accuracy)} (${r.right ?? '?'} right, ${r.wrong ?? '?'} wrong)${timing} · ${when}`,
+    );
+    for (const m of (r.misses || []).slice(0, full ? 50 : 12))
+      out.push(`      miss bar ${m.measure}: expected ${(m.expected || []).join(' ')}; played ${(m.played || []).join(' ') || '—'}`);
+    for (const line of r.remarks || []) out.push(`      remark: ${line}`);
+  } else out.push('      no practice pass over these bars yet');
+  for (const c of ask.comments || []) out.push(`      your comment #${c.id} on bars ${c.first + 1}–${c.last + 1}: ${c.text}`);
+  return out;
+}
+
+/** One bar comment as a line: "#3 fur-elise bars 5–8 · read · 2026-11-25: lift the wrist here". */
+export function formatComment(c) {
+  const state = c.dismissedAt ? 'dismissed' : c.readAt ? 'read' : 'unread';
+  const bars = c.first === c.last ? `bar ${c.first + 1}` : `bars ${c.first + 1}–${c.last + 1}`;
+  return `#${c.id} ${c.songId} ${bars} · ${state} · ${String(c.at).slice(0, 10)}: ${c.text}`;
+}
+
+const barNumber = (v, name) => {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1) throw new Error(`${name} must be a bar number (1 = the first bar of the score)`);
+  return n;
+};
 
 /** Removes `--name value` from args → value (undefined when absent). */
 function option(args, name) {
@@ -312,7 +369,67 @@ export function main(argv, dir = TEACHER_DIR, out = console.log, err = console.e
     }
     if (command === 'progress') {
       const days = Number(option(args, '--days') ?? 7);
-      out(progressReport(opts.progress ?? readProgressDoc(), opts.catalog ?? readCatalog(), {days: days > 0 && days <= 90 ? days : 7}));
+      out(
+        progressReport(opts.progress ?? readProgressDoc(), opts.catalog ?? readCatalog(), {
+          days: days > 0 && days <= 90 ? days : 7,
+          comments: readComments(dir),
+        }),
+      );
+      return 0;
+    }
+    if (command === 'comment' && args.length >= 4) {
+      const [songId, from, to, ...text] = args;
+      const first = barNumber(from, 'fromBar') - 1,
+        last = barNumber(to, 'toBar') - 1;
+      const catalog = opts.catalog ?? readCatalog();
+      const c = addComment(dir, {songId, first, last, text: text.join(' ')});
+      out(`Comment #${c.id} pinned to ${c.first === c.last ? `bar ${c.first + 1}` : `bars ${c.first + 1}–${c.last + 1}`} of ${songId}; it shows on the score.`);
+      if (!/^(import|ex|sr|tex|mutopia):/.test(songId) && !catalog.some(e => e.id === songId))
+        err(`(note: ${songId} isn't in the bundled or local catalog — check the id; it is kept anyway)`);
+      return 0;
+    }
+    if (command === 'comments') {
+      const all = args.includes('--all');
+      const songId = args.find(a => !a.startsWith('--'));
+      const list = readComments(dir).filter(c => (!songId || c.songId === songId) && (all || !c.dismissedAt));
+      out(list.length ? list.map(formatComment).join('\n') : songId ? `No bar comments on ${songId}.` : 'No bar comments yet.');
+      return 0;
+    }
+    if (command === 'exercise' && args.length >= 2) {
+      const about = option(args, '--about');
+      const songId = option(args, '--song');
+      const barsArg = option(args, '--bars');
+      let first, last;
+      if (barsArg !== undefined) {
+        const m = /^(\d+)(?:[-–](\d+))?$/.exec(barsArg);
+        if (!m) throw new Error('--bars must be like 5-8 (bar numbers from 1)');
+        first = barNumber(m[1], '--bars') - 1;
+        last = barNumber(m[2] ?? m[1], '--bars') - 1;
+      }
+      const [title, file] = args;
+      let notes;
+      try {
+        notes = readFileSync(file, 'utf8');
+      } catch {
+        throw new Error(`can't read ${file} (write the notes to a file first; format: songs/README.md)`);
+      }
+      const ex = addExercise(dir, {title, notes, about, songId, first, last});
+      out(`Exercise tex:${ex.id} “${ex.title}” is in Exercises → From your teacher. Button: {"type":"open_song","id":"tex:${ex.id}"}`);
+      return 0;
+    }
+    if (command === 'exercises') {
+      const list = readExercises(dir);
+      out(list.length ? list.map(e => `tex:${e.id} · ${e.at.slice(0, 10)} · ${e.title}${e.songId ? ` · for ${e.songId}${e.first != null ? ` bars ${e.first + 1}–${e.last + 1}` : ''}` : ''}${e.about ? ` — ${e.about}` : ''}`).join('\n') : 'No exercises yet.');
+      return 0;
+    }
+    if (command === 'unexercise' && args.length === 1) {
+      const ex = removeExercise(dir, String(args[0]).replace(/^tex:/, ''));
+      out(`Removed exercise tex:${ex.id}.`);
+      return 0;
+    }
+    if (command === 'uncomment' && args.length === 1) {
+      const c = removeComment(dir, args[0]);
+      out(`Removed comment #${c.id} (${c.songId}).`);
       return 0;
     }
   } catch (e) {
