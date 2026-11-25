@@ -1,0 +1,255 @@
+Third-party notices for Piano Practice
+======================================
+
+The application code is MIT-licensed (see LICENSE in the source repository).
+It bundles or uses the following third-party components and content, each
+under its own licence.
+
+SOFTWARE
+--------
+
+Verovio 6.2.0 — Laurent Pugin and contributors.
+  License: LGPL-3.0-or-later. Unmodified toolkit modules are in src/vendor/
+  (verovio.mjs, verovio-module.mjs) and are shipped as separate files.
+  Source and license: https://github.com/rism-digital/verovio/tree/version-6.2.0
+  https://www.gnu.org/licenses/lgpl-3.0.html
+
+Audiveris 5.11.0 — optional optical music recognition helper.
+  Used separately as a local, unmodified, source-built executable. It is not
+  included in this app or its build output. License: AGPL-3.0.
+  Source: https://github.com/Audiveris/audiveris/tree/5.11.0
+
+SAMPLES
+-------
+
+Salamander Grand Piano V3 (public/samples/grand)
+  Recorded by Alexander Holm (Yamaha C5). Licensed under Creative Commons
+  Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/).
+  Source: SalamanderGrandPianoV3_44.1khz16bit.tar.bz2 from
+  https://archive.org/details/SalamanderGrandPianoV3
+  Changes: velocity layers 4, 7, 10, 13 and 16 (of 16) for every third semitone
+  A0–C8, and the 88 release (hammer/damper) noises; folded to mono, shortened
+  with a fade-out and encoded as VBR MP3 (src/audio/build-samples.mjs).
+
+Salamander Grand Piano samples (public/samples/piano, fallback)
+  Recorded by Alexander Holm. Licensed under Creative Commons Attribution 3.0
+  (https://creativecommons.org/licenses/by/3.0/). MP3 subset as distributed by
+  the Tone.js project (https://tonejs.github.io/audio/salamander/).
+
+Harpsichord samples (public/samples/harpsichord)
+  "Harpsichord, French" from the Versilian Community Sample Library (VCSL),
+  Versilian Studios LLC. Dedicated to the public domain under CC0 1.0
+  (https://creativecommons.org/publicdomain/zero/1.0/); credited with thanks.
+  Source: https://github.com/sgossner/VCSL (Chordophones/Zithers/Harpsichord,
+  French: Sustains rr1 and Releases). Changes: folded to mono, shortened with a
+  fade-out and encoded as VBR MP3 (src/audio/build-samples.mjs).
+
+Room impulse response and metronome sounds are synthesised in code
+(src/audio/reverb.js, src/audio/metronome.js); no third-party recordings.
+
+SCORES
+------
+
+Bundled songs are public domain or openly licensed. Each entry in
+public/songs/catalog.json records the licence, source and source URL of its
+file. Songs converted from the Mutopia Project (https://www.mutopiaproject.org)
+with tools/ly2musicxml.mjs:
+
+Für Elise (Bagatelle in A minor, WoO 59) — Ludwig van Beethoven
+  Typeset by Stelios Samelis for the Mutopia Project.
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Piano Sonata No. 14 "Moonlight", Op. 27 No. 2 — 1st movement (Adagio sostenuto)
+  — Ludwig van Beethoven
+  Typeset by Stewart Holmes for the Mutopia Project.
+  License: Creative Commons Attribution-ShareAlike 2.5
+  (https://creativecommons.org/licenses/by-sa/2.5/). The converted MusicXML is
+  a derivative work and remains under CC BY-SA 2.5, with the same attribution.
+
+Repertoire converted from the Mutopia Project (sources pinned in songs/repertoire.json,
+converted with tools/ly2musicxml.mjs, repeats written out). Titles and composers
+are given as in the app; the typesetters and licences are those of the Mutopia files.
+
+Minuet in G, BWV Anh. 116 — Johann Sebastian Bach (Notebook for Anna Magdalena Bach)
+  Typeset by Allen Garvin for the Mutopia Project (Bach-Gesellschaft).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=77  → public/songs/bach-minuet-anh116.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Minuet in F, BWV Anh. 113 — Johann Sebastian Bach (Notebook for Anna Magdalena Bach)
+  Typeset by Allen Garvin for the Mutopia Project (Bach-Gesellschaft).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=74  → public/songs/bach-minuet-anh113.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Melody, Op. 68 No. 1 (Album for the Young) — Robert Schumann
+  Typeset by Philippe Hézaine for the Mutopia Project (Peters).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=647  → public/songs/schumann-melodie.musicxml
+  License: Creative Commons Attribution-ShareAlike 2.5
+  (https://creativecommons.org/licenses/by-sa/2.5/). The converted MusicXML is a derivative work and remains
+  under CC BY-SA 2.5, with the same attribution.
+
+Minuet in G minor, BWV Anh. 115 — Johann Sebastian Bach (Notebook for Anna Magdalena Bach)
+  Typeset by Allen Garvin for the Mutopia Project (Bach-Gesellschaft).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=76  → public/songs/bach-minuet-anh115.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Musette in D, BWV Anh. 126 — Johann Sebastian Bach (Notebook for Anna Magdalena Bach)
+  Typeset by Allen Garvin for the Mutopia Project (Bach-Gesellschaft).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=79  → public/songs/bach-musette-anh126.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+La Candeur (Frankness), Op. 100 No. 1 — Friedrich Burgmüller
+  Typeset by Bas Wassink for the Mutopia Project (Collection Litolff).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=202  → public/songs/burgmuller-candeur.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Soldiers' March, Op. 68 No. 2 (Album for the Young) — Robert Schumann
+  Typeset by Philippe Hézaine for the Mutopia Project (Peters).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=687  → public/songs/schumann-soldiers-march.musicxml
+  License: Creative Commons Attribution-ShareAlike 2.5
+  (https://creativecommons.org/licenses/by-sa/2.5/). The converted MusicXML is a derivative work and remains
+  under CC BY-SA 2.5, with the same attribution.
+
+Poor Orphan, Op. 68 No. 6 (Album for the Young) — Robert Schumann
+  Typeset by Philippe Hézaine for the Mutopia Project (Peters).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=655  → public/songs/schumann-poor-orphan.musicxml
+  License: Creative Commons Attribution-ShareAlike 2.5
+  (https://creativecommons.org/licenses/by-sa/2.5/). The converted MusicXML is a derivative work and remains
+  under CC BY-SA 2.5, with the same attribution.
+
+The Wild Rider, Op. 68 No. 8 (Album for the Young) — Robert Schumann
+  Typeset by Philippe Hézaine for the Mutopia Project (Peters).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=659  → public/songs/schumann-wild-rider.musicxml
+  License: Creative Commons Attribution-ShareAlike 2.5
+  (https://creativecommons.org/licenses/by-sa/2.5/). The converted MusicXML is a derivative work and remains
+  under CC BY-SA 2.5, with the same attribution.
+
+Morning Prayer, Op. 39 No. 1 (Album for the Young) — Pyotr Ilyich Tchaikovsky
+  Typeset by Rem Zolotykh for the Mutopia Project (Schirmer, 1904).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2032  → public/songs/tchaikovsky-morning-prayer.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Old French Song, Op. 39 No. 16 (Album for the Young) — Pyotr Ilyich Tchaikovsky
+  Typeset by David McNamara for the Mutopia Project (Schirmer, 1904).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2080  → public/songs/tchaikovsky-old-french-song.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+La Pastorale, Op. 100 No. 3 — Friedrich Burgmüller
+  Typeset by Bas Wassink for the Mutopia Project (Collection Litolff).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=218  → public/songs/burgmuller-pastorale.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Arabesque, Op. 100 No. 2 — Friedrich Burgmüller
+  Typeset by Bas Wassink for the Mutopia Project (Collection Litolff).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=203  → public/songs/burgmuller-arabesque.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+The Happy Farmer, Op. 68 No. 10 (Album for the Young) — Robert Schumann
+  Typeset by Philippe Hézaine for the Mutopia Project (Peters).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=650  → public/songs/schumann-happy-farmer.musicxml
+  License: Creative Commons Attribution-ShareAlike 2.5
+  (https://creativecommons.org/licenses/by-sa/2.5/). The converted MusicXML is a derivative work and remains
+  under CC BY-SA 2.5, with the same attribution.
+
+First Loss, Op. 68 No. 16 (Album for the Young) — Robert Schumann
+  Typeset by Philippe Hézaine for the Mutopia Project (Peters).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=676  → public/songs/schumann-first-loss.musicxml
+  License: Creative Commons Attribution-ShareAlike 2.5
+  (https://creativecommons.org/licenses/by-sa/2.5/). The converted MusicXML is a derivative work and remains
+  under CC BY-SA 2.5, with the same attribution.
+
+March of the Wooden Soldiers, Op. 39 No. 5 (Album for the Young) — Pyotr Ilyich Tchaikovsky
+  Typeset by Anonymous for the Mutopia Project (Schirmer, 1904).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1806  → public/songs/tchaikovsky-wooden-soldiers.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Little Prelude in C, BWV 939 — Johann Sebastian Bach
+  Typeset by Hajo Dezelski for the Mutopia Project (Bach-Gesellschaft, vol. 36 (Ernst Naumann, 1890)).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1593  → public/songs/bach-little-prelude-bwv939.musicxml
+  License: Creative Commons Attribution-ShareAlike 3.0
+  (https://creativecommons.org/licenses/by-sa/3.0/). The converted MusicXML is a derivative work and remains
+  under CC BY-SA 3.0, with the same attribution.
+
+Sonatina in C, Op. 36 No. 1 — 1st movement — Muzio Clementi
+  Typeset by Brian D. Rude for the Mutopia Project (Sonatina Album, G. Schirmer, 1893).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=804  → public/songs/clementi-sonatina-op36-1.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Eight-Measure Exercise, Op. 821 No. 1 — Carl Czerny
+  Typeset by Manuel Castejón Limas for the Mutopia Project (Edition Peters, Leipzig [1888]).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2060  → public/songs/czerny-op821-1.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Ballade, Op. 100 No. 15 — Friedrich Burgmüller
+  Typeset by Bas Wassink for the Mutopia Project (Collection Litolff).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=227  → public/songs/burgmuller-ballade.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Sonatina in C, Op. 20 No. 1 — 1st movement — Friedrich Kuhlau
+  Typeset by Bas Wassink for the Mutopia Project (B. Schott's Söhne).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=232  → public/songs/kuhlau-sonatina-op20-1.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Prelude in A, Op. 28 No. 7 — Frédéric Chopin
+  Typeset by Magnus Lewis-Smith for the Mutopia Project (Edition Peters).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=470  → public/songs/chopin-prelude-op28-7.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Album Leaf, Op. 12 No. 7 (Lyric Pieces) — Edvard Grieg
+  Typeset by Knute Snortum for the Mutopia Project (G. Schirmer, 1902).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2194  → public/songs/grieg-albumblatt-op12-7.musicxml
+  License: Creative Commons Attribution-ShareAlike 4.0
+  (https://creativecommons.org/licenses/by-sa/4.0/). The converted MusicXML is a derivative work and remains
+  under CC BY-SA 4.0, with the same attribution.
+
+Gymnopédie No. 1 — Erik Satie
+  Typeset by Evin Robertson for the Mutopia Project (Dover (reprint of the original edition)).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=37  → public/songs/satie-gymnopedie-1.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Prelude in E minor, Op. 28 No. 4 — Frédéric Chopin
+  Typeset by Magnus Lewis-Smith for the Mutopia Project (Peters, 1879).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=468  → public/songs/chopin-prelude-op28-4.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+  Changed: bar 16: the source has G double-sharp under the turn; the note is G natural (seventh of the A♯ diminished chord; checked against an independent encoding).
+
+Prelude in C minor, Op. 28 No. 20 — Frédéric Chopin
+  Typeset by Magnus Lewis-Smith for the Mutopia Project (Edition Peters).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=472  → public/songs/chopin-prelude-op28-20.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Invention No. 1 in C, BWV 772 — Johann Sebastian Bach
+  Typeset by Jeff Covey for the Mutopia Project (Bach-Gesellschaft).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=40  → public/songs/bach-invention-1.musicxml
+  License: Creative Commons Attribution-ShareAlike 3.0
+  (https://creativecommons.org/licenses/by-sa/3.0/). The converted MusicXML is a derivative work and remains
+  under CC BY-SA 3.0, with the same attribution.
+
+Invention No. 8 in F, BWV 779 — Johann Sebastian Bach
+  Typeset by Allen Garvin for the Mutopia Project (Bach-Gesellschaft).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=61  → public/songs/bach-invention-8.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Sonata in G, Op. 49 No. 2 — 1st movement — Ludwig van Beethoven
+  Typeset by Stelios Samelis for the Mutopia Project (Breitkopf & Härtel (1862–1865)).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=776  → public/songs/beethoven-sonata-op49-2-1.musicxml
+  License: Public Domain. The converted MusicXML is also in the public domain.
+
+Sonata in C, K. 545 — 1st movement — Wolfgang Amadeus Mozart
+  Typeset by Alejandro Sierra for the Mutopia Project (after a score on IMSLP).
+  https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=998  → public/songs/mozart-sonata-k545-1.musicxml
+  License: Creative Commons Attribution-ShareAlike 3.0
+  (https://creativecommons.org/licenses/by-sa/3.0/). The converted MusicXML is a derivative work and remains
+  under CC BY-SA 3.0, with the same attribution.
+
+MUTOPIA CATALOGUE (experimental "Browse Mutopia" page)
+  public/songs/mutopia-index.json lists titles, composers, licences and links of
+  openly licensed Mutopia Project pieces (https://www.mutopiaproject.org,
+  github.com/MutopiaProject/MutopiaProject). Pieces opened from that page are
+  downloaded from GitHub and converted in the browser; their licence is shown
+  with each piece. They are not bundled with the app.
+
+Hand transcriptions in songs/*.notes (compiled to public/songs/*.musicxml)
+carry the licence stated in each file's header.
+
+Private scores placed in public/songs/local/ are not part of this project,
+are not committed, and are the responsibility of whoever adds them.
