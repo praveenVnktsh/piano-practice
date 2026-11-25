@@ -68,6 +68,17 @@ describe('saving songs', () => {
     expect(c.id).toMatch(/^import:[0-9a-f]{24}$/);
   });
 
+  test('keeps the MIDI import flags (converted, quantisation quality, falling notes preferred), validated', async () => {
+    const dir = temp(), base = await serve(dir);
+    const entry = await (await post(base, {title: 'From MIDI', data: XML, midi: true, quality: 0.4321, view: 'falling'})).json();
+    expect(entry).toMatchObject({midi: true, quality: 0.43, view: 'falling', format: 'musicxml'});
+    const odd = await (await post(base, {title: 'Odd', data: XML, midi: 'yes', quality: 7, view: 'sheet'})).json();
+    expect(odd).not.toHaveProperty('midi');
+    expect(odd).not.toHaveProperty('quality');
+    expect(odd).not.toHaveProperty('view');
+    expect(index(dir).find(e => e.title === 'From MIDI')).toMatchObject({midi: true, quality: 0.43, view: 'falling'});
+  });
+
   test('the same title and content is a duplicate, not a second copy', async () => {
     const dir = temp(), base = await serve(dir);
     const first = await (await post(base, {title: 'A', data: XML})).json();
