@@ -47,7 +47,9 @@ if (problem) {
   process.exit(1);
 }
 if (!exists) {
-  run('gh', ['repo', 'create', repo, '--public', '--description', 'Piano Practice: a practice room in the browser (built app only).']);
+  const [o, name] = repo.split('/');
+  const path = o === owner ? 'user/repos' : `orgs/${o}/repos`;
+  run('gh', ['api', '-X', 'POST', path, '-f', `name=${name}`, '-F', 'private=false', '-f', 'description=Piano Practice: a practice room in the browser (built app only).']);
   console.log(`Created https://github.com/${repo}`);
 }
 
