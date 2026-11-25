@@ -17,6 +17,18 @@ import {dueReviews, pieceMastery, STATUS_LABEL} from '../progress/mastery.js';
 import {curriculum} from '../curriculum/levels.js';
 import {describeAction} from '../../teacher/actions.js';
 
+// "Learn this piece" plans (src/learn/guide.js): Today offers the current step, and asks the
+// player to set it up when the piece opens.
+const LEARN_APPLY_KEY = 'piano-practice.learn.apply';
+
+/** Plans in progress (totals.learn, src/progress/model.js), most recent first → [{songId, plan}]. */
+export function plansInProgress(doc) {
+  return Object.entries(doc?.totals?.learn || {})
+    .filter(([, p]) => p && p.active && p.next)
+    .sort((a, b) => (b[1].lastAt || 0) - (a[1].lastAt || 0))
+    .map(([songId, plan]) => ({songId, plan}));
+}
+
 const LAST_KEY = 'piano-practice.last-song';
 const READING_KEY = 'trainer:reading:settings';
 const ROMAN = ['I', 'II', 'III'];
@@ -136,6 +148,11 @@ export function mountToday(container, {library, open} = {}) {
     const all = allEntries();
     const stats = doc ? songStats(doc) : [];
     const t = targets();
+    // A piece being learnt step by step comes first: Today offers its next step.
+    for (const {songId, plan} of plansInProgress(doc)) {
+      const e = byId(songId);
+      if (e) return {entry: e, stat: stats.find(s => s.id === songId) || null, mastery: pieceMastery(doc, songId, {target: t[songId]}), plan};
+    }
     // The most recent piece still being learnt (not yet polished).
     for (const s of stats) {
       const e = byId(s.id);
@@ -159,7 +176,7 @@ export function mountToday(container, {library, open} = {}) {
     return {
       warm: evs.some(e => isExerciseId(e.songId)),
       exercise: id => evs.some(e => e.songId === id),
-      piece: id => evs.some(e => e.songId === id && e.type !== 'trainer:result'),
+      piece: id => evs.some(e => e.songId === id && e.type !== 'trainer:result' && e.type !== 'learn:step'),
       // Only note-reading drills count here; rhythm / theory / ear rounds use prefixed levels.
       reading: evs.some(e => e.type === 'trainer:result' && !/^(rhythm|theory|ear):/.test(String(e.level || ''))),
     };
@@ -221,6 +238,19 @@ export function mountToday(container, {library, open} = {}) {
     const best = p.stat?.best != null ? `best so far ${Math.round(p.stat.best)}%` : null;
     const extra = review ? el('p', {class: 'td-also'}, 'Due for review: ',
       el('button', {type: 'button', class: 'text-btn inline', onclick: () => go(review.songId)}, review.title), ' — one calm play-through.') : null;
+    if (p.plan) {
+      const done = Array.isArray(p.plan.done) ? p.plan.done.length : 0, total = p.plan.total || 0;
+      return card(1, {
+        kind: 'Learning, step by step', title: p.entry.title, titleClass: 'is-work', by: p.entry.composer,
+        desc: p.plan.next.label,
+        meta: done ? `${done} of ${total} steps done` : 'A few minutes a step',
+        action: 'Next step', onAction: () => {
+          try { sessionStorage.setItem(LEARN_APPLY_KEY, p.entry.id); } catch {}
+          go(p.entry.id);
+        },
+        done: pieceDone, next: nextIdx === 1, extra,
+      });
+    }
     return card(1, {
       kind: p.suggestion ? 'A first piece' : p.path ? 'Next on your path' : 'Your piece', title: p.entry.title, titleClass: 'is-work', by: p.entry.composer,
       desc: p.suggestion ? 'A gentle place to begin: listen once, then play it with one hand.'

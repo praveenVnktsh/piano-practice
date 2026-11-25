@@ -15,6 +15,8 @@ import {
 import {isFavourite, setFavourite} from './collections/model.js';
 import {collections, loadCollections, updateCollections, setlistPosition, CHANGE_EVENT as COLLECTIONS_EVENT} from './collections/store.js';
 import {performanceScore} from './analysis/performance.mjs';
+import {attachLearn} from './learn/guide.js';
+import {startingKeys} from './learn/position.mjs';
 
 // Per-bar statistics from the progress store (src/progress/mastery.js, owned by
 // the learning-path module). Loaded lazily; a glob so the player still builds
@@ -100,6 +102,7 @@ export function createPlayer(root) {
   // Smarter practising (docs/ROADMAP.md phase 5) and touch feedback (phase 6).
   let strategy = 'off', chain = null, latencyMs = 0, phrases = [];
   let barTally = new BarTally(), trouble = new Map();
+  let learn = null; // "Learn this piece" plan + first look (src/learn/guide.js), attached below
   let played = [], pedalLog = [], pedalDown = false, memoryHints = 0;
   const screenDown = new Set();
   const wantHand = e => handFilter(hands)(e);
@@ -138,6 +141,7 @@ export function createPlayer(root) {
     btn.title = `${playing ? 'Pause' : practicing ? 'Stop' : what} (Space)`;
     q('#um-listen').setAttribute('aria-checked', String(intent === 'listen'));
     q('#um-practice').setAttribute('aria-checked', String(intent === 'practice'));
+    learn?.refresh();
     root.dataset.intent = intent;
     root.classList.toggle('practicing', practicing);
     root.classList.toggle('playing', playing);
@@ -205,6 +209,7 @@ export function createPlayer(root) {
     showSectionInputs();
     showStrategy(); showTempo();
     if (!quiet) { setStatus(sectionLabel()); setPrompt(promptIdle()); }
+    learn?.refresh();
   }
   // Rhythm variations and blocked chords change the passage's timing itself, so
   // Listen, Play along and Wait all use the altered version.
@@ -562,9 +567,13 @@ export function createPlayer(root) {
     const keyHand = new Map();
     for (const e of [...active, ...(waiting ? follow.current.events : [])]) keyHand.set(e.n, e.hand);
     const blind = strategy === 'memory' && practicing; // memory check: no key prompts
+    // Hand-position preview: stopped at the start of the section, the keys each hand starts on.
+    const atStart = !playing && !practicing && !finished && pos <= (points[0] ?? range.start) + EPS;
+    const ghost = atStart && strategy !== 'memory' ? startingKeys(range.events, {hands}) : null;
     root.querySelectorAll('.pkey').forEach(b => {
       const n = +b.dataset.note;
-      b.dataset.hand = keyHand.get(n) ?? (n < 60 ? 'l' : 'r');
+      b.classList.toggle('ghost', !!ghost?.has(n));
+      b.dataset.hand = keyHand.get(n) ?? ghost?.get(n) ?? (n < 60 ? 'l' : 'r');
       b.classList.toggle('held', !blind && !expected && active.some(e => e.n === n));
       b.classList.toggle('attack', !blind && (expected ? expected.includes(n) && !follow.collected.has(n) : att.some(e => e.n === n)));
     });
@@ -726,6 +735,7 @@ export function createPlayer(root) {
       const next = range.last >= song.measures.length - 1 && current ? setlistPosition(current.id)?.next : null;
       setPrompt(next ? `Finished · <button type="button" class="link-btn prompt-link" data-setlist-next>Next in setlist → <i>${escapeHtml(next.title)}</i></button>`
         : 'Now choose <b>Practise</b> and play it yourself');
+      learn?.listened([range.first, range.last]);
     } else {
       practicing = false; grader = null; finished = true; pos = range.end; endSession(); setButtons(); draw();
       setStatus('Finished'); showResults(lastResult);
@@ -1662,6 +1672,7 @@ export function createPlayer(root) {
     keys: notes => { if (notes.length) midiHeld.set('take:0', new Set(notes)); else midiHeld.delete('take:0'); renderMidi(); },
     flash, setStatus, setPrompt, measureName: i => measureName(song.measures[i]),
   });
+  learn = attachLearn({root, flash, setStatus, setPrompt, setLoop: v => setLoop(v), setIntent: v => setIntent(v), closePopovers: () => closePopovers()});
 
   // ───────── Highway ─────────
   const highway = createHighway({
@@ -1985,6 +1996,8 @@ export function createPlayer(root) {
     settingsModal.querySelector(`input[name="playhead"][value="${root.dataset.playhead}"]`).checked = true;
     root.dataset.pedal = st.pedal === false ? 'off' : 'on';
     q('#set-pedal').checked = st.pedal !== false;
+    root.classList.toggle('no-fing', st.fingering === false);
+    q('#set-fing').checked = st.fingering !== false;
     highway.layout();
     requestAnimationFrame(layoutSheet);
   }
@@ -2009,6 +2022,7 @@ export function createPlayer(root) {
   q('#set-loop').onchange = () => setLoop(q('#set-loop').checked);
   const setNames = v => { save({names: !!v}); applySettings(load()); };
   q('#set-names').onchange = () => setNames(q('#set-names').checked);
+  q('#set-fing').onchange = () => { save({fingering: q('#set-fing').checked}); applySettings(load()); };
   q('#names-btn').onchange = () => setNames(q('#names-btn').checked);
   root.querySelectorAll('input[name="menu-view"]').forEach(input => input.onchange = () => { viewHinted = false; save({view: input.value}); applySettings(load()); draw(); });
   q('#set-pedal').onchange = () => { save({pedal: q('#set-pedal').checked}); applySettings(load()); };
@@ -2071,6 +2085,7 @@ export function createPlayer(root) {
     root.classList.toggle('hands-left', h === 'left');
     const input = q(`input[name="sec-hands"][value="${h}"]`); if (input) input.checked = true;
     if (persist) saveSong({hands: h});
+    learn?.refresh();
     if (!changed || !song || !range) return;
     if (practicing) startPractice();
     else { draw(); if (!playing) setPrompt(promptIdle()); }
@@ -2180,6 +2195,7 @@ export function createPlayer(root) {
     refreshTrouble();
     holdPagesAwake(root.dataset.view === 'pages');
     recording.loaded(entry);
+    learn?.loaded(entry, song, phrases);
     if (harmonyOn) ensureHarmony();
     const sl = setlistPosition(entry.id);
     if (sl) setStatus(`${sl.name} · ${sl.index + 1} of ${sl.total}`);
@@ -2213,6 +2229,7 @@ export function createPlayer(root) {
   async function loadEntry(entry, songPromise) {
     const token = ++loadToken;
     recording.leaving();
+    learn?.leaving();
     stopAll(); hideResults();
     // A practice strategy belongs to the passage it was chosen for: a new piece starts plain
     // (a memory check carried over would open an unseen piece with its score hidden).
