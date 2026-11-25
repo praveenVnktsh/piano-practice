@@ -61,7 +61,7 @@ during the note-reading drill.
 ### Anywhere else: the public site
 
 `npm run publish:site` publishes the built app (only the build: no source, no private songs) to
-GitHub Pages at `https://<you>.github.io/piano-practice/`. It works on any device, offline after the
+GitHub Pages at `https://<you>.github.io/piano-practice-site/`. It works on any device, offline after the
 first visit, with on-screen keys, the microphone, or a USB piano in desktop Chrome. Progress is kept
 in that browser (export it from Progress → Backup). The teacher, the iPad relay and your Mac's
 imports need the Mac's dev server, so they are not on the public site.
