@@ -77,7 +77,14 @@ export const tests = [
       await page.waitFor(`document.querySelector('.td-action.btn-primary')`, {what: 'the warm-up'});
       const first = await page.eval(`document.querySelector('.td-card .td-title').textContent`);
       assert.match(await page.eval(`document.querySelector('.td-card .td-action').textContent`), /Begin the warm-up/);
-      await page.click('.td-card .td-action');
+      // Today re-renders once progress has loaded; a click that lands on the replaced card does
+      // nothing, so retry until the player actually opens (seen on slower CI machines).
+      for (let attempt = 0; ; attempt++) {
+        await page.click('.td-card .td-action');
+        await sleep(400);
+        if (await page.eval(`document.documentElement.dataset.route === 'play'`)) break;
+        if (attempt >= 4) throw new Error('the warm-up button did not open the player');
+      }
       await waitForSong(page);
       await page.eval(`window.pianoPlayer.setMode('wait'); window.pianoPlayer.setHands('both'); 1`);
       await page.click('#um-practice');
