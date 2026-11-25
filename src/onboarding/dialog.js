@@ -144,7 +144,10 @@ export function showOnboarding({markSeen}) {
       if (location.hash && location.hash !== '#/' && location.hash !== '#/today') location.hash = '#/';
       requestAnimationFrame(() => document.querySelector('#view .td a, #view .td button, #view')?.focus?.({preventScroll: true}));
     } else {
-      try { returnTo?.focus?.({preventScroll: true}); } catch {}
+      // The page may have redrawn while the dialog was open: then the same button, newly drawn.
+      let back = returnTo;
+      if (back && !back.isConnected && back.matches?.('button, a')) back = [...document.querySelectorAll(back.tagName)].find(e => e.className === back.className && e.textContent === back.textContent);
+      try { back?.focus?.({preventScroll: true}); } catch {}
     }
     settle(how);
   }

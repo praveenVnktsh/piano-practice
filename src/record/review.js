@@ -13,6 +13,7 @@ import {takeToMidi, midiFileName} from './midi-file.mjs';
 import {duration} from './text.mjs';
 import {velocityName, heatLevel, barsText} from '../practice-core.mjs';
 import {sendTake} from './send.js';
+import {onMac} from '../app/mac.js';
 import {musicalityMarkup} from '../analysis/musicality-view.js';
 import {prepareCompare} from './compare.mjs';
 
@@ -293,7 +294,7 @@ export function openReview({host, songId, song, entry, ctl, takeId = null}) {
       el('button', {class: 'primary-btn', type: 'button', text: 'Play take', disabled: busy || null, onclick: () => { close(); ctl.play(t); }}),
       el('button', {class: 'quiet-btn', type: 'button', text: 'Export MIDI', onclick: () => exportMidi(t)}),
       el('button', {class: 'quiet-btn', type: 'button', text: 'Rename', onclick: () => { renaming = true; render(); }}),
-      el('button', {class: 'quiet-btn', type: 'button', text: t.sentAt ? 'Send again' : 'Send to teacher', onclick: () => send(t)}),
+      onMac() ? el('button', {class: 'quiet-btn', type: 'button', text: t.sentAt ? 'Send again' : 'Send to teacher', onclick: () => send(t)}) : null,
       el('button', {class: 'quiet-btn', type: 'button', text: 'Print', onclick: printReport}),
       confirmDelete
         ? el('span', {class: 'rec-confirm'},

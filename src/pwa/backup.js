@@ -4,12 +4,19 @@
 //   exportBackup() → the backup object (and downloads it unless {download: false})
 //   readBackupFile(file) → {backup, summary}       parses + validates, throws Error(message)
 //   restoreBackup(backup) → {server, browser}      writes it back (call only after confirming)
+//   mergeBackup(backup) → {events, journal, goals, imports}   adds its practice to this one, nothing twice
 //
 // A backup is one JSON file: the dev server's part (backup/plugin.js: .data progress + journal + collections,
 // .teacher thread and student profile, imported scores) plus this browser's part
 // (localStorage settings and per-song state, scores imported while offline in IndexedDB).
 // In a production build (no dev server) only the browser part is present.
+//
+// Two ways in: Restore replaces (a whole-Mac backup), Add merges (a file from the public site or
+// another browser: its practice, journal and goals join this progress without duplicates, and its
+// imported scores are added). On the public site, Export reads "Take this progress to your Mac".
 import './backup.css';
+import {onMac} from '../app/mac.js';
+import {mergeProgress} from '../progress/store.js';
 
 export const FORMAT = 'piano-practice-backup';
 export const VERSION = 1;
@@ -55,6 +62,7 @@ function idb(mode, fn) {
 // ───────── export ─────────
 
 async function fetchServerPart() {
+  if (!onMac()) return null; // a static site has no /__backup
   try {
     const res = await fetch(API, {cache: 'no-store'});
     if (!res.ok || !(res.headers.get('content-type') || '').includes('application/json')) return null;
@@ -130,7 +138,7 @@ export async function readBackupFile(file) {
 export async function restoreBackup(backup) {
   summarize(backup); // throws on anything malformed
   const result = {server: null, browser: {settings: 0, imports: 0}};
-  if (isObj(backup.server)) {
+  if (isObj(backup.server) && onMac()) {
     let res;
     try {
       res = await fetch(API + '/restore', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({format: backup.format, version: backup.version, exportedAt: backup.exportedAt, server: backup.server})});
@@ -157,6 +165,24 @@ export async function restoreBackup(backup) {
   return result;
 }
 
+/** The backup's progress document: the Mac's .data/progress.json, else the browser's copy. */
+export function backupProgress(backup) {
+  const p = backup?.server?.data?.['progress.json'];
+  if (isObj(p)) return p;
+  try { return JSON.parse(backup?.browser?.localStorage?.[PROGRESS_LOCAL] || 'null'); } catch { return null; }
+}
+
+export async function mergeBackup(backup) {
+  summarize(backup); // throws on anything malformed
+  const progress = backupProgress(backup);
+  const added = isObj(progress) ? await mergeProgress(progress) : {events: 0, journal: 0, goals: 0};
+  const imports = backup.browser?.imports || [];
+  const have = new Set(imports.length ? await idb('readonly', s => s.getAllKeys()).catch(() => []) : []);
+  const fresh = imports.filter(r => !have.has(r.id));
+  if (fresh.length) await idb('readwrite', s => { for (const r of fresh) s.put(r); });
+  return {...added, imports: fresh.length};
+}
+
 // ───────── UI ─────────
 
 const fmtDate = iso => {
@@ -168,18 +194,21 @@ const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 export function mountBackupControls(container) {
   const root = document.createElement('div');
   root.className = 'bk';
+  const mac = onMac();
   root.innerHTML = `
     <div class="bk-row">
       <div class="bk-text">
-        <p class="bk-title">Export my data</p>
-        <p class="bk-help">One file with your progress, journal, teacher letters, imported scores and settings.</p>
+        ${mac ? `<p class="bk-title">Export my data</p>
+        <p class="bk-help">One file with your progress, journal, teacher letters, imported scores and settings.</p>`
+    : `<p class="bk-title">Take this progress to your Mac</p>
+        <p class="bk-help">Downloads one file. On the Mac, choose it under Import backup: your practice is added there, nothing twice.</p>`}
       </div>
-      <button type="button" class="bk-btn" data-act="export">Export</button>
+      <button type="button" class="bk-btn" data-act="export">${mac ? 'Export' : 'Download'}</button>
     </div>
     <div class="bk-row">
       <div class="bk-text">
         <p class="bk-title">Import backup</p>
-        <p class="bk-help">Restore from an exported file. You'll see what's in it before anything changes.</p>
+        <p class="bk-help">Add a file’s practice to this one, or restore from it. You’ll see what’s in it before anything changes.</p>
       </div>
       <label class="bk-btn bk-file">Choose file…<input type="file" accept="application/json,.json" data-act="file" hidden></label>
     </div>
@@ -197,7 +226,7 @@ export function mountBackupControls(container) {
     btn.disabled = true; say('Preparing your backup…');
     try {
       const b = await exportBackup();
-      say(b.server ? 'Backup downloaded.' : 'Backup downloaded (this browser’s data only: no Mac connected).', 'ok');
+      say(b.server ? 'Backup downloaded.' : mac ? 'Backup downloaded (this browser’s data only: no Mac connected).' : 'Downloaded. Import it on your Mac to add this practice there.', 'ok');
     } catch { say('Could not make the backup.', 'bad'); }
     btn.disabled = false;
   };
@@ -212,13 +241,19 @@ export function mountBackupControls(container) {
       pending = backup;
       const parts = [plural(s.events, 'practice record'), plural(s.journal, 'journal entry', 'journal entries'),
         plural(s.teacherMessages, 'teacher message'), plural(s.imports, 'imported score'), ...(s.collections ? [plural(s.collections, 'collection')] : []), plural(s.settings, 'setting')];
+      // A whole-Mac backup is restored; a browser's file (the public site) is added to this progress.
+      const first = s.hasServer ? 'restore' : 'merge';
+      const btn = act => act === 'merge'
+        ? `<button type="button" class="bk-btn${first === act ? ' bk-primary' : ''}" data-act="merge">Add to this progress</button>`
+        : `<button type="button" class="bk-btn${first === act ? ' bk-primary' : ''}" data-act="restore">Replace everything</button>`;
       confirmBox.innerHTML = `
-        <p class="bk-title">Restore the backup from ${fmtDate(s.exportedAt)}?</p>
-        <p class="bk-help">It contains ${parts.join(', ')}.
-          Your current progress, journal${s.teacherMessages || s.teacherProfile ? ', teacher letters' : ''}${s.collections ? ', collections' : ''} and settings will be replaced${s.hasServer ? '; a copy of the current data is kept on the Mac in .data/backups' : ''}. Imported scores are added, never removed.</p>
-        <div class="bk-actions"><button type="button" class="bk-btn bk-primary" data-act="restore">Restore</button><button type="button" class="bk-btn" data-act="cancel">Cancel</button></div>`;
+        <p class="bk-title">The backup from ${fmtDate(s.exportedAt)}</p>
+        <p class="bk-help">It contains ${parts.join(', ')}.</p>
+        <p class="bk-help"><b>Add</b> keeps everything here and adds the practice, journal entries, goals and imported scores you don’t have yet, nothing twice.
+          <b>Replace</b> swaps your current progress, journal${s.teacherMessages || s.teacherProfile ? ', teacher letters' : ''}${s.collections ? ', collections' : ''} and settings for the backup’s${s.hasServer && mac ? '; a copy of the current data is kept on the Mac in .data/backups' : ''}.</p>
+        <div class="bk-actions">${btn(first)}${btn(first === 'merge' ? 'restore' : 'merge')}<button type="button" class="bk-btn" data-act="cancel">Cancel</button></div>`;
       confirmBox.hidden = false;
-      confirmBox.querySelector('[data-act=restore]').focus();
+      confirmBox.querySelector(`[data-act=${first}]`).focus();
     } catch (err) {
       pending = null;
       say(err.message, 'bad');
@@ -228,9 +263,17 @@ export function mountBackupControls(container) {
   confirmBox.onclick = async e => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'cancel') { pending = null; confirmBox.hidden = true; say('Nothing was changed.'); return; }
-    if (act !== 'restore' || !pending) return;
+    if ((act !== 'restore' && act !== 'merge') || !pending) return;
     e.target.disabled = true;
     try {
+      if (act === 'merge') {
+        const a = await mergeBackup(pending);
+        confirmBox.hidden = true;
+        const bits = [plural(a.events, 'practice record'), plural(a.journal, 'journal entry', 'journal entries'), ...(a.goals ? [plural(a.goals, 'goal')] : []), ...(a.imports ? [plural(a.imports, 'imported score')] : [])];
+        say(a.events || a.journal || a.goals || a.imports ? `Added ${bits.join(', ')}.` : 'Nothing new: all of it was here already.', 'ok');
+        pending = null;
+        return;
+      }
       await restoreBackup(pending);
       confirmBox.hidden = true;
       msg.dataset.tone = 'ok';

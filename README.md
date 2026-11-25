@@ -81,8 +81,30 @@ during the note-reading drill.
 `npm run publish:site` publishes the built app (only the build: no source, no private songs) to
 GitHub Pages at `https://<you>.github.io/piano-practice-site/`. It works on any device, offline after the
 first visit, with on-screen keys, the microphone, or a USB piano in desktop Chrome. Progress is kept
-in that browser (export it from Progress → Backup). The teacher, the iPad relay and your Mac's
-imports need the Mac's dev server, so they are not on the public site.
+in that browser. The teacher, the iPad relay and your Mac's imports need the Mac's dev server, so
+the public site leaves them out (one quiet line in Progress says where they live) and never asks
+for them. In iPad Safari, Today suggests **Add to Home Screen** once.
+
+**Bringing practice home.** On the public site, **Progress → Backup → Take this progress to your
+Mac** downloads one file. On the Mac, **Progress → Backup → Import backup** and choose it, then
+**Add to this progress**: its practice, journal entries and goals join the Mac's store
+(`.data/progress.json`), each one once, however often you import the same file. (**Replace
+everything** is still there for restoring a whole-Mac backup.) An https page can't reach the Mac's
+http server, so this file is the bridge.
+
+**Publishing on every merge (one-time setup).** `.github/workflows/publish-site.yml` builds and
+publishes the site on every push to `main`, running the same checks as `npm run publish:site`
+(`tools/site-guard.mjs`: nothing private in the build; the target is public and is not this source
+repo). Until it has a token it skips, without failing:
+
+1. Publish once by hand (`npm run publish:site`) so the public repo `<you>/piano-practice-site`
+   exists with Pages on its `gh-pages` branch.
+2. GitHub → Settings → Developer settings → Fine-grained tokens → *Generate new token*:
+   repository access **Only select repositories → piano-practice-site**, permission
+   **Contents: Read and write** (nothing else).
+3. In this (private) repo: Settings → Secrets and variables → Actions → *New repository secret*
+   `PAGES_DEPLOY_TOKEN` with that token. Optionally a variable `PAGES_REPO` (`owner/name`) to
+   publish somewhere else.
 
 ### No piano nearby?
 

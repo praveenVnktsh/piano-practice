@@ -143,13 +143,13 @@ New capability arrives inside an existing place or behind progressive disclosure
 - [ ] P1 Repertoire to 50+ verified pieces, filling Grades 1–3 especially (Türk, Gurlitt, Kabalevsky's PD-eligible, Diabelli, more Burgmüller and Czerny)
 - [ ] P2 Duets: teacher/primo part plays from the sampler while you play secondo (and vice versa)
 
-## Phase 18: Practice anywhere ⏳
+## Phase 18: Practice anywhere ✅
 - [x] P0 Public site: `npm run publish:site` publishes only the build (no source, no private songs) to GitHub Pages; sub-path builds and a scope-relative service worker
 - [x] P0 "Open on your iPad": on the Mac, Today and Settings show the LAN address with a QR code
-- [ ] P1 Sync between the public site and the Mac: when the Mac is reachable on the same network, offer to merge the browser's progress into the Mac's store (and back); otherwise a one-tap export/import file
-- [ ] P1 Public-site-aware UI: hide what needs the Mac (teacher, imports to the Mac, relay) with one quiet line explaining where it lives, instead of failing requests
-- [ ] P1 Auto-publish: a GitHub Action in the private repo builds and publishes the site on every merge to main (needs a deploy token secret; document the one-time setup)
-- [ ] P2 Install prompt on the public site (Add to Home Screen hint on iPad Safari)
+- [x] P1 Sync between the public site and the Mac: a one-tap file (Progress → Backup → Take this progress to your Mac; on the Mac, Import → Add to this progress merges without duplicates). Live sync is not possible: an https page can't call the Mac's http server
+- [x] P1 Public-site-aware UI: hide what needs the Mac (teacher, imports to the Mac, relay) with one quiet line explaining where it lives, instead of failing requests
+- [x] P1 Auto-publish: a GitHub Action in the private repo builds and publishes the site on every merge to main (needs a deploy token secret; document the one-time setup)
+- [x] P2 Install prompt on the public site (Add to Home Screen hint on iPad Safari)
 
 ## Phase 19: Polish from real use ⏳
 - [ ] P0 Work through the student's annotate notes and teacher conversations as they arrive; every fix gets a test

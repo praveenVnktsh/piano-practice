@@ -1,0 +1,16 @@
+/* "Add to Home Screen" line on the public site (src/pwa/install-hint.js): quiet, at the foot of Today. */
+.a2hs {
+  display: flex; align-items: center; gap: 12px;
+  max-width: 720px; margin: 24px auto 8px; padding: 10px 8px 10px 16px;
+  border: 1px solid var(--rule); border-radius: var(--radius-card);
+  background: var(--paper-raised); color: var(--ink-soft);
+  font: 400 15px/1.45 var(--font-text);
+}
+.a2hs p { margin: 0; flex: 1; min-width: 0; }
+.a2hs b { color: var(--ink); font-weight: 600; }
+.a2hs-x {
+  flex: none; width: 44px; height: 44px; border: 0; border-radius: var(--radius-control);
+  background: transparent; color: var(--ink-soft); font: 400 22px/1 var(--font-ui); cursor: pointer;
+}
+.a2hs-x:hover { background: var(--paper-sunk); color: var(--ink); }
+.a2hs-x:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }

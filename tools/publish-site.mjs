@@ -8,9 +8,10 @@
 // large and every publish replaces the last). Uses your gh / git credentials; the commit is authored
 // with your GitHub noreply address so no personal email is published.
 import {execFileSync} from 'node:child_process';
-import {existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync} from 'node:fs';
+import {existsSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join, relative} from 'node:path';
+import {join} from 'node:path';
+import {checkBuild, checkTarget} from './site-guard.mjs';
 
 const args = process.argv.slice(2);
 const opt = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
@@ -25,32 +26,24 @@ const out = join(work, 'site');
 console.log(`Building into ${out} …`);
 execFileSync('npx', ['vite', 'build', '--outDir', out, '--emptyOutDir'], {stdio: 'inherit', env: {...process.env, BASE: './', INCLUDE_LOCAL_SONGS: ''}});
 
-// Guard: nothing private in the build.
-const walk = d => readdirSync(d).flatMap(f => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
-const files = walk(out);
-const PRIVATE = /songs\/local\/|una-mattina\.(mei|pdf|musicxml)|comptine/i;
-const leaked = files.filter(f => PRIVATE.test(relative(out, f)));
-const catalog = readFileSync(join(out, 'songs/catalog.json'), 'utf8');
-if (leaked.length || /einaudi|tiersen/i.test(catalog)) {
-  console.error('Refusing to publish: private material in the build:', leaked.map(f => relative(out, f)), /einaudi|tiersen/i.test(catalog) ? '(catalog)' : '');
-  process.exit(1);
-}
+// Guard (tools/site-guard.mjs, shared with the GitHub Action): nothing private, nothing too big.
+const {files, bytes, problems} = checkBuild(out);
+if (problems.length) { console.error('Refusing to publish:\n  ' + problems.join('\n  ')); process.exit(1); }
 writeFileSync(join(out, '.nojekyll'), '');
-const big = files.filter(f => statSync(f).size > 90e6);
-if (big.length) { console.error('Files too large for GitHub:', big); process.exit(1); }
-console.log(`${files.length} files, ${(files.reduce((n, f) => n + statSync(f).size, 0) / 1e6).toFixed(1)} MB`);
+console.log(`${files.length} files, ${(bytes / 1e6).toFixed(1)} MB`);
 if (dry) { console.log('Dry run: not pushing.'); process.exit(0); }
 
 // The public repo (created once). Never the source repo, and never a private repo: the target must
 // be public, and must not be this checkout's origin (repos can be renamed under us).
 let exists = true, info = null;
-try { info = JSON.parse(run('gh', ['repo', 'view', repo, '--json', 'name,visibility,url'])); } catch { exists = false; }
+try { info = JSON.parse(run('gh', ['repo', 'view', repo, '--json', 'nameWithOwner,visibility,url'])); } catch { exists = false; }
 let origin = '';
 try { origin = run('git', ['remote', 'get-url', 'origin']).replace(/\.git$/, '').toLowerCase(); } catch {}
 let source = '';
 try { source = run('gh', ['repo', 'view', '--json', 'url', '--jq', '.url']).toLowerCase(); } catch {}
-if (exists && (info.visibility !== 'PUBLIC' || [origin, source].includes(info.url.toLowerCase()))) {
-  console.error(`Refusing to publish to ${repo}: it is ${info.visibility !== 'PUBLIC' ? 'not public' : 'this source repo'}. Pass --repo owner/name for a separate public repo.`);
+const problem = exists && checkTarget({repo: info.nameWithOwner, visibility: info.visibility, url: info.url, sources: [origin, source]});
+if (problem) {
+  console.error(`${problem} Pass --repo owner/name for a separate public repo.`);
   process.exit(1);
 }
 if (!exists) {

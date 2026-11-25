@@ -9,6 +9,8 @@
 // A MIDI file is converted to MusicXML on import (src/midi-file/): `midi: true`, `quality` (0–1, how
 // cleanly it quantised) and, when that is poor, `view: 'falling'` (the player opens it in falling notes).
 
+import {onMac} from './mac.js';
+
 const DB_NAME = 'piano-practice-imports';
 const STORE = 'songs';
 const LEGACY_DB = 'piano-score-library';
@@ -72,7 +74,7 @@ let storePromise;
 /** Where imports are kept: 'mac' (dev server disk) or 'browser' (IndexedDB). Decided once per page load. */
 export function importStore() {
   return storePromise ??= (async () => {
-    if (!import.meta.env?.DEV) return 'browser';
+    if (!onMac()) return 'browser';
     try { const body = await api(); return body.store === 'disk' && Array.isArray(body.songs) ? 'mac' : 'browser'; }
     catch (e) { console.warn('Song store on the dev server unavailable; keeping imports in this browser:', e.message); return 'browser'; }
   })();

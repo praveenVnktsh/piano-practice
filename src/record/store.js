@@ -8,6 +8,7 @@
 //   where() → 'disk' | 'browser'
 // Every change fires a window 'recordings:change' event.
 import {takeMeta, validateTake, patchTake, validateExam} from './take.mjs';
+import {onMac} from '../app/mac.js';
 
 const API = (import.meta.env?.BASE_URL || '/').replace(/\/?$/, '/') + '__recordings';
 const INDEX = 'piano-practice.recordings.index';
@@ -31,6 +32,7 @@ async function api(path, {method = 'GET', body} = {}) {
 
 /** 'disk' when the dev server keeps recordings, else 'browser'. */
 export function where() {
+  if (!mode && !onMac()) mode = 'browser'; // no dev server: nothing to ask
   if (mode) return Promise.resolve(mode);
   return (probing ||= (async () => {
     try {

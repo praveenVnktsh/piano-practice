@@ -186,13 +186,15 @@ const SAMPLE_THREAD = () => {
 };
 
 // Stand-ins installed before the app starts: a Web MIDI keyboard (window.__midi([status, note,
-// velocity]) plays it) and, with `teacher`, an EventSource that hands the panel the sample thread.
+// velocity]) plays it) and, with `teacher`, an EventSource that hands the panel the sample thread
+// (and the page is told it is on the Mac, so the teacher is mounted).
 const fakes = ({teacher = false} = {}) => `(() => {
   const input = {id: 'demo', name: 'Digital Piano', manufacturer: 'Demo', state: 'connected', onmidimessage: null};
   const access = {inputs: new Map([['demo', input]]), outputs: new Map(), onstatechange: null};
   Object.defineProperty(navigator, 'requestMIDIAccess', {configurable: true, value: async () => access});
   window.__midi = data => input.onmidimessage?.({data: new Uint8Array(data), timeStamp: performance.now()});
-  ${teacher ? `const thread = ${JSON.stringify(SAMPLE_THREAD())};
+  ${teacher ? `try { sessionStorage.setItem('piano-practice.where', 'mac'); } catch {} // a built copy is a static site (src/app/mac.js): show the Mac's teacher
+  const thread = ${JSON.stringify(SAMPLE_THREAD())};
   const json = v => Promise.resolve(new Response(JSON.stringify(v), {headers: {'content-type': 'application/json'}}));
   const realFetch = window.fetch;
   window.fetch = (u, o) => { const p = new URL(String(u), location.href).pathname;

@@ -1,0 +1,76 @@
+name: Publish site
+
+# Every push to main builds the app with BASE=./ and publishes only the build to the public repo
+# <owner>/piano-practice-site (gh-pages branch), like `npm run publish:site` does from the Mac.
+# One-time setup (README, "Anywhere else: the public site"): a fine-grained token with
+# Contents: read and write on that public repo only, saved here as the secret PAGES_DEPLOY_TOKEN.
+# Without the secret this job says so and stops, successfully.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-site
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PAGES_DEPLOY_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+      PAGES_REPO: ${{ vars.PAGES_REPO || format('{0}/piano-practice-site', github.repository_owner) }}
+    steps:
+      - name: No deploy token
+        if: env.PAGES_DEPLOY_TOKEN == ''
+        run: echo "::notice::PAGES_DEPLOY_TOKEN is not set, so the public site was not published (see README)."
+
+      - uses: actions/checkout@v4
+        if: env.PAGES_DEPLOY_TOKEN != ''
+      - uses: actions/setup-node@v4
+        if: env.PAGES_DEPLOY_TOKEN != ''
+        with:
+          node-version: 22
+          cache: npm
+      - if: env.PAGES_DEPLOY_TOKEN != ''
+        run: npm ci
+
+      # Never the source repo, never a private repo (tools/site-guard.mjs, shared with publish-site.mjs).
+      - name: Check the target repo
+        if: env.PAGES_DEPLOY_TOKEN != ''
+        run: node tools/site-guard.mjs target "$PAGES_REPO"
+        env:
+          GH_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+
+      - name: Build
+        if: env.PAGES_DEPLOY_TOKEN != ''
+        run: npx vite build --outDir "$RUNNER_TEMP/site" --emptyOutDir
+        env:
+          BASE: ./
+          INCLUDE_LOCAL_SONGS: ''
+
+      - name: Check the build (nothing private)
+        if: env.PAGES_DEPLOY_TOKEN != ''
+        run: node tools/site-guard.mjs build "$RUNNER_TEMP/site"
+
+      - name: Push to gh-pages
+        if: env.PAGES_DEPLOY_TOKEN != ''
+        working-directory: ${{ runner.temp }}/site
+        env:
+          OWNER: ${{ github.repository_owner }}
+          OWNER_ID: ${{ github.repository_owner_id }}
+          SOURCE: ${{ github.sha }}
+        run: |
+          touch .nojekyll
+          git init -q -b gh-pages
+          git config user.name "$OWNER"
+          git config user.email "$OWNER_ID+$OWNER@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Publish ${SOURCE::7}"
+          git push -q --force "https://x-access-token:${PAGES_DEPLOY_TOKEN}@github.com/${PAGES_REPO}.git" gh-pages
+          echo "::notice::Published ${SOURCE::7} to https://github.com/${PAGES_REPO} (gh-pages)."

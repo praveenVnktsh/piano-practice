@@ -7,6 +7,7 @@
 //   mountIpadLink(container, {compact}) → {el, destroy()}  only renders on the Mac with a dev server
 import qrcode from 'qrcode-generator';
 import './ipad-link.css';
+import {onMac} from './mac.js';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
 
@@ -58,7 +59,7 @@ export function mountIpadLink(container, {compact = false} = {}) {
   el.hidden = true;
   container.append(el);
   let gone = false;
-  if (isThisMac()) {
+  if (isThisMac() && onMac()) {
     lanInfo().then(info => {
       if (gone || !info) return;
       el.innerHTML = ipadLinkHTML(info, {qr: !compact});

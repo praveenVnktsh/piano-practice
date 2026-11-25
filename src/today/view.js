@@ -19,6 +19,8 @@ import {curriculum} from '../curriculum/levels.js';
 import {lessonById, LESSONS} from '../lessons/lessons.js';
 import {describeAction} from '../../teacher/actions.js';
 import {mountIpadLink} from '../app/ipad-link.js';
+import {onMac} from '../app/mac.js';
+import {mountInstallHint} from '../pwa/install-hint.js';
 
 // "Learn this piece" plans (src/learn/guide.js): Today offers the current step, and asks the
 // player to set it up when the piece opens.
@@ -129,6 +131,7 @@ export function mountToday(container, {library, open} = {}) {
   }
 
   async function loadTeacher() {
+    if (!onMac()) { teacher = null; assignments = []; return; } // the teacher lives on the Mac
     try {
       const res = await fetch('/__teacher', {cache: 'no-store'});
       if (!res.ok || !(res.headers.get('content-type') || '').includes('json')) throw Error('no teacher');
@@ -415,11 +418,14 @@ export function mountToday(container, {library, open} = {}) {
   loadTeacher();
   // On the Mac: the address to open on the iPad (nothing on the iPad itself or a static site).
   const ipad = mountIpadLink(container);
+  // On the public site in iPad Safari: Add to Home Screen, once.
+  const install = mountInstallHint(container);
 
   return {
     destroy() {
       destroyed = true;
       ipad.destroy();
+      install.destroy();
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
