@@ -120,7 +120,7 @@ describe('generateExercise()', () => {
       expect(fingers(xml).filter((f, i) => notes(xml)[i].pitch).every(Boolean), id).toBe(true);
       expect(pitched.length).toBeGreaterThan(3);
     }
-  });
+  }, 30000); // hundreds of exercises: slow on a busy CI runner
 
   test('is well-formed MusicXML', () => {
     for (const id of ['ex:scale:Fs:major:both:2:up-down', 'ex:progression:Bb:major:I-IV-V-I', 'ex:chromatic:Eb:left:1']) {

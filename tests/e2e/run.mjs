@@ -104,7 +104,8 @@ async function main() {
         const errors = pages.flatMap(p => p.errors).filter(e => !IGNORED.some(re => re.test(e)) && !(t.allowErrors || []).some(re => re.test(e)));
         if (errors.length) throw new Error('console errors:\n    ' + errors.join('\n    '));
       } catch (e) { error = e; }
-      for (const p of pages) { await p.send('Page.close').catch(() => {}); p.close(); }
+      // Closing can hang if Chrome stops answering: never wait more than a few seconds.
+      for (const p of pages) { await Promise.race([p.send('Page.close').catch(() => {}), sleep(3000)]); p.close(); }
       const ms = Date.now() - t0;
       results.push({name, error});
       console.log(`${error ? '✗' : '✓'} ${name} (${ms} ms)${error ? '\n    ' + String(error.stack || error).split('\n').slice(0, 6).join('\n    ') : ''}`);
@@ -119,5 +120,5 @@ async function main() {
 let code = 1;
 try { code = await main(); }
 catch (e) { console.error(e); }
-finally { await cleanup(); }
+finally { await Promise.race([cleanup(), new Promise(r => setTimeout(r, 10000))]); }
 process.exit(code);

@@ -5,6 +5,7 @@
 // ivory/brass on graphite (dark), hairline bar lines, no glows or shadows.
 // Every colour comes from the design tokens (src/styles/tokens.css), read off
 // the canvas so both themes work; call refreshColors() when the theme changes.
+import {follower} from './motion.mjs';
 
 const POPUP_MS = 900;
 const LOOKAHEAD = 5; // quarter notes visible above the keys
@@ -12,9 +13,11 @@ const TOKENS = ['ink', 'ink-soft', 'ink-faint', 'rule', 'rule-strong', 'brass', 
 
 // Options: hideNotes() → true draws only the bar lines (memory check);
 // barHeat(measure) → 'good' | 'fair' | 'weak' | null marks the bar at the left edge (trouble spots).
-export function createHighway({canvas, keys, getEvents, getMeasures, position, noteState, handColors = () => true, noteLabel = () => null, hideNotes = () => false, barHeat = () => null}) {
+export function createHighway({canvas, keys, getEvents, getMeasures, position, noteState, handColors = () => true, noteLabel = () => null, hideNotes = () => false, barHeat = () => null, glides = () => true}) {
   const ctx = canvas.getContext('2d');
-  let lanes = new Map(), width = 0, height = 0, dpr = 1, shown = 0, raf = 0;
+  let lanes = new Map(), width = 0, height = 0, dpr = 1, shown = 0, raf = 0, lastFrame = 0;
+  // Glides between notes (Wait mode, stepping) like the score; follows exactly while playing.
+  const glide = follower(.24, {epsilon: .001});
   let c = {}; // resolved token colours
   const reduceMotion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   const popups = []; // timing feedback words rising from the keys
@@ -65,7 +68,10 @@ export function createHighway({canvas, keys, getEvents, getMeasures, position, n
     const target = position();
     if (target == null) { ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
     // Follow exactly while playing; ease toward jumps (stepping, practice), unless motion is reduced.
-    shown = Math.abs(target - shown) > 8 || reduceMotion?.matches ? target : shown + (target - shown) * .25;
+    const frameAt = performance.now(), dt = lastFrame ? (frameAt - lastFrame) / 1000 : 0;
+    lastFrame = frameAt;
+    // Glide only between steps (Wait mode, stepping): while the music plays it must not lag the keys.
+    shown = !glides() || Math.abs(target - shown) > 8 || reduceMotion?.matches ? glide.jump(target) : glide.step(target, dt);
     const pps = height / LOOKAHEAD;
     const y = t => height - (t - shown) * pps;
 
@@ -160,7 +166,7 @@ export function createHighway({canvas, keys, getEvents, getMeasures, position, n
   return {
     layout: () => requestAnimationFrame(layout),
     refreshColors: () => requestAnimationFrame(refreshColors),
-    jump() { shown = position() ?? 0; },
+    jump() { shown = glide.jump(position() ?? 0); },
     // Pixels per quarter note (for drag-to-scrub).
     pixelsPerQuarter: () => (height || canvas.clientHeight) / LOOKAHEAD,
     // Where score time t is drawn this frame, in px from the canvas top (overlays: bar comments).
