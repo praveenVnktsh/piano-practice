@@ -2,11 +2,14 @@
 // the generated, fingered score in the player.  mountTechnique(container, {open}) → {destroy()}.
 import '../theory/engrave.css';
 import './exercises.css';
+import '../lessons/lessons.css';
 import {MAJOR_KEYS, MINOR_KEYS, CHROMATIC_STARTS, parseKey, pitchClass, keyFifths, keyLabel, chordFromNumeral, pitchName} from './theory.js';
 import {scaleFingering, arpeggioFingering, fiveFingerFingering, chromaticFinger} from './fingering.js';
 import {exerciseId, exerciseTitleFor, resolveExercise, dailyWarmup, listPresets, PROGRESSIONS} from './index.js';
 import {readRecent} from '../app/sidebar.js';
 import {engrave} from '../theory/engrave.js';
+import {art as lessonArt} from '../lessons/art.js';
+import {LESSONS} from '../lessons/lessons.js';
 
 const STORE_KEY = 'piano-practice.technique';
 const TYPES = [
@@ -246,6 +249,11 @@ export function mountExercises(container, {open} = {}) {
   const sight = big('#/exercises/sight-reading', 'Eyes and hands', 'Sight-reading', 'A new short piece at your level, every time. Read it once, then play it through in time.', 'Four to eight bars, never seen before');
   const rhythm = big('#/exercises/rhythm', 'Pulse', 'Rhythm', 'Read a line of rhythm and tap it on any key, after a bar of count-in.', 'From crotchets to triplets and 6/8');
   const theory = big('#/exercises/theory', 'Understanding', 'Theory', 'Short lessons with examples to hear: note values, keys, intervals, chords and cadences.', 'A few minutes each, with questions');
+  // First lessons for the absolute beginner: one wide card, first in the list.
+  const lessonsDone = (() => { try { const s = JSON.parse(localStorage.getItem('piano-practice.lessons') || '{}'); return LESSONS.filter(l => s.lessons?.[l.id]?.done).length; } catch { return 0; } })();
+  const first = big('#/exercises/lessons', 'Beginnings', 'First lessons', 'Find your way around the keys, learn the finger numbers and middle-C position, and play your first five-finger tunes.',
+    lessonsDone ? `${lessonsDone} of ${LESSONS.length} lessons done` : `${LESSONS.length} short lessons, checked as you play`);
+  first.classList.add('is-wide');
   const ear = big('#/exercises/ear', 'Ears', 'Ear training', 'Hear an interval, a chord or a cadence and name it — or play back a short melody.', 'Answer by playing or tapping');
   tech.querySelector('.exh-art').innerHTML = SCALE_ART;
   read.querySelector('.exh-art').innerHTML = READING_ART;
@@ -253,9 +261,10 @@ export function mountExercises(container, {open} = {}) {
   rhythm.querySelector('.exh-art').innerHTML = RHYTHM_ART;
   theory.querySelector('.exh-art').innerHTML = THEORY_ART;
   ear.querySelector('.exh-art').innerHTML = EAR_ART;
+  first.querySelector('.exh-art').innerHTML = lessonArt('c-position');
   root.append(
     el('p', {class: 'exh-lead', text: 'Everything that isn’t a piece. Short, regular and unhurried.'}),
-    el('div', {class: 'exh-cards'}, tech, read, sight, rhythm, theory, ear),
+    el('div', {class: 'exh-cards'}, first, tech, read, sight, rhythm, theory, ear),
   );
   const recent = readRecent().map(id => ({id, title: exerciseTitleFor(id)})).filter(r => r.title);
   if (recent.length) {

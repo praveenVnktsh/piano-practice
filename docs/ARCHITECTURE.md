@@ -322,3 +322,35 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
 - **Player**: an entry `view: 'falling'` hint shows falling notes for that piece only (like the
   sight-reading `view: 'sheet'` hint); choosing a view while on it saves the student's choice.
 - Pieces labels them "From a MIDI file — unverified". Guide: songs/README.md "Importing a MIDI file".
+
+## v6 additions: the absolute beginner (Phase 13)
+- **First lessons** (`src/lessons/`): `lessons.js` (pure: lesson data, task generation from a seed,
+  `step(task, state, midi)` checking, `score`, `lessonBests(doc)`), `art.js` (SVG strings, colours
+  only through `.la-*` classes in `lessons.css`), `view.js`. Routes under Exercises:
+  `#/exercises/lessons` → `mountLessons(container)` and `#/exercises/lessons/<id>` →
+  `mountLesson(container, {lesson})` (returns `{title}`). Lesson ids: `keyboard`, `fingers`,
+  `middle-c`, `first-tunes`. Keys are checked from window `piano:note` (MIDI, relay, mic) and the
+  lesson's own on-screen keys. The Exercises hub has one wide "First lessons" card; Today's first
+  movement becomes the next lesson while the path is at Beginner and lessons remain.
+- **`trainer:result` level prefix `lesson:<id>`** (with `passed`, ≥ 80 %). `src/progress/model.js`
+  counts it as a skill (`SKILLS` adds `lesson`, `totals.skills.lesson.levels[id] = best`),
+  `isSkillLevel(level)` tells the other drills from note reading; Today's reading step and the
+  note-reading trend ignore `rhythm:` / `theory:` / `ear:` / `lesson:` levels.
+- **localStorage `piano-practice.lessons`** = `{lessons: {<id>: {best, done, at, attempts}}}` (like
+  `piano-practice.theory`); the progress document stays the source of truth for the path.
+- **Curriculum**: a level may list `lessons: [lesson ids]` (Beginner only), each passed once at
+  ≥ 80 %; `evaluateLevel` returns `lessons: {items: [{id, label, best, done}], done}` and counts them
+  in `fraction`; `curriculum().next.lesson`. Beginner lists twelve Grade 0 pieces (`need: 6`) and the
+  reading track `c-position` (new note-reading level: C–G in each hand) → `landmarks` → `treble`.
+  The teacher context's path adds `lessonsLeft`.
+- **Beginner arrangements**: `songs/repertoire.json` `arrangements: [{id, title, composer, grade,
+  tempo, hands: 'right'|'left'|'alternating'|'both', position, license}]` (sources `songs/<id>.notes`);
+  `npm run songs` writes their MusicXML and catalog entries (`arrangementEntry` / `syncArrangements` in
+  `tools/notes2musicxml.mjs`). Catalog entries may carry `hands` and `arrangement` (a short position
+  note). Licence string: "Public domain (traditional), arrangement MIT". In `.notes`, a `clef=` in
+  the first measure sets that staff's starting clef.
+- **Beginner score aids** (`src/curriculum/aids.js`, pure): while the path's current level is
+  Beginner, the shell opens Grade 0 pieces with an `aids: {names: true}` entry hint (for that piece
+  only). The player then shows note names unless the global setting `beginnerAids` is `false`; on such
+  a piece the Note names toggle sets `beginnerAids` (off also clears `names`).
+

@@ -73,6 +73,10 @@ export const tests = [
       const page = await open(VIEWPORTS.desktop);
       await page.goto(base + '#/today', {settle: 100});
       await reset(page, ['piano-practice.progress.local']);
+      // A student past the first lessons (Phase 13): Today's first movement is then the warm-up.
+      await page.eval(`['keyboard', 'fingers', 'middle-c', 'first-tunes'].forEach(id => window.dispatchEvent(new CustomEvent('trainer:result',
+        {detail: {level: 'lesson:' + id, right: 10, wrong: 0, accuracy: 100, avgMs: 900, durationMs: 60000, at: Date.now(), passed: true}}))); 1`);
+      await sleep(300);
       await page.goto(base + '?warm#/today');
       await page.waitFor(`document.querySelector('.td-action.btn-primary')`, {what: 'the warm-up'});
       const first = await page.eval(`document.querySelector('.td-card .td-title').textContent`);

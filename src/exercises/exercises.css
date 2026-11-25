@@ -134,6 +134,11 @@
   overflow: hidden;
   transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
+/* The wide "First lessons" card: art beside the text. */
+.exh-card.is-wide { grid-column: 1 / -1; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); grid-template-rows: 1fr auto; }
+.exh-card.is-wide .exh-art { grid-column: 1; grid-row: 1 / -1; border-bottom: 0; border-right: 1px solid var(--rule); display: grid; place-items: center; }
+.exh-card.is-wide .exh-text { grid-column: 2; grid-row: 1; }
+.exh-card.is-wide .exh-go { grid-column: 2; grid-row: 2; }
 .exh-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--brass) 50%, var(--rule)); }
 .exh-art { padding: 26px 26px 8px; border-bottom: 1px solid var(--rule); background: var(--paper); }
 .exh-art svg { display: block; width: 100%; max-height: 132px; margin: 0 auto; }
@@ -181,6 +186,10 @@
 
 @media (max-width: 760px) {
   .exh-cards { grid-template-columns: minmax(0, 1fr); }
+  .exh-card.is-wide { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; }
+  .exh-card.is-wide .exh-art { grid-column: 1; grid-row: 1; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .exh-card.is-wide .exh-text { grid-column: 1; grid-row: 2; }
+  .exh-card.is-wide .exh-go { grid-column: 1; grid-row: 3; }
   .exh-art { padding: 18px 18px 6px; }
   .exh-text { padding: 16px 20px 2px; }
   .exh-title { font-size: 32px; }
