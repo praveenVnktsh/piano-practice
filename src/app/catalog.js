@@ -1,6 +1,7 @@
 // Bundled + local song catalogs (public/songs/catalog.json, public/songs/local/catalog.json),
 // plus generated technique exercises ("ex:…" ids, src/exercises/index.js).
 import {isExerciseId, resolveExercise} from '../exercises/index.js';
+import {PERIODS, periodOf} from '../collections/model.js';
 
 const BASE = import.meta.env.BASE_URL || '/';
 
@@ -18,15 +19,19 @@ async function fetchCatalog(path, optional) {
   }
 }
 
-/** → {bundled: entry[], local: entry[]}; each entry gets `kind`. */
+// `period` (Baroque | Classical | Romantic | Modern) is in the bundled catalog; other entries get it
+// from the composer (src/collections/model.js periodOf) so Pieces can filter them too.
+const withPeriod = e => (PERIODS.includes(e.period) ? e : {...e, period: periodOf(e.composer) || undefined});
+
+/** → {bundled: entry[], local: entry[]}; each entry gets `kind` (and a `period` when the composer is known). */
 export async function loadCatalogs() {
   const [bundled, local] = await Promise.all([
     fetchCatalog('songs/catalog.json', false),
     fetchCatalog('songs/local/catalog.json', true),
   ]);
   return {
-    bundled: bundled.map(e => ({...e, kind: 'bundled'})),
-    local: local.map(e => ({...e, kind: 'local'})),
+    bundled: bundled.map(e => withPeriod({...e, kind: 'bundled'})),
+    local: local.map(e => withPeriod({...e, kind: 'local'})),
   };
 }
 

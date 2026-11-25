@@ -118,6 +118,7 @@
               </span>
             </div>
             <label class="menu-row pop-toggle"><span>Note names <small>N</small></span><input type="checkbox" id="names-btn"><i></i></label>
+            <label class="menu-row pop-toggle" title="Roman numerals and chord symbols under the score, worked out from the notes (approximate)"><span>Harmony <small>approximate</small></span><input type="checkbox" id="harmony-btn"><i></i></label>
             <div class="menu-row">
               <span>Zoom</span>
               <span class="zoom-ctl" role="group" aria-label="Score zoom">
@@ -135,10 +136,15 @@
               </span>
             </div>
           </div>
+          <div class="menu-group" id="collect-group">
+            <button class="menu-row fav-row" id="fav-btn" type="button" aria-pressed="false"><span>Favourite</span><span class="fav-star" aria-hidden="true"></span></button>
+            <button class="menu-row" id="collect-btn" type="button" aria-haspopup="dialog" aria-expanded="false"><span>Add to a collection…</span></button>
+          </div>
           <div class="menu-group">
             <button class="menu-row" id="fullscreen-btn" type="button"><span>Full screen</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
             <button class="menu-row" id="rec-list-btn" type="button"><span>Recordings…</span></button>
             <button class="menu-row" id="settings-btn" type="button"><span>Settings…</span></button>
+            <button class="menu-row" id="help-btn" type="button" aria-haspopup="dialog"><span>Help &amp; shortcuts <small>?</small></span></button>
           </div>
         </div>
       </div>
@@ -169,6 +175,10 @@
             <button type="button" data-smart="next-phrase" id="smart-next">Next phrase ›<span class="preset-meta" id="smart-next-meta"></span></button>
             <button type="button" data-smart="chain-forward" title="Loop the first bar, then add a bar after each clean pass">Chain from the start<span class="preset-meta">+1 bar per clean pass</span></button>
             <button type="button" data-smart="chain-backward" title="Loop the last bar, then add the bar before it after each clean pass">Chain from the end<span class="preset-meta">backward</span></button>
+          </div>
+          <p class="pop-kicker">Perform</p>
+          <div class="preset-list">
+            <button type="button" id="perform-run" title="The whole piece once, in time, without stopping; scored and recorded">Performance run<span class="preset-meta">the whole piece, once</span></button>
           </div>
           <p class="pop-note">Or drag across the bar numbers above the score.</p>
         </div>
@@ -209,6 +219,7 @@
           <div class="sheet-head">
             <span class="measure-pill" id="um-measure"></span>
             <span class="sheet-detail" id="um-detail"></span>
+            <span class="harmony-tag" id="um-harmony" hidden></span>
             <span class="page-num" id="um-page"></span>
           </div>
           <div id="um-sheet" class="sheet"></div>
@@ -225,7 +236,7 @@
       <div class="rec-strip" id="rec-strip" role="status" aria-live="polite" hidden></div>
     </div>
     <div class="cue">
-      <div class="prompt" id="um-practice-status">Opening the score…</div>
+      <div class="prompt" id="um-practice-status" role="status">Opening the score…</div>
       <div class="feedback" id="um-feedback" aria-live="polite"></div>
     </div>
     <div class="hud">
@@ -329,6 +340,7 @@
       <h2 id="complete-title">Well played.</h2>
       <p class="note-text" id="um-complete-text"></p>
       <table class="timing-table" id="um-complete-timing" hidden></table>
+      <table class="timing-table perf-table" id="um-perf" hidden></table>
       <figure class="touch" id="um-touch" hidden>
         <div class="touch-head"><span class="touch-label">Evenness</span><span class="touch-score" id="um-even-score"></span></div>
         <svg class="touch-graph" id="um-even-graph" viewBox="0 0 300 64" preserveAspectRatio="none" aria-hidden="true"></svg>
@@ -336,6 +348,7 @@
       </figure>
       <ul class="note-remarks" id="um-remarks" hidden></ul>
       <div class="modal-actions">
+        <button class="primary-btn" id="um-complete-setlist" type="button" hidden>Next in setlist →</button>
         <button class="primary-btn" id="um-again" type="button">Again</button>
         <button class="quiet-btn" id="um-complete-next" type="button">Next section</button>
         <button class="quiet-btn" id="um-complete-close" type="button">Done</button>
@@ -364,7 +377,15 @@
       <input type="file" id="import-file" accept=".musicxml,.xml,.mxl,.mei,application/vnd.recordare.musicxml+xml,application/vnd.recordare.musicxml">
     </label>
     <p class="dlg-status" id="import-status" role="status" aria-live="polite"></p>
-    <details class="dlg-omr">
+    <details class="dlg-omr dlg-guide" id="import-guide">
+      <summary>How to export from MuseScore</summary>
+      <ol>
+        <li>Open the score in MuseScore. If it has other instruments, keep only the piano: <i>File → Parts</i>, or delete the other staves.</li>
+        <li>Check the piano is <b>one part with two staves</b> (treble and bass). Two separate “right hand” / “left hand” parts are joined on import.</li>
+        <li><i>File → Export…</i>, choose <b>Compressed MusicXML (*.mxl)</b>, and drop the file here.</li>
+      </ol>
+      <p>Repeats, first and second endings and pickup bars are written out on import. More in the <a href="https://github.com/praveenVnktsh/una-mattina-practice/blob/main/songs/README.md#importing-from-musescore" target="_blank" rel="noopener">import guide</a>.</p>
+    </details>    <details class="dlg-omr">
       <summary>Recognize a PDF (needs the local helper)</summary>
       <p>PDF scores can be converted to notes on this computer with <a href="https://github.com/Audiveris/audiveris" target="_blank" rel="noopener">Audiveris</a>, running as a local helper at <code>127.0.0.1:8937</code>. Recognition takes minutes and makes mistakes — check the notes against the original.</p>
       <label class="dlg-btn">

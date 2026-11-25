@@ -1,5 +1,10 @@
 // "Import score" modal: drop zone + file picker, plus optional PDF recognition via the local helper.
+// Before a MusicXML file is saved it is prepared (src/musicxml.mjs: the piano part picked or a
+// two-part piano joined, pickup bars marked, a title found) and opened once the way the player
+// will open it, so a score that can't be played is reported here, in plain words, not later.
+// "How to export from MuseScore" (index.html, #import-guide) sums up songs/README.md.
 import {recordFromFile, recognizePdf, putImport, importStore, STORE_LABEL, ACCEPTED} from './imports.js';
+import {prepareMusicXml, unzipMxl} from '../musicxml.mjs';
 
 export function createImportDialog({dialog, onImported}) {
   const drop = dialog.querySelector('#import-drop');
@@ -30,9 +35,36 @@ export function createImportDialog({dialog, onImported}) {
     setBusy(true); say('Reading ' + file.name + '…');
     try {
       const rec = await recordFromFile(file);
-      await save(rec);
+      say('Checking the score…');
+      await save(await checkRecord(rec, file));
     } catch (e) { say(e.message, 'error'); }
     finally { setBusy(false); fileInput.value = ''; }
+  }
+
+  // Prepares MusicXML (see the top of the file) and opens it once; → the record to save, with any warnings.
+  async function checkRecord(rec, file) {
+    const warnings = [];
+    let out = {...rec};
+    let text = rec.data;
+    if (rec.mxlBase64) text = await unzipMxl(new Uint8Array(await file.arrayBuffer()));
+    if (typeof text === 'string' && !/<mei[\s>]/.test(text.slice(0, 4000))) {
+      const prep = prepareMusicXml(text, {fileName: file.name});
+      warnings.push(...prep.warnings);
+      if (prep.changed) { out.data = prep.xml; delete out.mxlBase64; }
+      const fromName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+      if (!out.title || out.title === fromName || out.title === 'Untitled score') out.title = prep.title || out.title;
+      if (!out.composer && prep.composer) out.composer = prep.composer;
+    }
+    let song;
+    try {
+      const {loadSong} = await import('../song.js');
+      song = await loadSong(out.mxlBase64 ? {mxlBase64: out.mxlBase64} : {data: out.data});
+    } catch (e) {
+      throw Error(`This score couldn’t be opened: ${String(e?.message || e).replace(/\.$/, '')}. If it came from a notation program, export it again as MusicXML (see “How to export from MuseScore” below).`, {cause: e});
+    }
+    if (!song?.measures?.length) throw Error('This score has no bars to play.');
+    out.warning = [rec.warning, ...warnings].filter(Boolean).join(' ') || undefined;
+    return out;
   }
 
   async function save(rec) {

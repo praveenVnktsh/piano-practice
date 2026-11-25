@@ -28,7 +28,7 @@
   font-size: 15px; transition: background var(--dur) var(--ease);
 }
 .tq-warm-item:hover { background: var(--brass-soft); }
-.tq-warm-n { flex: none; width: 28px; font: 500 22px var(--font-display); color: var(--brass); font-variant-numeric: tabular-nums; }
+.tq-warm-n { flex: none; width: 28px; font: 500 22px var(--font-display); color: var(--brass-ink); font-variant-numeric: tabular-nums; }
 .tq-warm-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .tq-warm-go { flex: none; color: var(--ink-faint); font-size: 13px; }
 .tq-warm-item:hover .tq-warm-go { color: var(--brass); }

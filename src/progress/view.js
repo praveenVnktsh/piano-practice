@@ -11,6 +11,8 @@ import {mountBackupControls} from '../pwa/backup.js';
 import {mountRecordingsSection} from '../record/section.js';
 import {getTheme, setTheme, THEMES, THEME_EVENT} from '../app/theme.js';
 import {DEFAULT_GOAL_MIN} from './model.js';
+import {openHelp} from '../help/index.js';
+import {openOnboarding} from '../onboarding/index.js';
 import {addDays, dayKey, keyStats, lastDays, minutesByDay, readingSummary, readingTrend, songStats, streaks, exerciseStats, skillSummary, STREAK_MIN_MINUTES} from './stats.js';
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
@@ -139,7 +141,12 @@ export function mountProgress(container) {
         el('div', {class: 'pg-setting'},
           el('p', {class: 'pg-setting-name', id: 'pg-theme-l', text: 'Appearance'}),
           el('div', {class: 'pg-theme', role: 'radiogroup', 'aria-labelledby': 'pg-theme-l'}, THEMES.map(t =>
-            el('button', {type: 'button', role: 'radio', class: 'pg-theme-opt', 'aria-checked': String(t.id === theme), onclick: () => { setTheme(t.id); render(); }}, t.label))))),
+            el('button', {type: 'button', role: 'radio', class: 'pg-theme-opt', 'aria-checked': String(t.id === theme), onclick: () => { setTheme(t.id); render(); }}, t.label)))),
+        el('div', {class: 'pg-setting'},
+          el('p', {class: 'pg-setting-name', text: 'Help'}),
+          el('div', {class: 'pg-setting-actions'},
+            el('button', {class: 'text-btn', type: 'button', 'aria-haspopup': 'dialog', text: 'Help & shortcuts', onclick: () => openHelp()}),
+            el('button', {class: 'text-btn', type: 'button', 'aria-haspopup': 'dialog', text: 'Show the introduction again', onclick: () => openOnboarding()})))),
       backupHost,
       el('p', {class: 'pg-fine', text: where === 'disk' ? 'Your progress is kept on your Mac (.data/progress.json) and shared by every device using this dev server.' : 'Your progress is kept in this browser.'}),
     );

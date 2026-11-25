@@ -79,7 +79,7 @@ export async function openExamSetup() {
       el('button', {class: 'primary-btn', type: 'submit', text: 'Begin the exam'}),
       el('button', {class: 'quiet-btn', type: 'button', text: 'Cancel', onclick: () => close()})));
   const modal = el('div', {class: 'rec-modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'rec-setup-title'}, el('div', {class: 'rec-modal-card'}, form));
-  const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const onKey = modalKeys(() => modal, () => close());
   function close() { modal.remove(); window.removeEventListener('keydown', onKey, true); try { prev?.focus?.(); } catch {} }
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
   window.addEventListener('keydown', onKey, true);
@@ -212,11 +212,27 @@ export function openExamSheet(sheet) {
         try { window.print(); } finally { setTimeout(() => document.documentElement.classList.remove('rec-print'), 1000); }
       }})));
   const modal = el('div', {class: 'rec-modal rec-exam-modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'rec-exam-title'}, card);
-  const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const onKey = modalKeys(() => modal, () => close());
   function close() { modal.remove(); window.removeEventListener('keydown', onKey, true); try { prev?.focus?.(); } catch {} }
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
   window.addEventListener('keydown', onKey, true);
   document.body.append(modal);
   card.querySelector('.close-btn')?.focus({preventScroll: true});
   return {close};
+}
+
+// Keys while a modal is open: Escape closes, Tab stays inside, and nothing else reaches the
+// shortcuts of the page behind it (Space must not start the player).
+function modalKeys(getModal, close) {
+  return e => {
+    const modal = getModal();
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+    if (e.key !== 'Tab') { e.stopPropagation(); return; }
+    const items = [...modal.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(x => !x.disabled && x.getClientRects().length);
+    if (!items.length) return;
+    const first = items[0], last = items.at(-1);
+    if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
 }

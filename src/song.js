@@ -1,5 +1,6 @@
 import {createToolkit} from './verovio.js';
 import {buildScore} from './score-core.mjs';
+import {prepareMusicXml} from './musicxml.mjs';
 
 // Turns a score (MusicXML, compressed MXL or MEI) into a playable song:
 // measures and note events with times in quarter notes, plus the whole
@@ -27,10 +28,17 @@ const sharedToolkit = () => toolkitPromise ??= createToolkit();
 export async function loadSong(source = {}) {
   if (typeof source === 'string') source = {url: source};
   const [tk, input] = await Promise.all([sharedToolkit(), readSource(source)]);
+  // A MusicXML score with several parts: keep the piano (or join a two-part piano), as on import
+  // (src/musicxml.mjs). Scores imported before that existed get the same treatment here.
+  if (input.text && /<score-partwise[\s>]/.test(input.text.slice(0, 4000)) && (input.text.match(/<score-part[\s>]/g) || []).length > 1) {
+    try { input.text = prepareMusicXml(input.text).xml; } catch { /* Verovio reports what's wrong */ }
+  }
   tk.setOptions(OPTIONS);
   const ok = input.zip ? tk.loadZipDataBase64(input.zip) : tk.loadData(input.text);
   if (!ok || !tk.getPageCount()) throw Error('Could not read this score. Is it MusicXML, MXL or MEI?');
-  const score = buildScore(tk);
+  // MusicXML (and MXL) imports carry every sounding pitch in the MEI: read them in one pass.
+  const fromXml = !!input.zip || /<score-(partwise|timewise)[\s>]/.test(input.text.slice(0, 4000));
+  const score = buildScore(fromXml ? withMeiPitches(tk) : tk);
   if (!score.events.length) throw Error('This score has no playable notes');
   const svg = safeSvg(tk.renderToSVG(1));
   const meta = scoreInfo(score.mei);
@@ -45,6 +53,60 @@ export async function loadSong(source = {}) {
     noteNames: noteNames(score.mei, score.segments),
     fullSvg: () => svg,
   };
+}
+
+// ───────── Fast pitches ─────────
+// buildScore() asks Verovio for each note's MIDI pitch, one call per note (≈ 0.2 ms each: half
+// the load time of a 150-bar sonata). Verovio's MusicXML import writes every sounding alteration
+// (@accid.ges) and octave-line shift (@oct.ges) into its MEI, so for MusicXML / MXL the pitches
+// can be read from that MEI in one pass. The toolkit is wrapped, not changed: getMEI() is
+// remembered, and getMIDIValuesForElement() answers from the MEI after a spot check of 16
+// notes against Verovio agrees (any disagreement, transposition, or an unreadable note → Verovio).
+const STEP = {c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11};
+const ALTER = {s: 1, f: -1, ss: 2, x: 2, ff: -2, n: 0, xs: 3, sx: 3, ts: 3, tf: -3, nf: -1, ns: 1, su: 1, sd: 1, fu: -1, fd: -1};
+const attrOf = (attrs, name) => attrs.match(new RegExp(`\\s${name.replace('.', '\\.')}="([^"]*)"`))?.[1];
+
+/** MIDI pitch from a <note>'s attribute text and inner markup (or undefined). */
+export function meiNotePitch(attrs, inner = '') {
+  const step = STEP[attrOf(attrs, 'pname')];
+  const oct = parseInt(attrOf(attrs, 'oct.ges') ?? attrOf(attrs, 'oct'), 10);
+  if (step == null || !Number.isFinite(oct)) return undefined;
+  let acc = attrOf(attrs, 'accid.ges') ?? attrOf(attrs, 'accid');
+  if (acc == null) {
+    const tag = inner.match(/<accid\b([^>]*)>/)?.[1];
+    if (tag != null) acc = attrOf(tag, 'accid.ges') ?? attrOf(tag, 'accid');
+  }
+  if (acc != null && !(acc in ALTER)) return undefined;
+  return 12 * (oct + 1) + step + (acc ? ALTER[acc] : 0);
+}
+
+function withMeiPitches(tk) {
+  let mei = null, pitches = null;
+  const slow = id => tk.getMIDIValuesForElement(id);
+  const build = () => {
+    pitches = new Map();
+    if (!mei || /\strans\.(semi|diat)="/.test(mei)) return;
+    for (const m of mei.matchAll(/<note\b([^>]*?)(?:\/>|>([\s\S]*?)<\/note>)/g)) {
+      const id = attrOf(m[1], 'xml:id');
+      const p = id && meiNotePitch(m[1], m[2]);
+      if (p != null) pitches.set(id, p);
+    }
+    const ids = [...pitches.keys()];
+    const every = Math.max(1, Math.floor(ids.length / 16));
+    for (let i = 0; i < ids.length; i += every) if (slow(ids[i]).pitch !== pitches.get(ids[i])) { pitches.clear(); return; }
+  };
+  return new Proxy(tk, {
+    get(target, key) {
+      if (key === 'getMEI') return (...a) => { mei = target.getMEI(...a); pitches = null; return mei; };
+      if (key === 'getMIDIValuesForElement') return id => {
+        if (!pitches) build();
+        const p = pitches.get(id);
+        return p != null ? {pitch: p} : slow(id);
+      };
+      const v = target[key];
+      return typeof v === 'function' ? v.bind(target) : v;
+    },
+  });
 }
 
 // Spelled note names for every drawn notehead: the written letter (pname)
@@ -94,7 +156,8 @@ function toBase64(bytes) {
 }
 
 function scoreInfo(meiText) {
-  const dom = new DOMParser().parseFromString(meiText, 'application/xml');
+  // Only the header is needed: parse that, not the whole score again.
+  const dom = new DOMParser().parseFromString(meiText.match(/<meiHead\b[\s\S]*?<\/meiHead>/)?.[0] || '<meiHead/>', 'application/xml');
   const stmt = dom.getElementsByTagName('titleStmt')[0];
   const text = el => (el?.textContent || '').replace(/\s+/g, ' ').trim();
   const title = text(stmt?.getElementsByTagName('title')[0]);

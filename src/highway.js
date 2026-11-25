@@ -16,6 +16,7 @@ export function createHighway({canvas, keys, getEvents, getMeasures, position, n
   const ctx = canvas.getContext('2d');
   let lanes = new Map(), width = 0, height = 0, dpr = 1, shown = 0, raf = 0;
   let c = {}; // resolved token colours
+  const reduceMotion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   const popups = []; // timing feedback words rising from the keys
 
   function refreshColors() {
@@ -63,8 +64,8 @@ export function createHighway({canvas, keys, getEvents, getMeasures, position, n
     if (!width || !height) return;
     const target = position();
     if (target == null) { ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
-    // Follow exactly while playing; ease toward jumps (stepping, practice).
-    shown = Math.abs(target - shown) > 8 ? target : shown + (target - shown) * .25;
+    // Follow exactly while playing; ease toward jumps (stepping, practice), unless motion is reduced.
+    shown = Math.abs(target - shown) > 8 || reduceMotion?.matches ? target : shown + (target - shown) * .25;
     const pps = height / LOOKAHEAD;
     const y = t => height - (t - shown) * pps;
 
@@ -148,7 +149,7 @@ export function createHighway({canvas, keys, getEvents, getMeasures, position, n
       const k = (now - p.at) / POPUP_MS;
       ctx.globalAlpha = Math.max(0, 1 - k * k);
       ctx.fillStyle = p.kind === 'perfect' ? c.sage : p.kind === 'miss' ? c.oxblood : c.brass;
-      ctx.fillText(p.text, Math.max(30, Math.min(width - 30, lane.x + lane.w / 2)), height - 12 - p.row * 17 - k * 28);
+      ctx.fillText(p.text, Math.max(30, Math.min(width - 30, lane.x + lane.w / 2)), height - 12 - p.row * 17 - (reduceMotion?.matches ? 0 : k * 28)); // reduced motion: fade, don't rise
     }
     ctx.globalAlpha = 1;
   }

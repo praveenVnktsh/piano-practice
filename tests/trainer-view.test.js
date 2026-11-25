@@ -55,7 +55,10 @@ describe('reading trainer view', () => {
     for (let i = 0; i < 10; i++) {
       const t = targets(document.body);
       if (i === 0) {
-        tap(t[0] + 1);
+        // A wrong key: not part of the interval (t[0] + 1 *is* the target for a semitone second).
+        let wrong = t[0] + 1;
+        while (t.includes(wrong)) wrong++;
+        tap(wrong);
         vi.advanceTimersByTime(3000);
         expect(targets(document.body)).toEqual(t); // still waiting for the right keys
         expect(document.querySelectorAll('.tr-key.target')).toHaveLength(2);

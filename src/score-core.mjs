@@ -14,6 +14,7 @@ export function buildScore(toolkit) {
   const attr = (e, k) => e.getAttribute(k);
   const {staffOf, handOf} = staves(mei);
   const meterOf = meters(mei);
+  const keyOf = keySignatures(mei);
 
   const measureEls = [...mei.getElementsByTagName('measure')];
   const known = new Set(measureEls.map(el => attr(el, 'xml:id')));
@@ -29,7 +30,7 @@ export function buildScore(toolkit) {
     const visit = (seen.get(n) || 0) + 1;
     seen.set(n, visit);
     const pickup = i === 0 && attr(el, 'metcon') === 'false';
-    return {id: attr(el, 'xml:id'), label: pickup ? 'Pickup' : n, index: i, visit, pickup, meter: meterOf.get(el)};
+    return {id: attr(el, 'xml:id'), label: pickup ? 'Pickup' : n, index: i, visit, pickup, meter: meterOf.get(el), key: keyOf.get(el)};
   });
   const starts = new Map(timemap.filter(r => r.measureOn).map(r => [r.measureOn, r.qstamp]));
   let last = 0;
@@ -216,6 +217,36 @@ function meters(mei) {
       else if (sym === 'common') meter = {count: 4, unit: 4};
       else if (sym === 'cut') meter = {count: 2, unit: 2};
     } else if (name === 'measure') out.set(el, meter);
+  }
+  return out;
+}
+
+// The key signature in force at every measure, in document order: {fifths (−7…7, sharps > 0), mode}
+// where mode is 'major' | 'minor' when the file says so, else null (src/analysis/harmony.mjs
+// decides from the notes). Read from <keySig sig="2s" mode=…> or @key.sig / @key.mode on a
+// scoreDef or staffDef; the first staff's signature wins when staves disagree.
+function keySignatures(mei) {
+  const out = new Map();
+  let key = {fifths: 0, mode: null};
+  const parse = (sig, mode) => {
+    const m = /^(\d)([sf])$/.exec(String(sig || '').trim());
+    const fifths = sig === '0' || sig === 0 ? 0 : m ? (m[2] === 's' ? 1 : -1) * +m[1] : null;
+    if (fifths == null) return;
+    key = {fifths, mode: mode === 'major' || mode === 'minor' ? mode : null};
+  };
+  let seenInDef = null;
+  for (const el of mei.getElementsByTagName('*')) {
+    const name = el.localName;
+    if (name === 'scoreDef') seenInDef = el;
+    if (name === 'keySig' && el.hasAttribute('sig')) {
+      const def = el.closest?.('scoreDef');
+      const staff = el.closest?.('staffDef')?.getAttribute('n');
+      // Within one scoreDef take the first staff's signature (or one set for the whole score).
+      if (def && def === seenInDef && staff && staff !== '1' && key.__def === def) continue;
+      parse(el.getAttribute('sig'), el.getAttribute('mode'));
+      if (def) key.__def = def;
+    } else if (el.hasAttribute('key.sig')) parse(el.getAttribute('key.sig'), el.getAttribute('key.mode'));
+    else if (name === 'measure') out.set(el, {fifths: key.fifths, mode: key.mode});
   }
   return out;
 }

@@ -5,11 +5,15 @@ import {mountSoundSettings} from './audio/sound-ui.js'; // [sound] instrument, r
 import {onRelayMidi, onRelayStatus, relayAvailable} from './midi-relay.js';
 import {setTheme as setAppTheme, getTheme, THEME_EVENT} from './app/theme.js';
 import {attachRecording} from './record/player-ui.js';
+import {playHref} from './app/router.js';
 import {
   BarTally, normaliseBarStats, mergeBarStats, heatLevel, weakPassage, startChain, chainStep, detectPhrases, phraseAt, nextPhrase,
   rhythmVariation, blockChords, applyTiming, ladderRungs, ladderNext, recordBest, nextTempoStep, evenness, evennessRemark,
   dynamicsReport, articulationReport, pedalReport, measureLatency, clampLatency, paginate, pageAtTime, barsText,
 } from './practice-core.mjs';
+import {isFavourite, setFavourite} from './collections/model.js';
+import {collections, loadCollections, updateCollections, setlistPosition, CHANGE_EVENT as COLLECTIONS_EVENT} from './collections/store.js';
+import {performanceScore} from './analysis/performance.mjs';
 
 // Per-bar statistics from the progress store (src/progress/mastery.js, owned by
 // the learning-path module). Loaded lazily; a glob so the player still builds
@@ -29,6 +33,7 @@ const THEME_KEY = 'piano-practice.theme'; // owned by src/app/theme.js; watched 
 const TEMPO_TERMS = [[40, 'Grave'], [60, 'Largo'], [66, 'Larghetto'], [76, 'Adagio'], [108, 'Andante'], [120, 'Moderato'], [156, 'Allegro'], [176, 'Vivace'], [Infinity, 'Presto']];
 const tempoTerm = bpm => TEMPO_TERMS.find(([max]) => bpm < max)[1];
 const ZOOM_MIN = .6, ZOOM_MAX = 3;
+const REDUCED = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : {matches: false};
 const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, {detail}));
 // Practice strategies (⋯ → Strategy), one at a time, off by default.
 const STRATEGIES = {off: '', ladder: 'Slow-practice ladder', dotted: 'Dotted rhythm', reversed: 'Reversed dotted', blocked: 'Blocked chords', memory: 'Memory check'};
@@ -48,6 +53,18 @@ const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': 
 
 // Carry the old single-song app's global settings over once.
 function migrateSettings() {
+  // Before entry hints were per piece, the shell kept the player's own mode / Listen | Practise
+  // choice here while a sight-reading piece overrode them: put it back as the saved choice.
+  try {
+    const before = JSON.parse(localStorage.getItem('piano-practice.mode-before-hint') || 'null');
+    if (before) {
+      const keep = {};
+      if (before.mode === 'wait' || before.mode === 'timed') keep.mode = before.mode;
+      if (before.intent === 'listen' || before.intent === 'practice') keep.intent = before.intent;
+      save(keep);
+    }
+    localStorage.removeItem('piano-practice.mode-before-hint');
+  } catch {}
   try {
     if (localStorage.getItem(STORE) != null || localStorage.getItem(LEGACY_STORE) == null) return;
     const old = read(LEGACY_STORE), keep = {};
@@ -148,6 +165,7 @@ export function createPlayer(root) {
     for (let n = low; n <= high; n++) {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'pkey'; b.dataset.note = n; b.dataset.hand = n < 60 ? 'l' : 'r';
+      b.tabIndex = -1; // 88 tab stops would trap Tab; the keys are for pointer and MIDI, the group is labelled
       b.setAttribute('aria-label', name(n));
       if (BLACK.includes(n % 12)) {
         b.classList.add('black');
@@ -202,7 +220,9 @@ export function createPlayer(root) {
   let anchors = [], sheetX = 0, lit = new Set();
   let measureBoxes = [], pages = [], page = -1, manualPage = null, autoPage = -1;
   function mountSheet() {
-    sheetHost.innerHTML = `<div class="sheet-track"><div class="trouble" aria-hidden="true"></div>${song.fullSvg()}<div class="playhead"></div></div>` +
+    // The playhead stays the track's last child (scrollSheet / showPage move it).
+    sheetHost.innerHTML = `<div class="sheet-track"><div class="trouble" aria-hidden="true"></div><div class="harmony" aria-hidden="true"></div>${song.fullSvg()}<div class="playhead"></div></div>` +
+      '<div class="page-clef" aria-hidden="true" hidden></div>' +
       '<div class="sel-ruler" title="Drag across bars to loop them"><span>Drag across bars to loop</span></div>';
     sheetTrack = sheetHost.firstElementChild;
     sheetSvg = sheetTrack.querySelector('svg');
@@ -238,13 +258,22 @@ export function createPlayer(root) {
     sheetHost.replaceChildren();
     sheetTrack = sheetSvg = null; sheetEls = new Map(); measureEls = new Map();
     anchors = []; sheetX = 0; lit = new Set();
-    measureBoxes = []; pages = []; page = -1; manualPage = null; autoPage = -1;
+    measureBoxes = []; pages = []; page = -1; manualPage = null; autoPage = -1; clefW = 0;
+  }
+  // The system's height: up to 300 px, or the whole card on a tablet standing upright (portrait),
+  // so the music fills the paper instead of sitting small in it; less the strip the Harmony
+  // overlay needs under the bass staff. Zoom out (⋯ → Zoom) to see more bars at once.
+  function systemHeight() {
+    const reserve = harmonyOn ? HARMONY_STRIP : 0;
+    const avail = Math.max(80, sheetHost.clientHeight - reserve);
+    const portrait = innerHeight > innerWidth * 1.15 && sheetHost.clientWidth >= 560;
+    return Math.round(Math.min(avail, portrait ? avail : 300) * zoom);
   }
   function layoutSheet() {
     if (!song || !sheetSvg || !sheetHost.clientHeight) return;
     const vb = sheetSvg.viewBox.baseVal;
     // Zoom scales the system height; taller than the card, it scrolls vertically.
-    const h = Math.round(Math.min(sheetHost.clientHeight, 300) * zoom);
+    const h = systemHeight();
     sheetHost.classList.toggle('tall', h > sheetHost.clientHeight + 1);
     sheetSvg.style.height = h + 'px';
     sheetSvg.style.width = (h * vb.width / vb.height) + 'px';
@@ -267,11 +296,50 @@ export function createPlayer(root) {
       const r = measureEls.get(m.id)?.getBoundingClientRect();
       return r && r.width ? {x0: r.left - base, x1: r.right - base} : null;
     });
-    pages = paginate(measureBoxes, Math.max(200, sheetHost.clientWidth - 2 * PAGE_PAD));
+    clefW = buildPageClef(base);
+    pages = paginate(measureBoxes, Math.max(200, sheetHost.clientWidth - 2 * PAGE_PAD - clefW));
     page = -1; manualPage = null; autoPage = -1;
     drawTrouble();
+    drawHarmony();
   }
   const PAGE_PAD = 14;
+  // Pages after the first begin with the system's clefs and key signature, as a printed page
+  // does: a copy of the opening staves (staff lines, brace, clefs, key signature — no notes) set
+  // in a strip at the page's left edge. Clef or key changes later in the piece aren't followed.
+  let clefW = 0;
+  function buildPageClef(base) {
+    const holder = sheetHost.querySelector('.page-clef');
+    if (!holder) return 0;
+    holder.replaceChildren();
+    const first = measureEls.get(song.measures[0]?.id);
+    const parts = first ? [...first.querySelectorAll('.clef, .keySig')] : [];
+    const system = first?.closest('.system');
+    if (!parts.length || !system) return 0;
+    const left = system.getBoundingClientRect().left - base;
+    const right = Math.max(...parts.map(el => el.getBoundingClientRect().right)) - base;
+    if (!(right > left)) return 0;
+    const svg = sheetSvg.cloneNode(false);
+    svg.removeAttribute('id');
+    let into = svg;
+    const chain = [];
+    for (let n = system; n && n !== sheetSvg; n = n.parentNode) chain.unshift(n);
+    for (const n of chain) { const c = n.cloneNode(false); into.append(c); into = c; }
+    // The system's own marks (brace, opening barline), then the first bar without its music.
+    for (const child of system.children) if (child.localName !== 'g' || child.classList.contains('grpSym')) into.append(child.cloneNode(true));
+    const bar = first.cloneNode(true);
+    bar.setAttribute('class', 'clef-bar');
+    for (const child of [...bar.children]) {
+      if (!child.classList.contains('staff')) { child.remove(); continue; }
+      for (const g of [...child.children]) if (!(g.localName === 'path' || g.classList.contains('clef') || g.classList.contains('keySig'))) g.remove();
+    }
+    into.append(bar);
+    for (const el of [svg, ...svg.querySelectorAll('[id]')]) el.removeAttribute('id');
+    const w = Math.ceil(right - left + 10);
+    svg.style.marginLeft = -left + 'px';
+    holder.style.width = w + 'px';
+    holder.append(svg);
+    return w;
+  }
   function xAt(t) {
     if (!anchors.length) return 0;
     if (t <= anchors[0][0]) return anchors[0][1];
@@ -298,10 +366,13 @@ export function createPlayer(root) {
     if (!labelled && root.classList.contains('show-names')) labelNoteheads();
     const p = livePos(); if (p == null) return;
     const target = xAt(p);
-    sheetX = playing || scrub || Math.abs(target - sheetX) > 2000 ? target : sheetX + (target - sheetX) * .2;
+    sheetX = playing || scrub || REDUCED.matches || Math.abs(target - sheetX) > 2000 ? target : sheetX + (target - sheetX) * .2;
     if (view0 === 'pages' && pages.length) return showPage(p);
     const view = sheetHost.clientWidth;
-    if (sheetTrack.style.clipPath) { sheetTrack.style.clipPath = ''; sheetTrack.lastElementChild.style.visibility = ''; }
+    if (sheetTrack.style.clipPath) {
+      sheetTrack.style.clipPath = ''; sheetTrack.lastElementChild.style.visibility = '';
+      const holder = sheetHost.querySelector('.page-clef'); if (holder) holder.hidden = true;
+    }
     // The playhead stays at a fixed spot on screen; the music slides under it.
     const offset = view * (root.dataset.playhead === 'left' ? .3 : .5) - sheetX;
     sheetTrack.style.transform = `translateX(${offset}px)`;
@@ -326,9 +397,12 @@ export function createPlayer(root) {
       q('#um-page').textContent = `Page ${i + 1} of ${pages.length}`;
     }
     const pg = pages[page];
-    sheetTrack.style.transform = `translateX(${PAGE_PAD - pg.x0}px)`;
-    // Only this page's bars: clip the neighbours' edges.
-    sheetTrack.style.clipPath = `inset(-40px ${Math.max(0, sheetTrack.offsetWidth - pg.x1 - 3)}px -40px ${page ? Math.max(0, pg.x0 - 3) : 0}px)`;
+    const clef = page > 0 && clefW > 0;
+    const holder = sheetHost.querySelector('.page-clef');
+    if (holder) { holder.hidden = !clef; holder.style.left = PAGE_PAD + 'px'; holder.style.top = sheetTrack.offsetTop + 'px'; holder.style.height = sheetSvg.getBoundingClientRect().height + 'px'; }
+    sheetTrack.style.transform = `translateX(${PAGE_PAD + (clef ? clefW : 0) - pg.x0}px)`;
+    // Only this page's bars: clip the neighbours' edges (the harmony strip hangs below the system).
+    sheetTrack.style.clipPath = `inset(-40px ${Math.max(0, sheetTrack.offsetWidth - pg.x1 - 3)}px -${HARMONY_STRIP + 16}px ${page ? Math.max(0, pg.x0 - 3) : 0}px)`;
     const ph = sheetTrack.lastElementChild;
     ph.style.left = sheetX + 'px';
     ph.style.visibility = sheetX >= pg.x0 - 1 && sheetX <= pg.x1 + 1 ? '' : 'hidden';
@@ -353,6 +427,68 @@ export function createPlayer(root) {
     draw();
     setStatus(`Page ${i + 1} of ${pages.length}`);
   }
+
+  // ───────── Score study: harmony (⋯ → View → Harmony) ─────────
+  // Roman numerals with chord symbols in a strip under the bass staff, from an approximate
+  // analysis of the notes (src/analysis/harmony.mjs, computed once per piece when first shown).
+  // Notation and Pages views only.
+  const HARMONY_STRIP = 46;
+  let harmonyOn = false, harmony = null, harmonyFor = null;
+  async function ensureHarmony() {
+    if (!harmonyOn || !song) return drawHarmony();
+    if (harmonyFor === song) return drawHarmony();
+    const s0 = song;
+    let result = {keys: [], chords: []};
+    try { result = (await import('./analysis/harmony.mjs')).analyseHarmony(s0); }
+    catch (e) { console.warn('Harmony analysis failed:', e); }
+    if (s0 !== song) return;
+    harmony = result; harmonyFor = s0;
+    drawHarmony();
+  }
+  function drawHarmony() {
+    const tag = q('#um-harmony');
+    const host = sheetTrack?.querySelector('.harmony');
+    const ready = harmonyOn && song && harmonyFor === song && host && anchors.length;
+    tag.hidden = !ready;
+    if (!ready) { host?.replaceChildren(); return; }
+    const names = [...new Set(harmony.keys.map(k => k.key.name))];
+    tag.textContent = names.length ? `${names.join(' · ')} · approximate` : 'Harmony · approximate';
+    tag.title = 'Roman numerals and chord symbols worked out from the notes; treat them as a guide, not an edition’s analysis';
+    const xs = harmony.chords.map(c => xAt(c.t));
+    host.replaceChildren(...harmony.chords.map((c, i) => {
+      const el = document.createElement('span');
+      const room = (xs[i + 1] ?? xs[i] + 200) - xs[i];
+      el.className = 'hm' + (room < 34 ? ' tight' : '') + (song.measures[c.measure] && (c.measure < range?.first || c.measure > range?.last) ? ' out' : '');
+      el.style.left = xs[i] + 'px';
+      el.style.maxWidth = Math.max(18, room - 4) + 'px';
+      const num = document.createElement('b');
+      num.className = 'hm-rn';
+      num.textContent = c.numeral;
+      if (c.figure) {
+        const [top, bottom] = c.figure.split('/');
+        const fig = document.createElement('span');
+        fig.className = 'hm-fig' + (bottom ? ' stack' : '');
+        fig.innerHTML = bottom ? `<sup>${top}</sup><sub>${bottom}</sub>` : `<sup>${top}</sup>`;
+        num.append(fig);
+      }
+      if (c.secondary) num.append(`/${c.secondary}`);
+      const sym = document.createElement('i');
+      sym.className = 'hm-sym';
+      sym.textContent = c.symbol;
+      el.title = `${c.label} · ${c.symbol} (${c.key.name})`;
+      el.append(num, sym);
+      return el;
+    }));
+  }
+  function setHarmony(v, {persist = true} = {}) {
+    harmonyOn = !!v;
+    if (persist) save({harmony: harmonyOn});
+    q('#harmony-btn').checked = harmonyOn;
+    root.classList.toggle('show-harmony', harmonyOn);
+    requestAnimationFrame(layoutSheet);
+    ensureHarmony();
+  }
+  q('#harmony-btn').onchange = () => setHarmony(q('#harmony-btn').checked);
 
   // ───────── Trouble spots: a quiet per-bar accuracy strip ─────────
   // Above each bar of the score (and at the left edge of the falling notes):
@@ -409,6 +545,7 @@ export function createPlayer(root) {
   function markSection() {
     if (!song || !range) return;
     song.measures.forEach((m, i) => measureEls.get(m.id)?.classList.toggle('s-out', i < range.first || i > range.last));
+    if (harmonyOn) drawHarmony();
   }
   function draw(sound = false) {
     if (!song || !range) return;
@@ -500,6 +637,7 @@ export function createPlayer(root) {
     refreshFreeClick();
     endSession();
     setButtons();
+    if (perf) endPerformance({completed: false}); // a performance run doesn't stop: stopping ends it
   }
 
   // ───────── Transport (Listen and Play along) ─────────
@@ -581,10 +719,14 @@ export function createPlayer(root) {
     stopClock();
     if (kind === 'listen') {
       playing = false; finished = true; pos = range.end; endSession(); setButtons(); draw();
-      setStatus('Finished'); setPrompt('Now choose <b>Practise</b> and play it yourself');
+      setStatus('Finished');
+      const next = range.last >= song.measures.length - 1 && current ? setlistPosition(current.id)?.next : null;
+      setPrompt(next ? `Finished · <button type="button" class="link-btn prompt-link" data-setlist-next>Next in setlist → <i>${escapeHtml(next.title)}</i></button>`
+        : 'Now choose <b>Practise</b> and play it yourself');
     } else {
       practicing = false; grader = null; finished = true; pos = range.end; endSession(); setButtons(); draw();
       setStatus('Finished'); showResults(lastResult);
+      if (perf) endPerformance({completed: true});
     }
   }
 
@@ -597,13 +739,15 @@ export function createPlayer(root) {
   q('#um-play').onclick = () => {
     if (!song) return;
     if (playing) return pauseListen();
+    if (practicing && perf) { stopAll(); draw(); return; }
     if (practicing) { stopAll(); draw(); setStatus('Stopped'); setPrompt('Stopped · press <b class="glyph">▶</b> to start the passage again'); return; }
     if (intent === 'practice') startPractice(); else startListen();
   };
-  function setIntent(v, {start = false} = {}) {
+  // `persist: false` (entry hints, the performance run) changes it for now without saving it.
+  function setIntent(v, {start = false, persist = true} = {}) {
     if (v !== 'listen' && v !== 'practice') return;
     const busy = playing || practicing, changed = v !== intent;
-    intent = v; save({intent});
+    intent = v; if (persist) save({intent});
     if (changed && busy) { stopAll(); start = true; }
     setButtons();
     if (start && song) { if (v === 'practice') startPractice(); else startListen(); }
@@ -642,6 +786,7 @@ export function createPlayer(root) {
     if (touch.articulation) detail.articulation = touch.articulation;
     if (strategy !== 'off') detail.strategy = strategy;
     if (chain) detail.chain = {dir: chain.dir, section: [...chain.goal]};
+    if (r.performance) detail.performance = {score: r.performance.score, accuracy: r.performance.accuracy, timing: r.performance.timing, evenness: r.performance.evenness};
     emit('practice:result', detail);
     r.memory = strategy === 'memory';
     // Best clean tempo for this section (play along only: Wait has no tempo to keep).
@@ -650,8 +795,8 @@ export function createPlayer(root) {
       const res = recordBest(read(SONG_STORE(current.id)).best || {}, bestKey(), detail.tempo, r.accuracy, {threshold: CLEAN});
       if (res.improved) { saveSong({best: res.bests}); r.newBest = detail.tempo; }
     }
-    // Slow-practice ladder, else the speed trainer: a clean pass raises the tempo toward the target.
-    const next = strategy === 'ladder' ? ladderNext(detail.tempo, targetTempo(), r.accuracy, {threshold: CLEAN})
+    // Slow-practice ladder, else the speed trainer: a clean pass raises the tempo toward the target (not in a performance run).
+    const next = r.performance ? detail.tempo : strategy === 'ladder' ? ladderNext(detail.tempo, targetTempo(), r.accuracy, {threshold: CLEAN})
       : speedUp ? speedUpTempo(detail.tempo, targetTempo(), r.accuracy) : detail.tempo;
     if (next !== detail.tempo) { setTempoValue(next); r.tempoTo = tempo(); flash(`♩ = ${r.tempoTo}`); }
     // Chaining: a clean pass adds a bar.
@@ -877,6 +1022,7 @@ export function createPlayer(root) {
     grader.finish().forEach(note => gradeNote(note, 'miss'));
     const s = grader.summary;
     const r = {...s, counts: {...grader.counts}};
+    if (perf) r.performance = performanceScore({counts: r.counts, evenness: evenness(played.filter(p => p.id != null))});
     emitResult(r);
     if (r.chainNext) { stopAll(); setTimeout(() => continueChain(r), 300); return true; }
     if (!loop) return false;
@@ -888,17 +1034,29 @@ export function createPlayer(root) {
   const VERDICTS = [[98, 'Clean.'], [90, 'Well played.'], [75, 'Nearly there.'], [50, 'Taking shape.'], [0, 'Slowly, then.']];
   function showResults(r = lastResult) {
     if (!r) return;
-    const acc = r.accuracy;
+    const perfR = r.performance;
+    const acc = perfR ? perfR.score : r.accuracy;
     const handsText = {both: 'both hands', right: 'right hand', left: 'left hand'}[hands];
-    q('#um-complete-kicker').textContent = `${sectionLabel()} · ${practiceMode === 'timed' ? 'Play along' : 'Wait'} · ${handsText}`;
+    const sl = current ? setlistPosition(current.id) : null;
+    const kicker = perfR ? `Performance · the whole piece · ♩ = ${r.tempoFrom}` : `${sectionLabel()} · ${practiceMode === 'timed' ? 'Play along' : 'Wait'} · ${handsText}`;
+    q('#um-complete-kicker').textContent = (sl ? `${sl.name} · ${sl.index + 1} of ${sl.total} · ` : '') + kicker;
     q('#um-acc').textContent = acc;
-    q('#complete-title').textContent = VERDICTS.find(([min]) => acc >= min)[1];
+    q('#um-complete .note-figure-cap').textContent = perfR ? 'performance' : 'accuracy';
+    q('#complete-title').textContent = perfR ? perfR.verdict : VERDICTS.find(([min]) => acc >= min)[1];
     let speed = r.tempoTo !== r.tempoFrom ? ` Tempo raised to ♩ = ${r.tempoTo}.` : ` At ♩ = ${r.tempoFrom}.`;
-    if (r.newBest) speed += ' Your best clean tempo here.';
+    if (r.newBest) speed += perfR ? ' Your best clean tempo for the whole piece.' : ' Your best clean tempo here.';
     if (r.memory) speed += ` From memory: ${r.wrong ? `${r.wrong} slip${r.wrong === 1 ? '' : 's'}` : 'no slips'}.`;
     if (r.chainDone) speed += ` Chained all of ${barsText(song.measures, ...r.chainDone)}.`;
-    const timing = q('#um-complete-timing');
-    if (r.counts) {
+    const timing = q('#um-complete-timing'), perfTable = q('#um-perf');
+    perfTable.hidden = !perfR;
+    if (perfR) {
+      q('#um-complete-text').textContent = `${r.right} notes played, ${r.missed} missed, ${r.extra} stray.${r.newBest ? ' Your best clean tempo for the whole piece.' : ''}`;
+      const rows = [['acc', 'Accuracy', perfR.accuracy], ['time', 'Timing', perfR.timing], ['even', 'Evenness', perfR.evenness]];
+      perfTable.innerHTML = '<caption class="sr-only">Performance</caption>' + rows.map(([k, label, v]) => v == null
+        ? `<tr class="p-${k}"><th scope="row">${label}</th><td class="t-bar"></td><td class="t-num" title="Needs more notes">–</td></tr>`
+        : `<tr class="p-${k}"><th scope="row">${label}</th><td class="t-bar"><i style="width:${v}%"></i></td><td class="t-num">${v}</td></tr>`).join('');
+      timing.hidden = true;
+    } else if (r.counts) {
       q('#um-complete-text').textContent = `${r.right} notes played, ${r.missed} missed, ${r.extra} stray.${speed}`;
       const c = r.counts, total = Math.max(1, c.perfect + c.early + c.late + c.miss);
       timing.innerHTML = '<caption class="sr-only">Timing</caption>' + [['perfect', 'On time', c.perfect], ['early', 'Early', c.early], ['late', 'Late', c.late], ['miss', 'Missed', c.miss]]
@@ -911,8 +1069,17 @@ export function createPlayer(root) {
     showTouch(r.touch);
     const last = range.last >= song.measures.length - 1;
     q('#um-complete-next').disabled = last;
+    q('#um-complete-next').hidden = !!perfR;
+    // Playing a setlist: the next piece is the one primary action.
+    const next = sl?.next || null, nextBtn = q('#um-complete-setlist'), again = q('#um-again');
+    nextBtn.hidden = !next;
+    if (next) { nextBtn.setAttribute('aria-label', `Next in setlist: ${next.title}`); nextBtn.title = next.title; }
+    again.className = next ? 'quiet-btn' : 'primary-btn';
+    again.textContent = perfR ? 'Perform again' : 'Again';
+    if (sl && !next && (last || perfR)) q('#um-complete-text').textContent += ` The end of “${sl.name}”.`;
+    if (q('#um-complete').hidden) resultsModal.open();
     q('#um-complete').hidden = false;
-    q('#um-again').focus({preventScroll: true});
+    (next ? nextBtn : again).focus({preventScroll: true});
   }
   // Evenness graph (fine lines: timing in ink, loudness in brass) and up to two remarks.
   function showTouch(touch) {
@@ -933,8 +1100,46 @@ export function createPlayer(root) {
     list.hidden = !remarks.length;
     list.replaceChildren(...remarks.map(t => { const li = document.createElement('li'); li.textContent = t; return li; }));
   }
-  function hideResults() { q('#um-complete').hidden = true; }
-  q('#um-again').onclick = startPractice;
+  function hideResults() { if (!q('#um-complete').hidden) { q('#um-complete').hidden = true; resultsModal.closed(); } }
+  // Modal cards (results, settings): focus moves in, Tab stays inside, Escape closes, and focus
+  // returns to whatever opened them.
+  function modalFocus(modal, close) {
+    let opener = null;
+    const focusables = () => [...modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter(el => !el.disabled && !el.hidden && el.getClientRects().length);
+    modal.addEventListener('keydown', e => {
+      if (modal.hidden) return;
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+      if (e.key !== 'Tab') return;
+      const list = focusables();
+      if (!list.length) return;
+      const i = list.indexOf(document.activeElement);
+      if (e.shiftKey && i <= 0) { e.preventDefault(); list.at(-1).focus(); }
+      else if (!e.shiftKey && i === list.length - 1) { e.preventDefault(); list[0].focus(); }
+    });
+    return {
+      open() { const a = document.activeElement; opener = a && !modal.contains(a) && a !== document.body ? a : null; },
+      focusFirst() { focusables()[0]?.focus({preventScroll: true}); },
+      closed() {
+        if (modal.contains(document.activeElement) || document.activeElement === document.body) {
+          const back = opener?.isConnected && opener.getClientRects().length ? opener : q('#um-play');
+          back?.focus({preventScroll: true});
+        }
+        opener = null;
+      },
+    };
+  }
+  const resultsModal = modalFocus(q('#um-complete'), () => hideResults());
+  q('#um-again').onclick = () => (lastResult?.performance ? startPerformance() : startPractice());
+  // Setlists (src/collections/): the next piece, from the results card or the end of a listen.
+  function goSetlistNext() {
+    const next = current ? setlistPosition(current.id)?.next : null;
+    if (!next) return;
+    hideResults();
+    location.hash = playHref(next.id);
+  }
+  q('#um-complete-setlist').onclick = goSetlistNext;
+  q('#um-practice-status').addEventListener('click', e => { if (e.target.closest?.('[data-setlist-next]')) goSetlistNext(); });
   q('#um-complete-close').onclick = hideResults;
   q('#um-complete-next').onclick = () => {
     hideResults(); if (!song) return;
@@ -988,6 +1193,7 @@ export function createPlayer(root) {
   q('#um-prev').onclick = () => stepBy(-1);
   q('#um-stop').onclick = () => {
     if (!song) return;
+    if (practicing && perf) { stopAll(); draw(); return; } // a performance run isn't restarted mid-way
     if (practicing) return startPractice(); // practising: begin the passage again
     stopAll(); finished = false; matched.clear(); grades.clear(); pos = points[0] ?? range.start; highway.jump(); draw();
     setStatus(sectionLabel()); setPrompt(promptIdle());
@@ -1154,6 +1360,84 @@ export function createPlayer(root) {
     else if (act === 'chain-backward') startChaining('backward');
   });
 
+  // ───────── Performance run (Bars ▾ → Performance run) ─────────
+  // The whole piece once, in play-along time, without stopping: pausing (or anything else that
+  // stops the music) ends the run. Both hands, no loop, no strategy; the metronome stays as the
+  // student set it (off unless they chose it). A take is recorded when the recorder isn't already
+  // running (src/record/), and the results card scores accuracy, timing and evenness
+  // (src/analysis/performance.mjs). Afterwards the section, hands, loop, mode and Listen |
+  // Practise come back as they were.
+  let perf = null;
+  function startPerformance() {
+    closePopovers();
+    if (!song || !range) return;
+    hideResults();
+    const prev = perf ? {...perf} : {hands, loop, mode, intent, range: [range.first, range.last]};
+    perf = null;
+    stopAll();
+    if (strategy !== 'off') setStrategy('off');
+    chain = null;
+    setLoop(false);
+    setHands('both', {persist: false});
+    setMode('timed', {persist: false});
+    setIntent('practice', {persist: false});
+    setRange(0, song.measures.length - 1, {quiet: true});
+    startPractice();
+    if (!practicing) { perf = {...prev, rec: false}; endPerformance({completed: false, quiet: true}); return; }
+    perf = {...prev, rec: false};
+    root.classList.add('performing');
+    showStrategy();
+    if (!root.classList.contains('recording')) { recording.toggle(); perf.rec = root.classList.contains('recording'); }
+    setStatus(`Performance run · the whole piece · ♩ = ${tempo()}`);
+    flash('Performance run');
+  }
+  function endPerformance({completed = false, quiet = false} = {}) {
+    if (!perf) return;
+    const p = perf;
+    perf = null;
+    root.classList.remove('performing');
+    showStrategy();
+    const where = song && range && !completed ? measureName(song.measures[measureIndexAt(pos)]) : '';
+    if (p.rec && root.classList.contains('recording')) recording.toggle(); // saves the take
+    setHands(p.hands, {persist: false});
+    setMode(p.mode, {persist: false});
+    setIntent(p.intent, {persist: false});
+    setLoop(p.loop);
+    if (song && p.range) setRange(p.range[0], p.range[1], {quiet: true});
+    if (!completed && !quiet) {
+      setStatus('Performance run stopped');
+      setPrompt(`Performance run stopped${where ? ' at ' + escapeHtml(where.toLowerCase()) : ''} · start another from <b>Bars</b>`);
+    }
+  }
+  q('#perform-run').onclick = startPerformance;
+
+  // ───────── Favourites and collections (⋯ menu) ─────────
+  // Generated pieces (exercises, sight-reading) aren't kept in collections.
+  const collectable = () => !!current && !/^(ex|sr):/.test(String(current.id));
+  function showFavourite() {
+    const group = q('#collect-group');
+    group.hidden = !collectable();
+    const on = collectable() && isFavourite(collections(), current.id);
+    const btn = q('#fav-btn');
+    btn.setAttribute('aria-pressed', String(on));
+    btn.firstElementChild.textContent = on ? 'In favourites' : 'Favourite';
+    btn.classList.toggle('is-on', on);
+  }
+  q('#fav-btn').onclick = () => {
+    if (!collectable()) return;
+    const on = !isFavourite(collections(), current.id);
+    updateCollections(d => setFavourite(d, current.id, on));
+    flash(on ? 'Added to favourites.' : 'Removed from favourites.');
+  };
+  q('#collect-btn').onclick = () => {
+    if (!collectable()) return;
+    const entry = current, anchor = q('#more-btn');
+    closePopovers();
+    import('./collections/picker.js').then(m => m.openCollectionPicker({anchor, pieceId: entry.id, title: entry.title}))
+      .catch(e => console.warn('Collections unavailable:', e));
+  };
+  window.addEventListener(COLLECTIONS_EVENT, showFavourite);
+
   // ───────── Strategies (⋯ → Strategy) ─────────
   function setStrategy(v) {
     v = v in STRATEGIES ? v : 'off';
@@ -1174,6 +1458,7 @@ export function createPlayer(root) {
   function showStrategy() {
     const tag = q('#um-strategy');
     const parts = [];
+    if (perf) parts.push('Performance run');
     if (strategy !== 'off') parts.push(STRATEGIES[strategy]);
     if (chain && song) parts.push(`Chaining ${chain.dir === 'backward' ? '←' : '→'} ${rangeText(chain.first, chain.last)} of ${rangeText(...chain.goal)}`);
     tag.hidden = !parts.length;
@@ -1181,6 +1466,7 @@ export function createPlayer(root) {
     tag.setAttribute('aria-label', parts.join(', ') + '. Turn off');
   }
   q('#um-strategy').onclick = () => {
+    if (perf) { stopAll(); draw(); showStrategy(); return; } // ends the performance run
     if (chain) { const [a, b] = chain.goal; chain = null; setRange(a, b); }
     if (strategy !== 'off') setStrategy('off');
     showStrategy();
@@ -1210,7 +1496,7 @@ export function createPlayer(root) {
     else if (e.key === '-' || e.key === '_') setZoom(zoom / 1.2);
     else if (e.key === 'ArrowRight') e.shiftKey ? q('#um-next-measure').click() : stepBy(1);
     else if (e.key === 'ArrowLeft') e.shiftKey ? q('#um-prev-measure').click() : stepBy(-1);
-    else if (e.key === 'Escape') { if (!closePopovers()) { hideResults(); settingsModal.hidden = true; cancelCalibration(); } }
+    else if (e.key === 'Escape') { if (!closePopovers()) { hideResults(); closeSettings(); } }
   });
 
   // ───────── MIDI ─────────
@@ -1682,9 +1968,15 @@ export function createPlayer(root) {
     loop = v; save({loop}); root.classList.toggle('looping', loop);
     q('#sec-loop').checked = loop; q('#set-loop').checked = loop;
   }
-  q('#settings-btn').onclick = () => { closePopovers(); settingsModal.hidden = false; };
-  q('#settings-close').onclick = () => { settingsModal.hidden = true; cancelCalibration(); };
-  settingsModal.addEventListener('click', e => { if (e.target === settingsModal) { settingsModal.hidden = true; cancelCalibration(); } });
+  const closeSettings = () => { if (settingsModal.hidden) return; settingsModal.hidden = true; cancelCalibration(); settingsFocus.closed(); };
+  const settingsFocus = modalFocus(settingsModal, closeSettings);
+  q('#settings-btn').onclick = () => {
+    const opener = q('#more-btn');
+    closePopovers(); opener.focus({preventScroll: true});
+    settingsFocus.open(); settingsModal.hidden = false; settingsFocus.focusFirst();
+  };
+  q('#settings-close').onclick = closeSettings;
+  settingsModal.addEventListener('click', e => { if (e.target === settingsModal) closeSettings(); });
   settingsModal.querySelectorAll('input[name="view"],input[name="labels"],input[name="playhead"]').forEach(input => input.onchange = () => {
     save({[input.name]: input.value}); applySettings(load()); if (input.name === 'view') draw();
   });
@@ -1758,10 +2050,10 @@ export function createPlayer(root) {
     if (practicing) startPractice();
     else { draw(); if (!playing) setPrompt(promptIdle()); }
   }
-  function setMode(m) {
+  function setMode(m, {persist = true} = {}) {
     if (m !== 'wait' && m !== 'timed') return;
     const changed = m !== mode;
-    mode = m; save({mode: m});
+    mode = m; if (persist) save({mode: m});
     const input = q(`input[name="sec-mode"][value="${m}"]`); if (input) input.checked = true;
     if (changed && practicing) stopAll();
     if (changed && song && !playing) { setStatus(sectionLabel()); setPrompt(promptIdle()); }
@@ -1863,6 +2155,9 @@ export function createPlayer(root) {
     refreshTrouble();
     holdPagesAwake(root.dataset.view === 'pages');
     recording.loaded(entry);
+    if (harmonyOn) ensureHarmony();
+    const sl = setlistPosition(entry.id);
+    if (sl) setStatus(`${sl.name} · ${sl.index + 1} of ${sl.total}`);
   }
 
   function showError(entry, err) {
@@ -1873,12 +2168,27 @@ export function createPlayer(root) {
     setPrompt(`Could not load <b>${escapeHtml(entry.title || 'this song')}</b>: ${escapeHtml(err?.message || err || 'unknown error')}`);
   }
 
+  // An entry may ask for a practice mode and Listen | Practise choice (sight-reading pieces: Play
+  // along, Practise). The hint holds for that piece only and is never saved; the next piece without
+  // hints gets the student's own saved choice back. Choosing differently while on the piece saves
+  // that choice as usual.
+  function applyEntryHints(entry) {
+    const st = load();
+    const m = entry?.mode === 'timed' || entry?.mode === 'wait' ? entry.mode : st.mode === 'timed' ? 'timed' : 'wait';
+    const i = entry?.intent === 'practice' || entry?.intent === 'listen' ? entry.intent : st.intent === 'practice' ? 'practice' : 'listen';
+    setMode(m, {persist: false});
+    setIntent(i, {persist: false});
+  }
+
   // Swap to another song. Only the most recent call wins.
   async function loadEntry(entry, songPromise) {
     const token = ++loadToken;
     recording.leaving();
     stopAll(); hideResults();
     current = entry;
+    piano.load();
+    showFavourite();
+    applyEntryHints(entry);
     piano.setSong(entry); // [sound] Auto instrument (harpsichord for Baroque)
     showLoading(entry);
     let s;
@@ -1909,8 +2219,10 @@ export function createPlayer(root) {
   setMetronome(!!saved.metronome);
   setSpeedUp(!!saved.speedUp);
   setZoom(+saved.zoom || 1);
+  setHarmony(!!saved.harmony, {persist: false});
+  loadCollections().then(showFavourite).catch(() => {});
   latencyMs = clampLatency(saved.latencyMs); showLatency();
-  piano.load();
+  // The piano samples load with the first piece opened (loadEntry), not while Today renders.
   applySettings(saved);
   showTheme(); showFullscreen();
   setButtons();

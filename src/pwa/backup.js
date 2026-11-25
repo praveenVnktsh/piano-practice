@@ -5,7 +5,7 @@
 //   readBackupFile(file) → {backup, summary}       parses + validates, throws Error(message)
 //   restoreBackup(backup) → {server, browser}      writes it back (call only after confirming)
 //
-// A backup is one JSON file: the dev server's part (backup/plugin.js: .data progress + journal,
+// A backup is one JSON file: the dev server's part (backup/plugin.js: .data progress + journal + collections,
 // .teacher thread and student profile, imported scores) plus this browser's part
 // (localStorage settings and per-song state, scores imported while offline in IndexedDB).
 // In a production build (no dev server) only the browser part is present.
@@ -16,6 +16,7 @@ export const VERSION = 1;
 const API = (import.meta.env?.BASE_URL || '/').replace(/\/?$/, '/') + '__backup';
 const KEY_PREFIXES = ['piano-practice', 'trainer:'];
 const PROGRESS_LOCAL = 'piano-practice.progress.local';
+const COLLECTIONS_LOCAL = 'piano-practice.collections'; // src/collections/store.js
 const IDB = {name: 'piano-practice-imports', store: 'songs'};
 const MAX_FILE = 80 * 1024 * 1024;
 
@@ -102,6 +103,9 @@ export function summarize(backup) {
   let progress = server?.data?.['progress.json'];
   if (!isObj(progress)) { try { progress = JSON.parse(ls[PROGRESS_LOCAL] || 'null'); } catch { progress = null; } }
   const lines = t => (typeof t === 'string' ? t.split('\n').filter(l => l.trim()).length : 0);
+  // Favourites and collections: the Mac's .data/collections.json, else this browser's copy.
+  let coll = server?.data?.['collections.json'];
+  if (!isObj(coll)) { try { coll = JSON.parse(ls[COLLECTIONS_LOCAL] || 'null'); } catch { coll = null; } }
   return {
     exportedAt: typeof backup.exportedAt === 'string' ? backup.exportedAt : null,
     events: Array.isArray(progress?.events) ? progress.events.length : 0,
@@ -110,6 +114,7 @@ export function summarize(backup) {
     teacherProfile: typeof server?.teacher?.['student.md'] === 'string',
     imports: (Array.isArray(server?.imports?.index) ? server.imports.index.length : 0) + imports.length,
     settings: Object.keys(ls).length,
+    collections: Array.isArray(coll?.collections) ? coll.collections.length : 0,
     hasServer: !!server,
   };
 }
@@ -206,11 +211,11 @@ export function mountBackupControls(container) {
       const {backup, summary: s} = await readBackupFile(file);
       pending = backup;
       const parts = [plural(s.events, 'practice record'), plural(s.journal, 'journal entry', 'journal entries'),
-        plural(s.teacherMessages, 'teacher message'), plural(s.imports, 'imported score'), plural(s.settings, 'setting')];
+        plural(s.teacherMessages, 'teacher message'), plural(s.imports, 'imported score'), ...(s.collections ? [plural(s.collections, 'collection')] : []), plural(s.settings, 'setting')];
       confirmBox.innerHTML = `
         <p class="bk-title">Restore the backup from ${fmtDate(s.exportedAt)}?</p>
         <p class="bk-help">It contains ${parts.join(', ')}.
-          Your current progress, journal${s.teacherMessages || s.teacherProfile ? ', teacher letters' : ''} and settings will be replaced${s.hasServer ? '; a copy of the current data is kept on the Mac in .data/backups' : ''}. Imported scores are added, never removed.</p>
+          Your current progress, journal${s.teacherMessages || s.teacherProfile ? ', teacher letters' : ''}${s.collections ? ', collections' : ''} and settings will be replaced${s.hasServer ? '; a copy of the current data is kept on the Mac in .data/backups' : ''}. Imported scores are added, never removed.</p>
         <div class="bk-actions"><button type="button" class="bk-btn bk-primary" data-act="restore">Restore</button><button type="button" class="bk-btn" data-act="cancel">Cancel</button></div>`;
       confirmBox.hidden = false;
       confirmBox.querySelector('[data-act=restore]').focus();
