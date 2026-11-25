@@ -20,17 +20,17 @@ Status is updated in place: ⏳ planned · 🔨 in progress · ✅ done.
 - [x] P0 Teacher inbox: in-app chat answered by a Claude Code teacher subagent
 - [x] P0 Integration pass: everything works together, every route, no console errors
 
-## Phase 2: "The Practice Room" redesign + simplification 🔨 (docs/DESIGN.md)
-- [ ] P0 Information architecture: exactly four places (Today · Pieces · Exercises · Progress); player opens from them with ← back; teacher as a companion button; advanced options behind ⋯
-- [ ] P0 Tokens everywhere; light "Paper" and dark "Concert hall"; theme switch in ⋯
-- [ ] P0 One-line top bar, ⋯ menu, section strip, segmented Listen | Practise, ♩ = tempo
-- [ ] P0 Score stage, falling-notes roll in ink/brass, realistic ivory/ebony keyboard
-- [ ] P0 Sidebar as a concert programme (composer headings, serif titles)
-- [ ] P1 Progress / technique / trainer / teacher in the same language
+## Phase 2: "The Practice Room" redesign + simplification ✅ (docs/DESIGN.md)
+- [x] P0 Information architecture: exactly four places (Today · Pieces · Exercises · Progress); player opens from them with ← back; teacher as a companion button; advanced options behind ⋯
+- [x] P0 Tokens everywhere; light "Paper" and dark "Concert hall"; theme switch in ⋯
+- [x] P0 One-line top bar, ⋯ menu, section strip, segmented Listen | Practise, ♩ = tempo
+- [x] P0 Score stage, falling-notes roll in ink/brass, realistic ivory/ebony keyboard
+- [x] P0 Sidebar as a concert programme (composer headings, serif titles)
+- [x] P1 Progress / technique / trainer / teacher in the same language
 - [ ] P1 Motion and micro-interactions (page turns, playhead, results) restrained and smooth
-- [ ] P1 Before/after screenshots and a design QA pass on every screen
+- [x] P1 Before/after screenshots and a design QA pass on every screen
 
-## Phase 3: Teacher online ⏳
+## Phase 3: Teacher online 🔨
 - [ ] P0 Teacher brief (persona, CLI, data sources, student.md) + watcher on .teacher/
 - [ ] P0 First meeting: goals, level, available time, repertoire wishes → student.md
 - [ ] P0 Feedback on attempts using misses and timing data; concrete next steps as action buttons

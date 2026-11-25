@@ -3,6 +3,8 @@
    Light "Paper" is the default; dark "Concert hall" follows the system or
    data-theme="dark" on <html>. */
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@400;500;600&display=swap');
+/* Cormorant / EB Garamond lack ♭ ♯ ♮ 𝄪 𝄫: take just those glyphs from Noto Music (a tiny subset). */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Music&text=%E2%99%AD%E2%99%AF%E2%99%AE%F0%9D%84%AA%F0%9D%84%AB&display=swap');
 
 :root {
   --paper: #f4efe4;
@@ -25,8 +27,8 @@
   --left-hand: #8a5a2b;
   --shadow-paper: 0 1px 0 rgba(255, 255, 255, .6) inset, 0 10px 30px -12px rgba(40, 30, 15, .28), 0 2px 6px rgba(40, 30, 15, .08);
 
-  --font-display: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
-  --font-text: 'EB Garamond', Georgia, serif;
+  --font-display: 'Cormorant Garamond', 'Noto Music', 'EB Garamond', Georgia, serif;
+  --font-text: 'EB Garamond', 'Noto Music', Georgia, serif;
   --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
   --radius-control: 6px;
   --radius-card: 10px;

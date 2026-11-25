@@ -1,14 +1,19 @@
-// Hash routes:
-//   #/                 library (the player with the last song)
+// Hash routes (docs/ARCHITECTURE.md, "Views and routes"):
+//   #/, #/today        Today: the home              (src/today/view.js)
+//   #/pieces           the repertoire               (src/app/pieces.js)
+//   #/exercises        exercises hub                (src/exercises/view.js)
+//   #/progress         progress dashboard           (src/progress/view.js)
+//   #/technique        technique builder, under Exercises
+//   #/train/reading    note-reading trainer, under Exercises
 //   #/play/<id>        the player; exercise ids start with "ex:"
-//   #/technique        exercise builder        (src/exercises/view.js)
-//   #/progress         progress dashboard      (src/progress/view.js)
-//   #/train/reading    note-reading trainer    (src/trainer/view.js)
-// Unknown paths fall back to the library.
+// Unknown paths fall back to Today.
 
 export const VIEW_ROUTES = {
-  '/technique': 'technique',
+  '/today': 'today',
+  '/pieces': 'pieces',
+  '/exercises': 'exercises',
   '/progress': 'progress',
+  '/technique': 'technique',
   '/train/reading': 'train-reading',
 };
 
@@ -20,9 +25,7 @@ export function parseRoute(hash = location.hash) {
     try { id = decodeURIComponent(id); } catch {}
     return {name: 'play', id};
   }
-  const view = VIEW_ROUTES[path.replace(/\/+$/, '')];
-  if (view) return {name: view};
-  return {name: 'library'};
+  return {name: VIEW_ROUTES[path.replace(/\/+$/, '')] || 'today'};
 }
 
 export const playHref = id => '#/play/' + encodeURIComponent(id);

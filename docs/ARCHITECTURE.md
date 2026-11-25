@@ -5,16 +5,17 @@ runs in the browser; songs are MusicXML/MEI files rendered and timed by
 Verovio (WebAssembly).
 
 ```
-index.html                 app shell markup (sidebar + player)
+index.html                 app shell markup (player + import dialog; the shell adds the nav)
 src/main.js                boot: create shell, player, router
-src/app/                   shell: router, library sidebar, catalog, imports
+src/app/                   shell: router, navigation (sidebar.js), Pieces, catalog, imports, theme
+src/today/                 Today, the home
 src/player.js              createPlayer(root) – listen / practice / MIDI / settings
 src/song.js                loadSong(source) – parse a score into a Song
 src/highway.js             falling-notes renderer
 src/piano.js               sampled grand piano
 src/score-core.mjs         buildScore / passage / FollowNotes (pure logic)
 src/verovio.js             shared Verovio WASM module
-src/styles/                app.css (player), shell.css (layout + sidebar)
+src/styles/                tokens.css, app.css (player), shell.css (navigation, views, dialog)
 public/songs/              bundled songs + catalog.json (open licences only)
 public/songs/local/        your private songs (gitignored) + catalog.json
 songs/*.notes              hand transcriptions (compiled by tools/notes2musicxml.mjs)
@@ -64,7 +65,13 @@ The player only touches elements inside `#player` and keeps the existing
 element IDs (`#um-*`, `#sec-*`, `#settings`, …).
 
 ### Routing (`src/app/router.js`)
-Hash routes: `#/` (library, no song open) and `#/play/<id>`.
+Four places (docs/DESIGN.md): `#/` or `#/today` (Today), `#/pieces`, `#/exercises`, `#/progress`;
+sub-pages of Exercises: `#/technique`, `#/train/reading`; and `#/play/<id>` (the player, full width).
+Unknown paths fall back to Today. The navigation is one `<nav class="nav">` (rail ≥ 900 px, tab bar below).
+While the player is open, the shell turns the first button of the player's top bar
+(`#player-back`, else `#open-library`) into "← <place>" leading back to where the piece was opened.
+`<html data-route="place|play" data-view="<view>">` and `data-theme` (Auto / Paper / Concert hall,
+localStorage `piano-practice.theme`, src/app/theme.js) are set by the shell.
 
 ## Rules
 - Bundled songs must be public domain or openly licensed, with `license`,
@@ -91,6 +98,9 @@ Four modules, each owning its own files, connected only through these contracts.
 
 ### Views and routes (src/app/router.js)
 - `#/play/<id>` — the player (existing). Exercise ids start with `ex:` (see below).
+- `#/`, `#/today` — Today: `mountToday(container, {library, open})` from `src/today/view.js`.
+- `#/pieces` — the repertoire: `mountPieces(container, {library, head})` from `src/app/pieces.js`.
+- `#/exercises` — exercises hub: `mountExercises(container, {open})` from `src/exercises/view.js`.
 - `#/technique` — exercise builder: `mountTechnique(container, {open: id => void})` from `src/exercises/view.js`.
 - `#/progress` — progress dashboard: `mountProgress(container)` from `src/progress/view.js`.
 - `#/train/reading` — note-reading trainer: `mountReadingTrainer(container)` from `src/trainer/view.js`.

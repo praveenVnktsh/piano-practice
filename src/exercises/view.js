@@ -1,9 +1,10 @@
-// Technique builder (#/technique): pick an exercise type, key, mode, hands and octaves, then open
+// Exercises hub (#/exercises) and technique builder (#/technique): pick an exercise type, key, mode, hands and octaves, then open
 // the generated, fingered score in the player.  mountTechnique(container, {open}) → {destroy()}.
 import './exercises.css';
 import {MAJOR_KEYS, MINOR_KEYS, CHROMATIC_STARTS, parseKey, pitchClass, keyFifths, keyLabel, chordFromNumeral, pitchName} from './theory.js';
 import {scaleFingering, arpeggioFingering, fiveFingerFingering, chromaticFinger} from './fingering.js';
 import {exerciseId, exerciseTitleFor, resolveExercise, dailyWarmup, listPresets, PROGRESSIONS} from './index.js';
+import {readRecent} from '../app/sidebar.js';
 
 const STORE_KEY = 'piano-practice.technique';
 const TYPES = [
@@ -173,5 +174,61 @@ export function mountTechnique(container, {open} = {}) {
   }
   render();
 
+  return {destroy() { root.remove(); }};
+}
+
+// ───────── Exercises hub (#/exercises): a few large cards ─────────
+
+const STAFF = (x0, x1, y0, gap) => Array.from({length: 5}, (_, i) => `<line x1="${x0}" x2="${x1}" y1="${y0 + i * gap}" y2="${y0 + i * gap}"/>`).join('');
+const head = (x, y) => `<ellipse cx="${x}" cy="${y}" rx="5.6" ry="4" transform="rotate(-20 ${x} ${y})" class="ex-head"/>`;
+// An ascending scale on a staff, stems up then down past the middle line.
+const SCALE_ART = (() => {
+  let notes = '';
+  for (let i = 0; i < 8; i++) {
+    const x = 34 + i * 24, y = 72 - i * 5;
+    const up = y > 52;
+    notes += head(x, y) + `<line x1="${x + (up ? 5.2 : -5.2)}" x2="${x + (up ? 5.2 : -5.2)}" y1="${y}" y2="${y + (up ? -30 : 30)}" class="ex-stem"/>`;
+    if (y >= 72) notes += `<line x1="${x - 9}" x2="${x + 9}" y1="72" y2="72" class="ex-ledger"/>`;
+  }
+  return `<svg viewBox="0 0 240 100" aria-hidden="true" class="ex-art">${STAFF(10, 230, 32, 10)}<line x1="10" x2="10" y1="32" y2="72"/><line x1="230" x2="230" y1="32" y2="72"/>${notes}</svg>`;
+})();
+// Three notes over an octave of keys: read, then find.
+const READING_ART = (() => {
+  let keys = '';
+  for (let i = 0; i < 8; i++) keys += `<rect x="${60 + i * 15}" y="70" width="15" height="26" class="ex-white"/>`;
+  for (const i of [1, 2, 4, 5, 6]) keys += `<rect x="${60 + i * 15 - 4.5}" y="70" width="9" height="16" class="ex-black"/>`;
+  return `<svg viewBox="0 0 240 100" aria-hidden="true" class="ex-art">${STAFF(10, 230, 10, 9)}${head(88, 37)}<line x1="93.2" x2="93.2" y1="37" y2="9" class="ex-stem"/>${head(124, 23)}<line x1="118.8" x2="118.8" y1="23" y2="51" class="ex-stem"/>${head(160, 50)}<line x1="153" x2="167" y1="55" y2="55" class="ex-ledger"/><line x1="165.2" x2="165.2" y1="50" y2="22" class="ex-stem"/><line x1="124" x2="124" y1="58" y2="68" class="ex-arrow"/>${keys}</svg>`;
+})();
+
+export function mountExercises(container, {open} = {}) {
+  const warm = dailyWarmup();
+  const root = el('div', {class: 'exh'});
+  const big = (href, kind, title, text, meta, art) => el('a', {class: 'exh-card', href},
+    el('div', {class: 'exh-art'}), el('div', {class: 'exh-text'},
+      el('p', {class: 'exh-kind', text: kind}),
+      el('h2', {class: 'exh-title', text: title}),
+      el('p', {class: 'exh-desc', text}),
+      el('p', {class: 'exh-meta', text: meta})),
+    el('span', {class: 'exh-go', 'aria-hidden': 'true', text: 'Open →'}));
+  const tech = big('#/technique', 'Hands', 'Technique', 'Scales, arpeggios, five-finger patterns, chords and the chromatic scale — fingered, in any key.', `Today’s key: ${keyLabel(warm.key)} major`);
+  const read = big('#/train/reading', 'Eyes', 'Note reading', 'A note appears on the staff; find it on the keys. From landmark notes to ledger lines.', 'Two minutes a day is plenty');
+  tech.querySelector('.exh-art').innerHTML = SCALE_ART;
+  read.querySelector('.exh-art').innerHTML = READING_ART;
+  const later = (title, text) => el('li', {class: 'exh-later'}, el('h3', {text: title}), el('p', {text}), el('span', {class: 'exh-soon', text: 'Coming later'}));
+  root.append(
+    el('p', {class: 'exh-lead', text: 'Everything that isn’t a piece. Short, regular and unhurried.'}),
+    el('div', {class: 'exh-cards'}, tech, read),
+    el('ul', {class: 'exh-laters', role: 'list', 'aria-label': 'Coming later'},
+      later('Rhythm', 'Clap and tap patterns against the metronome.'),
+      later('Ear', 'Intervals and chords, heard then named.')),
+  );
+  const recent = readRecent().map(id => ({id, title: exerciseTitleFor(id)})).filter(r => r.title);
+  if (recent.length) {
+    root.append(el('section', {class: 'exh-recent', 'aria-labelledby': 'exh-recent-h'},
+      el('h2', {class: 'exh-section-h', id: 'exh-recent-h', text: 'Recently practised'}),
+      el('ol', {class: 'exh-recent-list', role: 'list'}, ...recent.map(r => el('li', {},
+        el('button', {type: 'button', class: 'exh-recent-link', onclick: () => open?.(r.id)}, r.title))))));
+  }
+  container.append(root);
   return {destroy() { root.remove(); }};
 }
