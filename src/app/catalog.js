@@ -2,6 +2,7 @@
 // plus generated technique exercises ("ex:…" ids, src/exercises/index.js).
 import {isExerciseId, resolveExercise} from '../exercises/index.js';
 import {PERIODS, periodOf} from '../collections/model.js';
+import {isStaticOrigin} from './mac.js';
 
 const BASE = import.meta.env.BASE_URL || '/';
 
@@ -27,7 +28,8 @@ const withPeriod = e => (PERIODS.includes(e.period) ? e : {...e, period: periodO
 export async function loadCatalogs() {
   const [bundled, local] = await Promise.all([
     fetchCatalog('songs/catalog.json', false),
-    fetchCatalog('songs/local/catalog.json', true),
+    // Private songs are never published: the public site doesn't ask for them.
+    isStaticOrigin() ? [] : fetchCatalog('songs/local/catalog.json', true),
   ]);
   return {
     bundled: bundled.map(e => withPeriod({...e, kind: 'bundled'})),
