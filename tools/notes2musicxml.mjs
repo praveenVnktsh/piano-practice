@@ -206,6 +206,42 @@ ${out.join('')} </part>
 `;
 }
 
+// ───── Beginner arrangements (songs/repertoire.json "arrangements") → catalog entries ─────
+const REPO_URL = 'https://github.com/praveenVnktsh/una-mattina-practice/blob/main/songs/';
+
+/** One `arrangements` item → its public/songs/catalog.json entry. */
+export function arrangementEntry(a) {
+  return {
+    id: a.id,
+    title: a.title,
+    composer: a.composer,
+    difficulty: 'beginner',
+    grade: a.grade ?? 0,
+    ...(a.period ? {period: a.period} : {}),
+    file: `songs/${a.id}.musicxml`,
+    license: a.license,
+    source: `Piano Practice contributors – arrangement for beginners (songs/${a.id}.notes)`,
+    sourceUrl: REPO_URL + a.id + '.notes',
+    tempo: a.tempo,
+    ...(a.hands ? {hands: a.hands} : {}),
+    ...(a.position ? {arrangement: a.position} : {}),
+  };
+}
+
+/**
+ * Puts the arrangements' entries into a catalog song list (pure): existing entries with the same
+ * id are replaced; the arrangements go, in their own order, at the start of their grade's block.
+ */
+export function syncArrangements(songs, arrangements) {
+  const entries = arrangements.map(arrangementEntry);
+  const ids = new Set(entries.map(e => e.id));
+  const rest = songs.filter(s => !ids.has(s.id));
+  const rank = s => s.grade ?? {beginner: 0, easy: 1.5, intermediate: 3.5, advanced: 5}[s.difficulty] ?? 3;
+  const at = rest.findIndex(s => rank(s) >= (entries[0] ? rank(entries[0]) : 0));
+  rest.splice(at < 0 ? rest.length : at, 0, ...entries);
+  return rest;
+}
+
 // CLI
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -216,6 +252,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
       const xml = toMusicXML(parseNotes(readFileSync(join(dir, f), 'utf8'), f), f);
       writeFileSync(join(root, 'public/songs', basename(f, '.notes') + '.musicxml'), xml);
       console.error('✓', f);
+    }
+    // Catalog entries of the beginner arrangements (other entries are kept as they are).
+    const manifest = JSON.parse(readFileSync(join(root, 'songs/repertoire.json'), 'utf8'));
+    if (manifest.arrangements?.length) {
+      const file = join(root, 'public/songs/catalog.json');
+      const catalog = JSON.parse(readFileSync(file, 'utf8'));
+      writeFileSync(file, JSON.stringify({...catalog, songs: syncArrangements(catalog.songs, manifest.arrangements)}, null, 2) + '\n');
+      console.error(`✓ catalog: ${manifest.arrangements.length} arrangements`);
     }
   } else if (args[0]) {
     process.stdout.write(toMusicXML(parseNotes(readFileSync(args[0], 'utf8'), args[0]), args[0]));
