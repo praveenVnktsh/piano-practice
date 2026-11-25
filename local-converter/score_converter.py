@@ -1,10 +1,11 @@
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
-import json,uuid,subprocess,os,zipfile,xml.etree.ElementTree as ET,threading
+import json,uuid,subprocess,os,zipfile,xml.etree.ElementTree as ET,threading,mimetypes
+from urllib.parse import urlsplit,unquote
 BASE=Path(__file__).resolve().parent
 ENGINE=BASE/'audiveris-src/app/build/install/app/bin/Audiveris'
-ALLOWED={'https://una-mattina-measure-37.spiffybuffalo6.chatgpt.site','http://localhost:8879','http://127.0.0.1:8879'}
+ALLOWED={'https://una-mattina-measure-37.spiffybuffalo6.chatgpt.site','http://localhost:8879','http://127.0.0.1:8879','http://127.0.0.1:8937'}
 JOBS={};LOCK=threading.Lock();POOL=ThreadPoolExecutor(max_workers=1)
 def recognize(job_id):
  job=JOBS[job_id];folder=BASE/'converter-jobs'/job_id;env=dict(os.environ,JAVA_HOME='/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home',TESSDATA_PREFIX=str(BASE/'tessdata'));cmd=[str(ENGINE),'-batch','-transcribe','-export','-output',str(folder),'--',str(folder/'score.pdf')]
@@ -38,6 +39,10 @@ class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   if not self.valid():return self.respond(403,{'error':'Origin not allowed'})
   if self.path=='/health':return self.respond(200,{'engine':'Audiveris 5.11.0','ready':ENGINE.exists()})
+  if not self.path.startswith('/jobs/'):
+   root=(BASE/'site/dist').resolve();relative=unquote(urlsplit(self.path).path).lstrip('/') or 'index.html';target=(root/relative).resolve()
+   if root not in target.parents or not target.is_file():return self.respond(404,{'error':'Not found'})
+   payload=target.read_bytes();self.send_response(200);self.headers_cors();self.send_header('Content-Type','application/javascript' if target.suffix=='.mjs' else (mimetypes.guess_type(str(target))[0] or 'application/octet-stream'));self.send_header('Content-Length',str(len(payload)));self.end_headers();self.wfile.write(payload);return
   job_id=self.path.removeprefix('/jobs/');job=JOBS.get(job_id)
   if not job:return self.respond(404,{'error':'Job not found'})
   self.respond(200,job)
