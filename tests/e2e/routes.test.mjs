@@ -8,7 +8,7 @@ export const tests = Object.entries(VIEWPORTS).map(([label, viewport]) => ({
   async run({base, page: open, assert, catalog}) {
     const page = await open(viewport);
     await page.goto(base + '#/today', {settle: 300});
-    const routes = [...PLACES, '#/play/' + encodeURIComponent(catalog.songs[0].id)];
+    const routes = [...PLACES, '#/play/' + encodeURIComponent(catalog.songs[0].id), '#/play/' + encodeURIComponent('sr:grade-2:4821')];
     const problems = [];
     for (const hash of routes) {
       await page.eval(`location.hash = ${JSON.stringify(hash)}`);

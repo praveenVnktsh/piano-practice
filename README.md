@@ -124,14 +124,17 @@ src/app/                   shell: router, library sidebar, catalog, imports
 src/player.js              createPlayer(root) – listen / practice / MIDI / settings
 src/song.js                loadSong(source) – parse a score into a Song
 src/highway.js             falling-notes renderer
-src/piano.js               sampled grand piano
+src/piano.js               instruments: layered grand, harpsichord, room, resonance, limiter, metronome
+src/audio/                 velocity layers, pitch detection (mic), reverb, metronome sounds, sound settings
 src/score-core.mjs         buildScore / passage / FollowNotes (pure logic)
 src/verovio.js             shared Verovio WASM module
 src/vendor/                unmodified third-party modules (Verovio)
 src/styles/                app.css (player), shell.css (layout + sidebar)
 public/songs/              bundled songs + catalog.json (open licences only)
 public/songs/local/        your private songs (gitignored) + catalog.json
-public/samples/piano/      Salamander Grand Piano samples
+public/samples/grand/      Salamander Grand Piano V3: 5 velocity layers + release noises (src/audio/build-samples.mjs)
+public/samples/harpsichord/ VCSL French harpsichord (CC0)
+public/samples/piano/      single-layer Salamander set (fallback)
 songs/*.notes              hand transcriptions (compiled by tools/notes2musicxml.mjs)
 tools/                     ly2musicxml.mjs (Mutopia LilyPond → MusicXML), notes2musicxml.mjs
 annotate/                  dev-only in-page notes overlay (see below)
@@ -187,7 +190,11 @@ Third-party components and content keep their own licences; see
 with the app). In particular:
 
 - [Verovio](https://github.com/rism-digital/verovio) — LGPL-3.0-or-later
-- Salamander Grand Piano samples by Alexander Holm — CC BY 3.0
+- Salamander Grand Piano V3 samples by Alexander Holm — CC BY 3.0 (five velocity
+  layers and the release noises, folded to mono and re-encoded as MP3)
+- Harpsichord samples from the [Versilian Community Sample Library](https://github.com/sgossner/VCSL)
+  ("Harpsichord, French", Versilian Studios) — CC0 1.0
+- The room's impulse response and the metronome sounds are generated in code (no recordings)
 - Scores from the [Mutopia Project](https://www.mutopiaproject.org): Für Elise
   (Public Domain, typeset by Stelios Samelis) and the Moonlight Sonata, 1st
   movement (CC BY-SA 2.5, typeset by Stewart Holmes; the converted file remains

@@ -143,9 +143,13 @@ async function openAssignments() {
   }
 }
 
-/** The whole context block sent with a message (trimmed to fit the server's limit). */
-export async function collectContext() {
+/**
+ * The whole context block sent with a message (trimmed to fit the server's limit).
+ * `recording`: a take the student is sending for review (src/record/text.mjs compactSummary).
+ */
+export async function collectContext({recording} = {}) {
   const context = {
+    ...(recording && typeof recording === 'object' ? {recording} : {}),
     route: location.hash || '#/',
     player: playerState(),
     recentResults: recentResults().slice(0, 3),

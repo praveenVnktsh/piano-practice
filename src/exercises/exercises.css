@@ -156,15 +156,15 @@
   text-decoration: underline; text-decoration-color: var(--brass); text-underline-offset: 6px;
 }
 
-.exh-laters { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(16px, 2.4vw, 28px); }
-.exh-later {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 12px;
-  padding: 16px 22px; border: 1px dashed var(--rule-strong); border-radius: var(--radius-card);
-  color: var(--ink-soft);
-}
-.exh-later h3 { margin: 0; font: 500 24px/1.1 var(--font-display); color: var(--ink-soft); }
-.exh-later p { grid-column: 1 / -1; font: italic 16px/1.4 var(--font-text); }
-.exh-soon { grid-row: 1; grid-column: 2; font-size: 13px; font-weight: 600; font-variant: all-small-caps; letter-spacing: .1em; color: var(--ink-faint); }
+/* Engraved art on the cards (src/theory/engrave.js output and small drawings). */
+.exh-art svg.eg { fill: var(--ink); }
+.exh-art .eg-line, .exh-art .eg-bar, .exh-art .eg-stem, .exh-art .eg-ledger { fill: var(--ink); }
+.exh-art .eg-label, .exh-art .eg-above { display: none; }
+.ex-art .ex-ring { fill: none; stroke: var(--rule-strong); stroke-width: .8; }
+.ex-art .ex-key { font: 600 10px var(--font-display); fill: var(--ink-soft); }
+.ex-art .ex-key.on { fill: var(--brass); }
+.ex-art .ex-arc { fill: none; stroke: var(--brass); stroke-width: 1.2; stroke-linecap: round; }
+.exh-card:hover svg.eg .eg-head { fill: color-mix(in srgb, var(--ink) 70%, var(--brass)); }
 
 .exh-section-h {
   display: flex; align-items: center; gap: 14px; margin: 6px 0 6px;
@@ -180,7 +180,7 @@
 .exh-recent-link:hover { color: color-mix(in srgb, var(--ink) 70%, var(--brass)); }
 
 @media (max-width: 760px) {
-  .exh-cards, .exh-laters { grid-template-columns: minmax(0, 1fr); }
+  .exh-cards { grid-template-columns: minmax(0, 1fr); }
   .exh-art { padding: 18px 18px 6px; }
   .exh-text { padding: 16px 20px 2px; }
   .exh-title { font-size: 32px; }

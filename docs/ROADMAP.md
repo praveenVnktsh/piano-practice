@@ -37,7 +37,7 @@ Status is updated in place: ⏳ planned · 🔨 in progress · ✅ done.
 - [x] P1 Weekly review letter (what improved, what to focus on), written to the Progress page
 - [x] P1 Assignments ("homework") that appear on the Today screen with due dates
 - [x] P1 Plateau detection: the teacher notices a section stuck below target for days and suggests a different practice strategy
-- [ ] P2 Teacher reviews a recorded performance (Phase 9) bar by bar
+- [x] P2 Teacher reviews a recorded performance (Phase 9) bar by bar
 
 ## Phase 4: Today + learning path ✅
 - [x] P0 "Today" home screen: warm-up (technique key of the day), current pieces, reading drill, assignments, daily-goal ring, streak
@@ -70,27 +70,27 @@ Status is updated in place: ⏳ planned · 🔨 in progress · ✅ done.
 - [x] P1 Converter coverage: key/time changes mid-piece, grace notes, ornaments, tremolos
 - [ ] P2 MuseScore import guide + better handling of user MusicXML (repeats, voltas, multiple parts)
 
-## Phase 8: Reading, theory and ear ⏳
-- [ ] P0 Sight-reading generator: fresh short pieces at your level (melody + simple LH), played in play-along mode
-- [ ] P1 Rhythm trainer: read and tap rhythms (any key), from crotchets to syncopation and triplets
-- [ ] P1 Theory lessons with interactive checks: note values, time signatures, key signatures, intervals, triads, inversions, cadences, circle of fifths explorer
-- [ ] P1 Ear training: intervals, chord qualities, cadences, melodic dictation (play back what you hear)
+## Phase 8: Reading, theory and ear 🔨
+- [x] P0 Sight-reading generator: fresh short pieces at your level (melody + simple LH), played in play-along mode
+- [x] P1 Rhythm trainer: read and tap rhythms (any key), from crotchets to syncopation and triplets
+- [x] P1 Theory lessons with interactive checks: note values, time signatures, key signatures, intervals, triads, inversions, cadences, circle of fifths explorer
+- [x] P1 Ear training: intervals, chord qualities, cadences, melodic dictation (play back what you hear)
 - [ ] P2 Score study mode: harmonic analysis overlay (Roman numerals) for bundled pieces
 
-## Phase 9: Record, review, perform ⏳
-- [ ] P1 Record a performance from MIDI; play it back on the sampled piano with the score following
-- [ ] P1 Compare a recording with the score: timing deviations per beat, wrong/missed notes, a printable report
-- [ ] P1 Export recordings as MIDI; keep a history per piece
-- [ ] P2 "Mock exam": a set list performed in order, with a results sheet
+## Phase 9: Record, review, perform ✅
+- [x] P1 Record a performance from MIDI; play it back on the sampled piano with the score following
+- [x] P1 Compare a recording with the score: timing deviations per beat, wrong/missed notes, a printable report
+- [x] P1 Export recordings as MIDI; keep a history per piece
+- [x] P2 "Mock exam": a set list performed in order, with a results sheet
 
-## Phase 10: iPad, devices, sound ⏳
+## Phase 10: iPad, devices, sound ✅
 - [x] P0 Home-screen app (manifest, icons), screen stays awake while practising (Wake Lock), safe-area aware
 - [x] P0 Landscape and portrait layouts tuned for the music stand; touch targets ≥ 44 px
 - [x] P1 Page-turn mode (paged score with automatic turns) as an alternative to scrolling; Bluetooth page-turner pedal support (arrow keys / space)
 - [x] P1 MIDI relay robustness: auto-reconnect, relay status on the iPad, latency calibration
 - [x] P1 Audio latency calibration for play-along grading
-- [ ] P1 Better piano: velocity layers, sympathetic pedal resonance; harpsichord voice for Baroque pieces; metronome sounds
-- [ ] P2 Microphone input (monophonic pitch detection) for practising away from the MIDI piano
+- [x] P1 Better piano: velocity layers, sympathetic pedal resonance; harpsichord voice for Baroque pieces; metronome sounds
+- [x] P2 Microphone input (monophonic pitch detection) for practising away from the MIDI piano
 - [x] P2 Offline cache (service worker) for engine, samples and songs
 
 ## Phase 11: Quality and docs ⏳

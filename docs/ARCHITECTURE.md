@@ -188,3 +188,28 @@ Keys in ids are written with `s` for sharp and `b` for flat (`Fs`, `Bb`) so ids 
   label, latencyMs, at}` via `onRelayStatus` and the window `relay:status` event.
 - **E2E**: `npm run e2e` builds to a temp dir, serves it with `vite preview`, and drives headless,
   muted Chrome over CDP (`tests/e2e/`). CI runs it.
+
+## v4 additions (exercises, recordings, sound)
+
+- **Exercise routes** (all under Exercises, back link "← Exercises"): `#/exercises/sight-reading`,
+  `#/exercises/rhythm`, `#/exercises/theory` (+ `#/exercises/theory/<lesson>`), `#/exercises/ear`.
+  A view's `mount` may return `{title}` to retitle the page; the view host passes the route arg.
+- **`sr:<level>:<seed>` ids** are generated sight-reading pieces (`src/sightread/`), resolved by
+  `catalog.resolveEntry`; entries carry `mode: 'timed'` and `intent: 'practice'` hints that
+  `src/app/index.js` applies after loading (and undoes for the next un-hinted piece).
+- **`trainer:result` levels** are prefixed for the new drills: `rhythm:<id>`, `theory:<id>`,
+  `ear:<id>`; the progress model totals them under `totals.skills[skill]` (note reading stays in
+  `totals.trainer`). Today's "Reading" step counts only note-reading drills.
+- **Recordings** (`recordings/plugin.js`, dev server, `RECORDINGS_DIR` overrides
+  `.data/recordings`): `GET /__recordings[?songId=]`, `GET|PUT|PATCH|DELETE /__recordings/takes/<id>`,
+  `GET /__recordings/exams[/<id>]`, `PUT|DELETE /__recordings/exams/<id>`. Take shape:
+  `{v, id, songId, title, composer, name, at, durationMs, tempo, section, hands, mode, source,
+  notes: [[onMs, midi, vel, durMs]], pedal: [[ms, v]], report, exam?, examItem?, sentAt?}`.
+  Production builds keep takes in localStorage (`piano-practice.recordings.*`). Backups include
+  takes and exam sheets (restore only adds missing ones). Teacher CLI: `recordings`, `review <takeId>`.
+- **Sound** (`src/piano.js` + `src/audio/`): Salamander Grand (5 velocity layers, release noises,
+  sympathetic resonance, generated hall, equal-power stereo, limiter), VCSL harpsichord (Auto picks
+  it for Baroque entries), synthesised metronome voices, optional microphone pitch input that emits
+  `piano:note` with `source: 'mic'`. Settings live in localStorage `piano-practice:sound`;
+  `window.pianoSound` exposes diagnostics. The service worker caches the large sample sets on first
+  use (only the 2 MB single-layer piano is precached).

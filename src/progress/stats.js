@@ -71,9 +71,25 @@ const songRows = doc => Object.entries(doc?.totals?.songs || {}).map(([id, s]) =
   lastAt: s.lastAt || 0, minutes: (s.ms || 0) / 60000, bestTempo: s.bestTempo || 0,
 }));
 
-/** Songs (not exercises), most recently practised first. */
+/** Songs (not exercises or generated sight-reading pieces), most recently practised first. */
 export function songStats(doc) {
-  return songRows(doc).filter(s => !s.id.startsWith('ex:')).sort((a, b) => b.lastAt - a.lastAt);
+  return songRows(doc).filter(s => !s.id.startsWith('ex:') && !s.id.startsWith('sr:')).sort((a, b) => b.lastAt - a.lastAt);
+}
+
+/**
+ * Sight-reading, rhythm, theory and ear training at a glance →
+ * {sightReading: {pieces, best, lastAt} | null, rhythm|theory|ear: {drills, accuracy, lastAccuracy, levels, lastAt} | null}
+ * (theory.levels = lessons with a pass, i.e. ≥ 80 %).
+ */
+export function skillSummary(doc) {
+  const sr = songRows(doc).filter(s => s.id.startsWith('sr:') && s.attempts);
+  const out = {sightReading: sr.length ? {pieces: sr.length, best: Math.max(...sr.map(s => s.best ?? 0)), lastAt: Math.max(...sr.map(s => s.lastAt))} : null};
+  for (const k of ['rhythm', 'theory', 'ear']) {
+    const t = doc?.totals?.skills?.[k];
+    out[k] = t?.drills ? {drills: t.drills, accuracy: t.right + t.wrong ? (100 * t.right) / (t.right + t.wrong) : null, lastAccuracy: t.lastAccuracy ?? null,
+      levels: Object.values(t.levels || {}).filter(v => k !== 'theory' || v >= 80).length, lastAt: t.lastAt || 0} : null;
+  }
+  return out;
 }
 
 /** Exercises (ids starting `ex:`), most recently practised first, with parsed key info. */

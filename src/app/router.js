@@ -5,8 +5,12 @@
 //   #/progress         progress dashboard           (src/progress/view.js)
 //   #/technique        technique builder, under Exercises
 //   #/train/reading    note-reading trainer, under Exercises
-//   #/play/<id>        the player; exercise ids start with "ex:"
-// Unknown paths fall back to Today.
+//   #/exercises/sight-reading   sight-reading (src/sightread/view.js), under Exercises
+//   #/exercises/rhythm          rhythm trainer (src/rhythm/view.js)
+//   #/exercises/theory[/<id>]   theory lessons (src/theory/view.js), one lesson by id
+//   #/exercises/ear             ear training (src/ear/view.js)
+//   #/play/<id>        the player; exercise ids start with "ex:", sight-reading pieces with "sr:"
+// Unknown paths fall back to Today. Routes with an argument come back as {name, arg}.
 
 export const VIEW_ROUTES = {
   '/today': 'today',
@@ -16,7 +20,13 @@ export const VIEW_ROUTES = {
   '/technique': 'technique',
   '/train/reading': 'train-reading',
   '/pieces/mutopia': 'mutopia',
+  '/exercises/sight-reading': 'sight-reading',
+  '/exercises/rhythm': 'rhythm',
+  '/exercises/theory': 'theory',
+  '/exercises/ear': 'ear',
 };
+// Views that take one path segment after their route: '/exercises/theory/intervals' → {name: 'theory-lesson', arg: 'intervals'}.
+const ARG_ROUTES = [[/^\/exercises\/theory\/([a-z0-9-]+)$/, 'theory-lesson']];
 
 export function parseRoute(hash = location.hash) {
   const path = (hash.replace(/^#/, '') || '/').split('?')[0];
@@ -26,7 +36,9 @@ export function parseRoute(hash = location.hash) {
     try { id = decodeURIComponent(id); } catch {}
     return {name: 'play', id};
   }
-  return {name: VIEW_ROUTES[path.replace(/\/+$/, '')] || 'today'};
+  const clean = path.replace(/\/+$/, '');
+  for (const [re, name] of ARG_ROUTES) { const a = clean.match(re); if (a) return {name, arg: a[1]}; }
+  return {name: VIEW_ROUTES[clean] || 'today'};
 }
 
 export const playHref = id => '#/play/' + encodeURIComponent(id);
