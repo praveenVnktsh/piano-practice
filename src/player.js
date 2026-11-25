@@ -1,6 +1,6 @@
 import {passage, spelledName, FollowNotes, handGroups, handFilter, TimedGrader, TIMING, beatsOf, countIn, measureBeats, beatInfo, speedUpTempo, MissLog} from './score-core.mjs';
 import {createHighway} from './highway.js';
-import {follower} from './motion.mjs';
+import {follower, monotoneMap} from './motion.mjs';
 import {createPiano} from './piano.js';
 import {keyForControl} from './app/dom.js';
 import {mountSoundSettings} from './audio/sound-ui.js'; // [sound] instrument, room, metronome sound, microphone
@@ -96,6 +96,9 @@ export function createPlayer(root) {
   let song = null, range = null, points = [], pos = 0;
   let playing = false, finished = false, loop = false;
   let follow = null, practicing = false, rightCount = 0, wrongCount = 0;
+  // Practise starts where the playhead is (paused mid-piece, stepped, scrubbed, or switched from
+  // Listen), not at the start of the section; the pass then reports only the bars it covered.
+  let passFirst = null;
   // Stuck in Wait mode (three wrong notes on one chord, or a long pause after a wrong one):
   // the chord's names appear on its noteheads, its keys are called out, and it sounds once.
   const stuck = new StuckTracker();
@@ -236,7 +239,7 @@ export function createPlayer(root) {
   // The whole piece is one long system that scrolls under a fixed playhead.
   const sheetHost = q('#um-sheet');
   let sheetTrack = null, sheetSvg = null, sheetEls = new Map(), measureEls = new Map();
-  let anchors = [], sheetX = 0, lit = new Set();
+  let anchors = [], anchorMap = monotoneMap([]), sheetX = 0, lit = new Set();
   // The music glides under the playhead between notes (Wait mode, stepping): a critically damped
   // spring, the same speed at 60 and 120 Hz. Playing in real time follows exactly.
   const sheetGlide = follower(.24, {epsilon: .5});
@@ -293,7 +296,7 @@ export function createPlayer(root) {
   function unmountSheet() {
     sheetHost.replaceChildren();
     sheetTrack = sheetSvg = null; sheetEls = new Map(); measureEls = new Map();
-    anchors = []; sheetX = sheetGlide.jump(0); lit = new Set();
+    anchors = []; anchorMap = monotoneMap([]); sheetX = sheetGlide.jump(0); lit = new Set();
     measureBoxes = []; pages = []; page = -1; manualPage = null; autoPage = -1; clefW = 0;
     barNotes?.layout(null, []);
   }
@@ -328,6 +331,9 @@ export function createPlayer(root) {
     const lastEl = measureEls.get(last.id);
     if (lastEl) byTime.set(last.end, lastEl.getBoundingClientRect().right - base);
     anchors = [...byTime].sort((a, b) => a[0] - b[0]).filter(([, x], i, arr) => i === 0 || x > arr[i - 1][1]);
+    // A smooth curve through the notes: at a steady tempo the music glides, with no change of speed at
+    // each note, and still passes every note exactly when it sounds (Play along, Listen).
+    anchorMap = monotoneMap(anchors);
     sheetX = sheetGlide.jump(xAt(livePos() ?? 0));
     // Measure boxes on the system: for the trouble strip and for pages.
     measureBoxes = song.measures.map(m => {
@@ -380,23 +386,11 @@ export function createPlayer(root) {
     return w;
   }
   function xAt(t) {
-    if (!anchors.length) return 0;
-    if (t <= anchors[0][0]) return anchors[0][1];
-    for (let i = 1; i < anchors.length; i++) {
-      const [t1, x1] = anchors[i];
-      if (t <= t1) { const [t0, x0] = anchors[i - 1]; return x0 + (x1 - x0) * (t - t0) / (t1 - t0); }
-    }
-    return anchors.at(-1)[1];
+    return anchors.length ? anchorMap.at(t) : 0;
   }
   // Inverse of xAt: horizontal position on the system → score time.
   function tAt(x) {
-    if (!anchors.length) return 0;
-    if (x <= anchors[0][1]) return anchors[0][0];
-    for (let i = 1; i < anchors.length; i++) {
-      const [t1, x1] = anchors[i];
-      if (x <= x1) { const [t0, x0] = anchors[i - 1]; return t0 + (t1 - t0) * (x - x0) / (x1 - x0); }
-    }
-    return anchors.at(-1)[0];
+    return anchors.length ? anchorMap.inv(x) : 0;
   }
   function scrollSheet() {
     requestAnimationFrame(scrollSheet);
@@ -695,7 +689,7 @@ export function createPlayer(root) {
   function clockPos(now = performance.now()) { return clock.pos0 + (now - clock.perf0) / clock.qms; }
   function startClock(kind, from, {count = false} = {}) {
     stopClock();
-    const first = song.measures[range.first];
+    const first = song.measures[from > range.start + EPS ? measureIndexAt(from) : range.first];
     const ci = count ? countIn(first) : null;
     const startAt = ci ? ci.from : from;
     clock = {kind, pos0: startAt, perf0: performance.now() + 40, qms: quarterMs(), timer: 0};
@@ -759,7 +753,7 @@ export function createPlayer(root) {
     if (loop && !quiet) {
       // Seamless loop: the next pass starts exactly where this one ended.
       matched.clear(); grades.clear();
-      if (kind === 'timed') newGrader();
+      if (kind === 'timed') { newGrader(); passFirst = null; }
       Object.assign(clock, {pos0: range.start, perf0: endPerf, qms: quarterMs(), groups: soundGroups(kind), next: 0, nextBeat: 0, shown: -1,
         beats: beatsOf(song.measures.slice(range.first, range.last + 1))});
       passStartedAt = endPerf;
@@ -791,7 +785,7 @@ export function createPlayer(root) {
     if (!song) return;
     if (playing) return pauseListen();
     if (practicing && perf) { stopAll(); draw(); return; }
-    if (practicing) { stopAll(); draw(); setStatus('Stopped'); setPrompt('Stopped · press <b class="glyph">▶</b> to start the passage again'); return; }
+    if (practicing) { stopAll(); draw(); setStatus('Stopped'); setPrompt('Stopped · press <b class="glyph">▶</b> to carry on from here, or <b class="glyph">⏮</b> for the start'); return; }
     if (intent === 'practice') startPractice(); else startListen();
   };
   // `persist: false` (entry hints, the performance run) changes it for now without saving it.
@@ -824,7 +818,7 @@ export function createPlayer(root) {
   function emitResult(r) {
     lastResult = r;
     const detail = {
-      songId: current?.id ?? null, title: current?.title || song?.title || '', section: [range.first, range.last],
+      songId: current?.id ?? null, title: current?.title || song?.title || '', section: [passFirst ?? range.first, range.last],
       mode: practiceMode, hands, tempo: tempo(), right: r.right, wrong: r.wrong, accuracy: r.accuracy,
       timing: r.timing ?? null, durationMs: Math.round(performance.now() - passStartedAt), at: Date.now(),
       misses: misses.list(),
@@ -924,9 +918,18 @@ export function createPlayer(root) {
     else setPrompt(`Play ${remaining.map(n => `<b class="${handClass(hand(n))}">${spelled(song, ev(n))}</b>`).join(' + ')}`);
     setStatus(`${measureName(song.measures[measureIndexAt(g.t)])} · ${follow.index + 1} / ${follow.groups.length}${hands !== 'both' ? ` · ${hands} hand` : ''}`);
   }
+  // Where a new pass starts: the playhead, when it sits inside the section past its first note.
+  function resumePoint() {
+    if (finished || !range) return null;
+    const p = livePos() ?? pos;
+    if (!(p > range.start + EPS && p < range.end - EPS)) return null;
+    return p;
+  }
   function startPractice() {
     if (!song) return;
+    const from = resumePoint();
     hideResults(); stopAll();
+    passFirst = null;
     finished = false; matched.clear(); grades.clear(); rightCount = 0; wrongCount = 0;
     misses = new MissLog(50); played = []; pedalLog = []; memoryHints = 0;
     clearStuck();
@@ -935,8 +938,13 @@ export function createPlayer(root) {
       setPrompt(hands === 'both' ? 'This section has no notes' : `No ${hands}-hand notes in this section`); draw(); return;
     }
     practiceMode = mode;
-    if (mode === 'timed') return startTimed();
+    if (mode === 'timed') return startTimed(from);
     follow = new FollowNotes(groups);
+    if (from != null) {
+      // Pick up at the next chord to play from here (the app's own hand comes in as usual).
+      const k = groups.findIndex(g => g.t >= from - EPS);
+      if (k > 0) { follow.index = k; passFirst = measureIndexAt(groups[k].t); }
+    }
     autoPlayed = new Set();
     practicing = true; passStartedAt = performance.now(); beginSession('practice');
     pos = follow.current.t; setButtons(); draw(); practicePrompt();
@@ -1038,7 +1046,7 @@ export function createPlayer(root) {
     const quiet = stopForStep; stopForStep = false;
     if (loop && !quiet) {
       flash(r.tempoTo !== r.tempoFrom ? `Once more · ♩ = ${r.tempoTo}` : 'Once more.');
-      follow.reset(); autoPlayed = new Set(); matched.clear(); rightCount = 0; wrongCount = 0;
+      follow.reset(); passFirst = null; autoPlayed = new Set(); matched.clear(); rightCount = 0; wrongCount = 0;
       pos = follow.current.t; draw(); practicePrompt(); runAuto(true);
       return;
     }
@@ -1067,17 +1075,21 @@ export function createPlayer(root) {
 
   // ───────── Practice: Play along (timed) ─────────
   let eventById = new Map();
-  function newGrader() {
+  function newGrader(from = range.start) {
     const want = handFilter(hands);
     eventById = new Map(range.events.map(e => [e.id, e]));
-    grader = new TimedGrader(range.events.filter(e => !e.carried && want(e)).map(e => ({id: e.id, n: e.n, t: e.t})));
+    grader = new TimedGrader(range.events.filter(e => !e.carried && want(e) && e.t >= from - EPS).map(e => ({id: e.id, n: e.n, t: e.t})));
   }
-  function startTimed() {
-    newGrader();
+  function startTimed(from = null) {
+    // From mid-section: from the start of that bar, with a bar's count-in.
+    const mi = from != null ? measureIndexAt(from) : range.first;
+    const start = mi > range.first ? song.measures[mi].start : range.start;
+    passFirst = mi > range.first ? mi : null;
+    newGrader(start);
     practicing = true; passStartedAt = performance.now(); beginSession('practice');
-    pos = points[0] ?? range.start; setButtons(); draw();
-    setStatus(`Play along · ${sectionLabel()} · ♩ = ${tempo()}`);
-    startClock('timed', range.start, {count: true});
+    pos = passFirst != null ? (points.find(t => t >= start - EPS) ?? start) : (points[0] ?? range.start); setButtons(); draw();
+    setStatus(`Play along · ${passFirst != null ? `from ${measureName(song.measures[mi])}` : sectionLabel()} · ♩ = ${tempo()}`);
+    startClock('timed', start, {count: true});
   }
   function gradeNote(note, grade) {
     grades.set(note.id, grade);
@@ -2396,7 +2408,7 @@ export function createPlayer(root) {
       songId: current?.id ?? null, title: current?.title || song?.title || '', composer: current?.composer || song?.composer || '',
       section: range ? [range.first, range.last] : null, sectionLabel: song && range ? sectionLabel() : '',
       measureCount: song?.measures.length ?? 0, tempo: tempo(), targetTempo: song ? targetTempo() : null,
-      mode, hands, view: root.dataset.view, playing, practicing, loop,
+      mode, hands, view: root.dataset.view, playing, practicing, loop, position: song && range ? livePos() : null,
       strategy, chain: chain ? {dir: chain.dir, section: [chain.first, chain.last], goal: [...chain.goal]} : null, latencyMs,
     };
   }

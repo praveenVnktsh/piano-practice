@@ -34,3 +34,27 @@ describe('playhead motion', () => {
     expect(x).toBeGreaterThan(0);
   });
 });
+
+import {monotoneMap} from '../src/motion.mjs';
+describe('monotoneMap (playhead over the score)', () => {
+  const pts = [[0, 0], [1, 40], [1.5, 60], [3.5, 100], [4, 180]];
+  const m = monotoneMap(pts);
+  it('passes through every note exactly', () => {
+    for (const [t, x] of pts) expect(m.at(t)).toBeCloseTo(x, 6);
+  });
+  it('never runs backwards', () => {
+    let prev = -Infinity;
+    for (let t = 0; t <= 4; t += .001) { const x = m.at(t); expect(x).toBeGreaterThanOrEqual(prev - 1e-9); prev = x; }
+  });
+  it('changes speed gradually (no jumps at the notes)', () => {
+    const v = t => (m.at(t + 1e-4) - m.at(t - 1e-4)) / 2e-4;
+    for (const [t] of pts.slice(1, -1)) expect(Math.abs(v(t + 1e-3) - v(t - 1e-3))).toBeLessThan(2);
+  });
+  it('inv undoes at', () => {
+    for (let t = 0; t <= 4; t += .37) expect(m.inv(m.at(t))).toBeCloseTo(t, 4);
+  });
+  it('clamps outside the range', () => {
+    expect(m.at(-1)).toBe(0); expect(m.at(9)).toBe(180);
+    expect(m.inv(-5)).toBe(0); expect(m.inv(999)).toBe(4);
+  });
+});
