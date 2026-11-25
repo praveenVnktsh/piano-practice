@@ -3,12 +3,14 @@
 // index.html needs no markup for them) and keeps its own localStorage key.
 //
 //   const sound = mountSoundSettings(root, piano, {onMicNote(n, velocity, time), onMicRelease(n, time)});
-//   sound.settings → {instrument, room, metronome, micSensitivity}
+//   sound.settings → {instrument, room, metronome, micSensitivity, pianoProfile}
+//   pianoProfile 'auto' | 'light' | 'full': "Lighter piano" (fewer velocity layers, see budget.js).
 import {createMic} from './mic.js';
 import {METRONOME_SOUNDS} from './metronome.js';
+import {PIANO_PROFILES} from './budget.js';
 
 export const SOUND_STORE = 'piano-practice:sound';
-const DEFAULTS = {instrument: 'auto', room: .35, metronome: 'wood', micSensitivity: .5};
+const DEFAULTS = {instrument: 'auto', room: .35, metronome: 'wood', micSensitivity: .5, pianoProfile: 'auto'};
 
 export function readSoundSettings() {
   let s = {};
@@ -18,6 +20,7 @@ export function readSoundSettings() {
     room: Number.isFinite(+s.room) && s.room !== null ? Math.max(0, Math.min(1, +s.room)) : DEFAULTS.room,
     metronome: METRONOME_SOUNDS.includes(s.metronome) ? s.metronome : DEFAULTS.metronome,
     micSensitivity: Number.isFinite(+s.micSensitivity) && s.micSensitivity !== null ? Math.max(0, Math.min(1, +s.micSensitivity)) : DEFAULTS.micSensitivity,
+    pianoProfile: PIANO_PROFILES.includes(s.pianoProfile) ? s.pianoProfile : DEFAULTS.pianoProfile,
   };
 }
 function saveSoundSettings(v) {
@@ -44,6 +47,7 @@ export function mountSoundSettings(root, piano, {onMicNote, onMicRelease} = {}) 
   piano.setInstrument(settings.instrument);
   piano.setRoom(settings.room);
   piano.setMetronomeSound(settings.metronome);
+  piano.setProfile?.(settings.pianoProfile);
 
   // ── Settings sheet: after "Click volume" (or at the end of the sound group) ──
   const anchor = q('#set-metro-vol')?.closest('.set-row');
@@ -52,6 +56,8 @@ export function mountSoundSettings(root, piano, {onMicNote, onMicRelease} = {}) 
     const frag = html(`
       ${seg('sound-instrument', 'Instrument', [['auto', 'Auto'], ['piano', 'Piano'], ['harpsichord', 'Harpsichord']])}
       <p class="set-note" style="margin:0 0 6px;font-size:13px;line-height:1.4;color:var(--ink-soft)" data-sound id="sound-instrument-note">Auto plays Bach and other Baroque pieces on the harpsichord.</p>
+      ${seg('sound-profile', 'Lighter piano', [['auto', 'Auto'], ['light', 'On'], ['full', 'Off']])}
+      <p class="set-note" style="margin:0 0 6px;font-size:13px;line-height:1.4;color:var(--ink-soft)" data-sound>Three loudness layers instead of five: less memory, for the iPad. Auto turns it on for iPad, iPhone and other small devices.</p>
       <label class="set-row range-row" data-sound><span>Room</span><input type="range" id="sound-room" min="0" max="100" aria-label="Room reverberation (dry to wet)"></label>
       ${seg('sound-metro', 'Metronome sound', [['wood', 'Wood'], ['click', 'Click'], ['beep', 'Beep']])}
       <label class="set-row range-row" data-sound><span>Microphone sensitivity</span><input type="range" id="sound-mic-sens" min="0" max="100" aria-label="Microphone sensitivity"></label>
@@ -61,11 +67,15 @@ export function mountSoundSettings(root, piano, {onMicNote, onMicRelease} = {}) 
   const setRadio = (name, v) => { const i = root.querySelector(`input[name="${name}"][value="${v}"]`); if (i) i.checked = true; };
   setRadio('sound-instrument', settings.instrument);
   setRadio('sound-metro', settings.metronome);
+  setRadio('sound-profile', settings.pianoProfile);
   if (q('#sound-room')) q('#sound-room').value = Math.round(settings.room * 100);
   if (q('#sound-mic-sens')) q('#sound-mic-sens').value = Math.round(settings.micSensitivity * 100);
 
   root.querySelectorAll('input[name="sound-instrument"]').forEach(i => i.onchange = () => {
     settings.instrument = i.value; piano.setInstrument(i.value); saveSoundSettings({instrument: i.value});
+  });
+  root.querySelectorAll('input[name="sound-profile"]').forEach(i => i.onchange = () => {
+    settings.pianoProfile = i.value; piano.setProfile?.(i.value); saveSoundSettings({pianoProfile: i.value});
   });
   root.querySelectorAll('input[name="sound-metro"]').forEach(i => i.onchange = () => {
     settings.metronome = i.value; piano.setMetronomeSound(i.value); saveSoundSettings({metronome: i.value});
@@ -103,7 +113,7 @@ export function mountSoundSettings(root, piano, {onMicNote, onMicRelease} = {}) 
     }
   };
 
-  const api = {get settings() { return {...settings}; }, get instrument() { return piano.instrument; }, get loaded() { return piano.loaded; }, get micOn() { return mic.on; }, mic};
+  const api = {get settings() { return {...settings}; }, get instrument() { return piano.instrument; }, get loaded() { return piano.loaded; }, memory: () => piano.memory?.(), get micOn() { return mic.on; }, mic};
   window.pianoSound = api; // diagnostics (tests, the teacher): effective instrument, loaded layers, mic state
   return api;
 }

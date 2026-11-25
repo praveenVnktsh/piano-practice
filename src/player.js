@@ -3,6 +3,7 @@ import {createHighway} from './highway.js';
 import {createPiano} from './piano.js';
 import {keyForControl} from './app/dom.js';
 import {mountSoundSettings} from './audio/sound-ui.js'; // [sound] instrument, room, metronome sound, microphone
+import {mountDiagnostics} from './diagnostics/sheet.js';
 import {onRelayMidi, onRelayStatus, relayAvailable} from './midi-relay.js';
 import {setTheme as setAppTheme, getTheme, THEME_EVENT} from './app/theme.js';
 import {attachRecording} from './record/player-ui.js';
@@ -2056,6 +2057,10 @@ export function createPlayer(root) {
       : `Measured ${res.ms} ms (±${res.spread} ms). Play along now allows for it.`;
   }
   function cancelCalibration() { if (calib) { calib.timers.forEach(clearTimeout); calib = null; piano.stopClicks(); } q('#lat-panel').hidden = true; }
+  // Settings → Diagnostics (src/diagnostics/): a sheet that stands in for Settings while open.
+  mountDiagnostics(root, {piano, midiAccess: () => midiAccess, latencyMs: () => latencyMs,
+    closeSettings: () => { settingsModal.hidden = true; cancelCalibration(); },
+    openSettings: () => { settingsModal.hidden = false; }});
   q('#lat-calibrate').onclick = startCalibration;
   q('#lat-again').onclick = startCalibration;
   q('#lat-reset').onclick = () => { setLatency(0); q('#lat-text').textContent = 'Latency set to 0 ms.'; };

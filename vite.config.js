@@ -6,9 +6,11 @@ import {progressStore} from './progress-store/plugin.js';
 import {teacher} from './teacher/plugin.js';
 import {backup} from './backup/plugin.js';
 import {recordings} from './recordings/plugin.js';
+import {errorLog} from './error-log/plugin.js';
 import {collectionsStore} from './src/collections/plugin.js';
 import {pwa} from './src/pwa/plugin.js';
-import {rmSync} from 'node:fs';
+import {readFileSync, rmSync} from 'node:fs';
+import {execSync} from 'node:child_process';
 import {resolve} from 'node:path';
 
 // Private songs (public/songs/local/) are for the dev server only: drop them
@@ -21,7 +23,13 @@ const excludeLocalSongs = () => ({
   },
 });
 
+// Settings → Diagnostics shows the app version and the commit it was built from.
+const APP_VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
+let APP_COMMIT = process.env.APP_COMMIT || '';
+if (!APP_COMMIT) try { APP_COMMIT = execSync('git rev-parse --short HEAD', {stdio: ['ignore', 'pipe', 'ignore']}).toString().trim(); } catch {}
+
 export default defineConfig({
+  define: {__APP_VERSION__: JSON.stringify(APP_VERSION), __APP_COMMIT__: JSON.stringify(APP_COMMIT)},
   // ANNOTATE=1 npm run dev adds the in-page notes overlay (dev server only).
   // midiRelay forwards a Mac's MIDI keyboard to an iPad (npm run dev:ipad).
   // songStore saves imported scores to public/songs/local/imports (dev server only).
@@ -30,8 +38,10 @@ export default defineConfig({
   // recordings keeps recorded takes and mock-exam sheets in .data/recordings (dev server only; RECORDINGS_DIR overrides).
   // collectionsStore keeps favourites and collections (setlists) in .data/collections.json (dev server only).
   // backup exports/restores .data, .teacher and imported scores at /__backup (dev server only).
+  // errorLog appends browser errors (window error / unhandledrejection) to .data/errors.log at /__errors
+  //   (dev server only; ERRORS_DIR overrides; `node tools/errors.mjs` lists them).
   // pwa writes the offline cache's service worker (dist/sw.js; /sw.js in dev, see src/pwa/sw-register.js).
-  plugins: [midiRelay(), songStore(), progressStore(), collectionsStore(), teacher(), recordings(), backup(), pwa(), excludeLocalSongs(), ...(process.env.ANNOTATE ? [annotate()] : [])],
+  plugins: [midiRelay(), songStore(), progressStore(), collectionsStore(), teacher(), recordings(), backup(), errorLog(), pwa(), excludeLocalSongs(), ...(process.env.ANNOTATE ? [annotate()] : [])],
   build: {
     outDir: 'dist',
     emptyOutDir: true,

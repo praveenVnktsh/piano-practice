@@ -99,3 +99,46 @@ Status is updated in place: ⏳ planned · 🔨 in progress · ✅ done.
 - [x] P1 Performance pass (long scores, many events, iPad memory)
 - [x] P1 Data backup/export (progress, journal, imports) and restore
 - [x] P1 User guide (README + in-app "?" overlay with shortcuts) and an onboarding tour on first launch
+
+---
+
+# v2 roadmap: from "complete" to "the place you learn piano"
+
+Same rules: four top-level places stay four (Today · Pieces · Exercises · Progress).
+New capability arrives inside an existing place or behind progressive disclosure.
+
+## Phase 12: Learn a piece, guided ⏳
+- [ ] P0 "Learn this piece" plan per piece: phrases become steps (listen → right hand → left hand → hands together slowly → up to tempo → join to the previous phrase); one "Next step" button in the player; progress saved per piece and shown on Today
+- [ ] P0 First look card before the first play: key, time signature, tempo, hand range, tricky bars (wide leaps, accidentals, fast runs), a 30-second listen
+- [ ] P1 Fingering: show printed fingerings (MusicXML `<fingering>` / MEI `<fing>`) with a toggle; suggest fingering for runs without any, marked as suggested
+- [ ] P1 Hand-position preview: at the start of a section, ghost the starting keys on the keyboard
+- [ ] P2 Memorisation ladder: fade the score bar by bar as a phrase becomes secure
+
+## Phase 13: The absolute beginner ⏳
+- [ ] P0 First lessons (Beginner, before Grade 1): keyboard geography (find C, groups of two and three black keys), posture and finger numbers, middle-C position, first five-finger tunes. Each lesson is short, playable and checked
+- [ ] P0 10+ more beginner and Grade 0 pieces (public-domain folk tunes and easy classics, arranged for five-finger positions, both hands by the end)
+- [ ] P1 Beginner score aids: larger noteheads, optional letter names, coloured hands, which start on and fade out by level
+- [ ] P1 Curriculum: Beginner level gets lessons, pieces and a reading track sized for the first month
+
+## Phase 14: Teacher, closer to the music ⏳
+- [ ] P0 Bar comments: the teacher can pin a comment to a bar range of a piece ("lift the wrist here"). It shows as a quiet marker in the player, and a tap reads it
+- [ ] P1 The teacher sees the heat strip, the tempo ladder and plan progress in `teacher/cli.js progress`, and suggests the next plan step
+- [ ] P1 "Ask about this bar": from the player, send a message to the teacher with the piece, bars and last attempt attached
+- [ ] P2 The teacher composes a short custom exercise (MusicXML via notes2musicxml) for a weak spot, and it lands in Exercises
+
+## Phase 15: Musicality ⏳
+- [ ] P1 Phrase shaping: velocity contour per phrase against a simple model (rise to the peak, taper at the cadence), with a gentle hint
+- [ ] P1 Rubato and timing feel: in Performance runs, show tempo flex as a curve so steady and expressive are visible separately
+- [ ] P1 Voicing: melody-over-accompaniment check within one hand (top voice louder)
+- [ ] P2 Listen and compare: play the reference, then your recording, aligned bar by bar
+
+## Phase 16: Real hardware confidence ✅
+- [x] P0 Diagnostics sheet (Settings → This device → Diagnostics): Web MIDI and inputs, Mac relay state + measured round trip, AudioContext state / sample rate / latencies, grand layers loaded, decoded sample memory, storage estimate, version + commit, user agent; "Copy report" (clipboard, or a text box to copy by hand)
+- [x] P1 iPad memory budget: decoded sample memory measured and shown; "Lighter piano" (Auto · On · Off) keeps 3 of the 5 grand layers, loaded nearest-to-mezzo-forte first, the rest in the background; Auto turns it on for navigator.deviceMemory ≤ 4 or iPad / iPhone; desktop unchanged
+- [x] P1 Client error log: window error / unhandledrejection → `/__errors` (dev server) → `.data/errors.log`, deduped and rate-limited; `node tools/errors.mjs` lists / follows them
+- [ ] P2 Sustained-use e2e (long play under virtual time)
+
+## Phase 17: Library breadth ⏳
+- [ ] P1 MIDI file import: a .mid becomes a playable piece (quantised, hands split by pitch or track) for falling notes; the sheet is engraved when quantisation is clean
+- [ ] P1 Repertoire to 50+ verified pieces, filling Grades 1–3 especially (Türk, Gurlitt, Kabalevsky's PD-eligible, Diabelli, more Burgmüller and Czerny)
+- [ ] P2 Duets: teacher/primo part plays from the sampler while you play secondo (and vice versa)
